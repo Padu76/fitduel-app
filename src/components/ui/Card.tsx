@@ -1,7 +1,7 @@
 'use client'
 
 import { HTMLAttributes, forwardRef, ReactNode } from 'react'
-import { motion, HTMLMotionProps } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { cn } from '@/utils/cn'
 
 // ====================================
@@ -19,8 +19,6 @@ export interface CardProps extends HTMLAttributes<HTMLDivElement> {
   glowColor?: 'indigo' | 'purple' | 'green' | 'red' | 'yellow' | 'blue'
   gradient?: 'indigo' | 'purple' | 'sunset' | 'ocean' | 'fire' | 'nature'
 }
-
-type MotionCardProps = CardProps & Omit<HTMLMotionProps<'div'>, keyof CardProps>
 
 // ====================================
 // STYLES CONFIGURATION
@@ -115,7 +113,7 @@ const cardAnimations = {
 // ====================================
 // CARD COMPONENT
 // ====================================
-const Card = forwardRef<HTMLDivElement, MotionCardProps>(
+const Card = forwardRef<HTMLDivElement, CardProps>(
   (
     {
       className,
@@ -131,7 +129,13 @@ const Card = forwardRef<HTMLDivElement, MotionCardProps>(
       gradient = 'indigo',
       children,
       onClick,
-      ...props
+      // Extract HTML event handlers that conflict with Framer Motion
+      onDrag,
+      onDragEnd,
+      onDragStart,
+      onAnimationStart,
+      onAnimationEnd,
+      ...restProps
     },
     ref
   ) => {
@@ -176,7 +180,7 @@ const Card = forwardRef<HTMLDivElement, MotionCardProps>(
           ref={ref}
           className={cardStyles}
           onClick={onClick}
-          {...props}
+          {...restProps}
         >
           {children}
         </div>
@@ -197,7 +201,12 @@ const Card = forwardRef<HTMLDivElement, MotionCardProps>(
           duration: 0.3,
           ease: 'easeOut',
         }}
-        {...props}
+        // Only pass non-conflicting props
+        {...Object.fromEntries(
+          Object.entries(restProps).filter(
+            ([key]) => !['style', 'data-testid', 'aria-label'].includes(key)
+          )
+        )}
       >
         {children}
       </motion.div>
