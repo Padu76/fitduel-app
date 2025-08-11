@@ -1,19 +1,18 @@
 'use client'
 
 import { ButtonHTMLAttributes, forwardRef, ReactNode } from 'react'
-import { motion, HTMLMotionProps } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 
 // ====================================
 // TYPES & INTERFACES
 // ====================================
-export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'color'> {
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'warning' | 'gradient'
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
   fullWidth?: boolean
   loading?: boolean
-  disabled?: boolean
   icon?: ReactNode
   iconPosition?: 'left' | 'right'
   animate?: boolean
@@ -21,9 +20,6 @@ export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
   glow?: boolean
   rounded?: 'none' | 'sm' | 'md' | 'lg' | 'full'
 }
-
-// Combine Button props with motion props
-type MotionButtonProps = ButtonProps & Omit<HTMLMotionProps<'button'>, keyof ButtonProps>
 
 // ====================================
 // STYLES CONFIGURATION
@@ -115,7 +111,7 @@ const buttonAnimations = {
 // ====================================
 // BUTTON COMPONENT
 // ====================================
-const Button = forwardRef<HTMLButtonElement, MotionButtonProps>(
+const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
       className,
@@ -133,7 +129,13 @@ const Button = forwardRef<HTMLButtonElement, MotionButtonProps>(
       children,
       type = 'button',
       onClick,
-      ...props
+      // Extract HTML event handlers that conflict with Framer Motion
+      onDrag,
+      onDragEnd,
+      onDragStart,
+      onAnimationStart,
+      onAnimationEnd,
+      ...restProps
     },
     ref
   ) => {
@@ -221,14 +223,14 @@ const Button = forwardRef<HTMLButtonElement, MotionButtonProps>(
           className={buttonStyles}
           disabled={isDisabled}
           onClick={onClick}
-          {...props}
+          {...restProps}
         >
           <ButtonContent />
         </button>
       )
     }
 
-    // Render animated button
+    // Render animated button with motion div wrapper
     return (
       <motion.button
         ref={ref}
@@ -244,7 +246,12 @@ const Button = forwardRef<HTMLButtonElement, MotionButtonProps>(
           stiffness: 400,
           damping: 17,
         }}
-        {...props}
+        // Only pass non-conflicting props
+        {...Object.fromEntries(
+          Object.entries(restProps).filter(
+            ([key]) => !['style', 'data-testid', 'aria-label', 'aria-disabled'].includes(key)
+          )
+        )}
       >
         <ButtonContent />
       </motion.button>
