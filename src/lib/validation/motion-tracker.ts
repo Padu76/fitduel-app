@@ -484,6 +484,15 @@ export class MotionTracker {
     )
   }
 
+  private calculateRotationMagnitude(rotation: { alpha: number; beta: number; gamma: number }): number {
+    // Convert rotation angles to a magnitude value
+    return Math.sqrt(
+      rotation.alpha * rotation.alpha +
+      rotation.beta * rotation.beta +
+      rotation.gamma * rotation.gamma
+    )
+  }
+
   private detectMechanicalPattern(): boolean {
     if (this.motionBuffer.length < 50) return false
 
@@ -505,7 +514,8 @@ export class MotionTracker {
 
   private detectShaking(data: MotionData): boolean {
     // High frequency + high rotation = shaking
-    const rotationMagnitude = this.calculateMagnitude(data.rotation)
+    // Fixed: Use the new calculateRotationMagnitude method for rotation
+    const rotationMagnitude = this.calculateRotationMagnitude(data.rotation)
     const accelerationMagnitude = this.calculateMagnitude(data.acceleration)
 
     return rotationMagnitude > 200 && accelerationMagnitude > 15
