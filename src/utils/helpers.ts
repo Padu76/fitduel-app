@@ -314,7 +314,7 @@ export function isMobileDevice(): boolean {
 export function isIOSDevice(): boolean {
   if (typeof window === 'undefined') return false
   
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
 }
 
 export function hasMotionSensors(): boolean {
