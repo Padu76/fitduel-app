@@ -1,0 +1,61 @@
+{
+  "name": "fitduel-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FitDuel - Trasforma il fitness in una sfida epica. Compete, level up, become champion!",
+  "author": "FitDuel Team",
+  "license": "MIT",
+  "homepage": "https://fit-duel.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/fitduel-app.git"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit",
+    "format": "prettier --write \"**/*.{js,ts,tsx,md,json}\"",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "next": "14.2.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "@supabase/supabase-js": "^2.43.1",
+    "@supabase/auth-helpers-nextjs": "^0.10.0",
+    "@supabase/auth-helpers-react": "^0.5.0",
+    "@supabase/ssr": "^0.3.0",
+    "zustand": "^4.5.2",
+    "framer-motion": "^11.2.6",
+    "lucide-react": "^0.378.0",
+    "date-fns": "^3.6.0",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "@types/react": "^18.3.2",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.4.5",
+    "tailwindcss": "^3.4.3",
+    "postcss": "^8.4.38",
+    "autoprefixer": "^10.4.19",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.3",
+    "prettier": "^3.2.5",
+    "husky": "^9.0.11"
+  },
+  "keywords": [
+    "fitness",
+    "gamification",
+    "workout",
+    "challenges",
+    "exercise",
+    "competition",
+    "nextjs",
+    "react",
+    "fitduel"
+  ]
+}
