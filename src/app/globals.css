@@ -1,0 +1,214 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 0 0% 9%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 239 84% 67%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 239 84% 67%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold;
+  }
+}
+
+@layer components {
+  /* Custom gradient text utility */
+  .gradient-text {
+    @apply bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent;
+  }
+  
+  /* Glow effects */
+  .glow-indigo {
+    @apply shadow-lg shadow-indigo-500/25;
+  }
+  
+  .glow-purple {
+    @apply shadow-lg shadow-purple-500/25;
+  }
+  
+  /* Card hover effects */
+  .card-hover {
+    @apply transition-all duration-300 hover:scale-105 hover:shadow-xl;
+  }
+  
+  /* Button base styles */
+  .btn-base {
+    @apply font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-950 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-primary {
+    @apply btn-base bg-indigo-600 hover:bg-indigo-700 text-white focus:ring-indigo-500;
+  }
+  
+  .btn-secondary {
+    @apply btn-base bg-gray-800 hover:bg-gray-700 text-white focus:ring-gray-600;
+  }
+  
+  .btn-ghost {
+    @apply btn-base bg-transparent hover:bg-gray-800 text-gray-300 hover:text-white;
+  }
+}
+
+@layer utilities {
+  /* Text balance for better readability */
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  /* Animations */
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+  }
+  
+  /* Backdrop filters */
+  .backdrop-blur-xs {
+    backdrop-filter: blur(2px);
+  }
+  
+  .backdrop-blur-sm {
+    backdrop-filter: blur(4px);
+  }
+  
+  .backdrop-blur-md {
+    backdrop-filter: blur(12px);
+  }
+  
+  .backdrop-blur-lg {
+    backdrop-filter: blur(16px);
+  }
+  
+  .backdrop-blur-xl {
+    backdrop-filter: blur(24px);
+  }
+  
+  /* Gradient backgrounds */
+  .bg-gradient-radial {
+    background: radial-gradient(circle at center, var(--tw-gradient-stops));
+  }
+  
+  /* Glass morphism effect */
+  .glass {
+    @apply bg-gray-900/30 backdrop-blur-md border border-gray-800/50;
+  }
+  
+  .glass-hover {
+    @apply glass hover:bg-gray-900/50 hover:border-gray-700/50 transition-all duration-300;
+  }
+}
+
+/* Custom scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-900;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-700 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-600;
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #4b5563 #111827;
+}
+
+/* Selection color */
+::selection {
+  @apply bg-indigo-500/30 text-white;
+}
+
+/* Focus visible for accessibility */
+:focus-visible {
+  @apply outline-none ring-2 ring-indigo-500 ring-offset-2 ring-offset-gray-950;
+}
+
+/* Loading skeleton animation */
+@keyframes skeleton-loading {
+  0% {
+    background-color: rgb(31 41 55);
+  }
+  100% {
+    background-color: rgb(55 65 81);
+  }
+}
+
+.skeleton {
+  animation: skeleton-loading 1s linear infinite alternate;
+}
+
+/* Prevent layout shift on scrollbar */
+html {
+  margin-right: calc(-1 * (100vw - 100%));
+}
+
+/* Mobile tap highlight removal */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Disable user select on UI elements */
+button, nav, header {
+  user-select: none;
+}
