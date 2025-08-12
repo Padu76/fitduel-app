@@ -196,7 +196,7 @@ export default function HomePage() {
                 <span className="text-2xl font-bold">{stats?.level || 1}</span>
               </div>
               <p className="text-sm text-gray-400 mb-2">Livello</p>
-              <XPBar currentXP={stats?.total_xp || 0} size="sm" showLabel={false} />
+              <XPBar currentXP={stats?.total_xp || 0} size="sm" />
             </Card>
 
             <Card variant="glass" className="p-6">
