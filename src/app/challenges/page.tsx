@@ -7,7 +7,7 @@ import {
   Swords, Trophy, Clock, Users, Zap, Filter,
   Plus, Search, TrendingUp, Flame, Target,
   ChevronRight, Calendar, Medal, Star, Crown,
-  Activity, Timer, AlertCircle, CheckCircle
+  Activity, Timer, AlertCircle, CheckCircle, XCircle
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/Button'
