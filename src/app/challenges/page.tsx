@@ -17,7 +17,7 @@ import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import { useAuth } from '@/hooks/useAuth'
+import type { User } from '@supabase/auth-helpers-nextjs'
 
 // Types
 interface Challenge {
@@ -91,9 +91,12 @@ const exerciseOptions = [
 ]
 
 export default function ChallengesPage() {
-  const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const supabase = createClientComponentClient()
+
+  // Auth state
+  const [user, setUser] = useState<User | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
 
   // State
   const [selectedTab, setSelectedTab] = useState<'available' | 'active' | 'history'>('available')
@@ -119,6 +122,26 @@ export default function ChallengesPage() {
   })
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Check authentication
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+      setAuthLoading(false)
+    }
+
+    getUser()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setUser(session?.user ?? null)
+        setAuthLoading(false)
+      }
+    )
+
+    return () => subscription.unsubscribe()
+  }, [supabase.auth])
 
   // Redirect if not authenticated
   useEffect(() => {
