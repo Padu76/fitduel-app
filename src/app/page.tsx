@@ -295,14 +295,32 @@ export default function HomePage() {
                       key={duel.id}
                       duel={{
                         id: duel.id,
-                        status: duel.status as any,
-                        exercise: duel.exercise?.name || 'Unknown',
-                        opponent: duel.challenged?.username || duel.challenger?.username || 'Unknown',
-                        timeLeft: duel.expires_at ? new Date(duel.expires_at).toLocaleString() : '',
+                        creatorId: duel.challenger_id,
+                        creatorName: duel.challenger?.username || 'Unknown',
+                        creatorLevel: Math.floor(Math.sqrt((duel.challenger as any)?.total_xp || 0) / 10) || 1,
+                        creatorXP: (duel.challenger as any)?.total_xp || 0,
+                        opponentId: duel.challenged_id || undefined,
+                        opponentName: duel.challenged?.username || undefined,
+                        opponentLevel: duel.challenged_id ? Math.floor(Math.sqrt((duel.challenged as any)?.total_xp || 0) / 10) || 1 : undefined,
+                        opponentXP: duel.challenged_id ? (duel.challenged as any)?.total_xp || 0 : undefined,
+                        exerciseCode: duel.exercise?.code || 'push_up',
+                        status: duel.status,
+                        challengeType: duel.type as '1v1' | 'open' | 'tournament' | 'mission',
+                        mode: 'async' as const,
+                        targetValue: duel.target_reps || duel.target_time || undefined,
+                        targetDescription: duel.target_reps ? `${duel.target_reps} ripetizioni` : duel.target_time ? `${duel.target_time} secondi` : undefined,
                         xpReward: duel.reward_xp,
-                        difficulty: duel.difficulty as any
+                        wagerCoins: duel.wager_xp,
+                        createdAt: duel.created_at,
+                        expiresAt: duel.expires_at || undefined,
+                        completedAt: duel.completed_at || undefined,
+                        isPublic: true,
+                        winnerId: duel.winner_id || undefined,
                       }}
-                      onClick={() => router.push(`/duel/${duel.id}`)}
+                      currentUserId={user.id}
+                      variant="compact"
+                      showActions={false}
+                      onView={() => router.push(`/duel/${duel.id}`)}
                     />
                   ))}
                 </div>
