@@ -407,41 +407,68 @@ export async function GET(request: NextRequest) {
     }
 
     // Supabase query
-    let query = supabase.from('duels').select(`
-      *,
-      challenger:profiles!challenger_id(id, username, level, xp),
-      challenged:profiles!challenged_id(id, username, level, xp),
-      participants:duel_participants(*)
-    `)
-
     if (duelId) {
-      query = query.eq('id', duelId).single()
+      const { data, error } = await supabase
+        .from('duels')
+        .select(`
+          *,
+          challenger:profiles!challenger_id(id, username, level, xp),
+          challenged:profiles!challenged_id(id, username, level, xp),
+          participants:duel_participants(*)
+        `)
+        .eq('id', duelId)
+        .single()
+
+      if (error) {
+        console.error('Duel fetch error:', error)
+        return NextResponse.json({
+          success: false,
+          message: 'Errore nel recupero della sfida',
+          error: error.message
+        }, { status: 500 })
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: data,
+        count: 1
+      })
     } else {
+      let query = supabase
+        .from('duels')
+        .select(`
+          *,
+          challenger:profiles!challenger_id(id, username, level, xp),
+          challenged:profiles!challenged_id(id, username, level, xp),
+          participants:duel_participants(*)
+        `)
+
       if (userId) {
         query = query.or(`challenger_id.eq.${userId},challenged_id.eq.${userId}`)
       }
       if (status) {
         query = query.eq('status', status)
       }
-      query = query.order('created_at', { ascending: false }).limit(50)
-    }
+      
+      const { data, error } = await query
+        .order('created_at', { ascending: false })
+        .limit(50)
 
-    const { data, error } = await query
+      if (error) {
+        console.error('Duel fetch error:', error)
+        return NextResponse.json({
+          success: false,
+          message: 'Errore nel recupero delle sfide',
+          error: error.message
+        }, { status: 500 })
+      }
 
-    if (error) {
-      console.error('Duel fetch error:', error)
       return NextResponse.json({
-        success: false,
-        message: 'Errore nel recupero delle sfide',
-        error: error.message
-      }, { status: 500 })
+        success: true,
+        data: data,
+        count: Array.isArray(data) ? data.length : 0
+      })
     }
-
-    return NextResponse.json({
-      success: true,
-      data: data,
-      count: Array.isArray(data) ? data.length : 1
-    })
 
   } catch (error) {
     console.error('Get duels error:', error)
