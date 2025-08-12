@@ -520,8 +520,8 @@ export const useGameStore = create<GameStore>()(
         state.totalDuration += performance.duration
         state.totalCalories += performance.calories
         
-        // Update average form score
-        const totalFormScore = state.performances.reduce((sum, p) => sum + p.formScore, 0)
+        // Update average form score - FIX: Added type annotation for 'sum'
+        const totalFormScore = state.performances.reduce((sum: number, p) => sum + p.formScore, 0)
         state.averageFormScore = Math.round(totalFormScore / state.performances.length)
         
         // Update last exercise date
