@@ -107,6 +107,9 @@ const statusConfig = {
   },
 }
 
+// Type for status config
+type StatusConfig = typeof statusConfig[keyof typeof statusConfig]
+
 // ====================================
 // DUEL CARD COMPONENT
 // ====================================
@@ -128,7 +131,7 @@ export function DuelCard({
   const isOpponent = duel.opponentId === currentUserId
   const isParticipant = isCreator || isOpponent
   const isWinner = duel.winnerId === currentUserId
-  const isLoser = duel.winnerId && isParticipant && !isWinner
+  const isLoser = Boolean(duel.winnerId && isParticipant && !isWinner)
   
   const exercise = EXERCISE_DATA[duel.exerciseCode as keyof typeof EXERCISE_DATA]
   // Fix: Convert status to lowercase to match statusConfig keys
@@ -213,7 +216,7 @@ export function DuelCard({
               'bg-gradient-to-br from-indigo-500 to-purple-500',
               'shadow-lg shadow-indigo-500/25'
             )}>
-              <span className="text-2xl">{exercise?.icon}</span>
+              <span className="text-2xl">{exercise?.icon || '💪'}</span>
             </div>
 
             {/* Exercise and status */}
@@ -509,7 +512,7 @@ function CompactDuelCard({
   duel: DuelData
   currentUserId: string
   exercise: any
-  status: any
+  status: StatusConfig
   isWinner: boolean
   isLoser: boolean
   onView?: (duelId: string) => void
@@ -533,13 +536,13 @@ function CompactDuelCard({
     >
       {/* Exercise icon */}
       <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0">
-        <span className="text-xl">{exercise?.icon}</span>
+        <span className="text-xl">{exercise?.icon || '💪'}</span>
       </div>
 
       {/* Info */}
       <div className="flex-1 text-left">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-sm">{exercise?.nameIt || exercise?.name}</span>
+          <span className="font-semibold text-sm">{exercise?.nameIt || exercise?.name || 'Exercise'}</span>
           <status.icon className={cn('w-3 h-3', status.color)} />
         </div>
         <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -592,7 +595,7 @@ function LiveDuelCard({
   duel: DuelData
   currentUserId: string
   exercise: any
-  status: any
+  status: StatusConfig
   onView?: (duelId: string) => void
   className?: string
 }) {
@@ -622,11 +625,11 @@ function LiveDuelCard({
         {/* Exercise */}
         <div className="flex items-center gap-4 mb-4">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-lg shadow-red-500/50">
-            <span className="text-3xl">{exercise?.icon}</span>
+            <span className="text-3xl">{exercise?.icon || '💪'}</span>
           </div>
           <div>
             <h3 className="text-2xl font-bold text-white">
-              {exercise?.nameIt || exercise?.name}
+              {exercise?.nameIt || exercise?.name || 'Exercise'}
             </h3>
             <p className="text-gray-400">Duello Live</p>
           </div>
@@ -644,7 +647,7 @@ function LiveDuelCard({
           
           <div className="text-center p-3 bg-gray-900/50 rounded-xl">
             <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-gradient-to-br from-purple-500 to-pink-500" />
-            <p className="font-semibold text-sm">{duel.opponentName}</p>
+            <p className="font-semibold text-sm">{duel.opponentName || 'Waiting...'}</p>
             <p className="text-2xl font-bold text-white">
               {duel.opponentScore || 0}
             </p>
@@ -689,7 +692,7 @@ function DetailedDuelCard({
   duel: DuelData
   currentUserId: string
   exercise: any
-  status: any
+  status: StatusConfig
   isCreator: boolean
   isOpponent: boolean
   isWinner: boolean
@@ -732,10 +735,10 @@ function DetailedDuelCard({
         {/* Exercise info */}
         <div className="relative flex items-center gap-4">
           <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-            <span className="text-4xl">{exercise?.icon}</span>
+            <span className="text-4xl">{exercise?.icon || '💪'}</span>
           </div>
           <div className="text-white">
-            <h2 className="text-2xl font-bold">{exercise?.nameIt || exercise?.name}</h2>
+            <h2 className="text-2xl font-bold">{exercise?.nameIt || exercise?.name || 'Exercise'}</h2>
             <p className="text-white/80">
               {duel.challengeType === '1v1' ? 'Duello 1v1' :
                duel.challengeType === 'open' ? 'Sfida Aperta' :
