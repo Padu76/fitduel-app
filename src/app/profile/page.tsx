@@ -217,7 +217,7 @@ export default function ProfilePage() {
                   size="lg"
                 />
                 <p className="text-sm text-gray-400 mt-2">
-                  {progress.remaining} XP al prossimo livello
+                  {progress.next - progress.current} XP al prossimo livello
                 </p>
               </Card>
 
