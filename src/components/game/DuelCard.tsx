@@ -10,7 +10,7 @@ import {
 import { cn } from '@/utils/cn'
 import { formatTimeAgo, formatDuration, formatNumber } from '@/utils/helpers'
 import { EXERCISE_DATA, DUEL_STATUS } from '@/utils/constants'
-import Button from '@/components/ui/Button'
+import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 
 // ====================================
@@ -29,7 +29,7 @@ export interface DuelData {
   opponentLevel?: number
   opponentXP?: number
   exerciseCode: string
-  status: keyof typeof DUEL_STATUS
+  status: string
   challengeType: '1v1' | 'open' | 'tournament' | 'mission'
   mode: 'live' | 'async'
   targetValue?: number
@@ -131,7 +131,9 @@ export function DuelCard({
   const isLoser = duel.winnerId && isParticipant && !isWinner
   
   const exercise = EXERCISE_DATA[duel.exerciseCode as keyof typeof EXERCISE_DATA]
-  const status = statusConfig[duel.status]
+  // Fix: Convert status to lowercase to match statusConfig keys
+  const statusKey = duel.status.toLowerCase() as keyof typeof statusConfig
+  const status = statusConfig[statusKey] || statusConfig.pending
 
   if (variant === 'compact') {
     return (
@@ -187,15 +189,14 @@ export function DuelCard({
   return (
     <Card
       variant="default"
-      hover
-      interactive
-      onClick={() => onView?.(duel.id)}
       className={cn(
-        'relative overflow-hidden',
-        isWinner && 'ring-2 ring-green-500 ring-offset-2 ring-offset-gray-950',
+        'relative overflow-hidden transition-all duration-300',
+        'hover:scale-[1.02] cursor-pointer',
+        isWinner && 'ring-2 ring-green-500 ring-offset-2 ring-offset-background',
         isLoser && 'opacity-75',
         className
       )}
+      onClick={() => onView?.(duel.id)}
     >
       {/* Status indicator */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-current to-transparent opacity-50"
@@ -218,7 +219,7 @@ export function DuelCard({
             {/* Exercise and status */}
             <div>
               <h3 className="font-bold text-white flex items-center gap-2">
-                {exercise?.nameIt}
+                {exercise?.nameIt || exercise?.name || 'Exercise'}
                 {duel.mode === 'live' && (
                   <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs rounded-full">
                     LIVE
@@ -424,8 +425,10 @@ function DuelActions({
   onComplete?: (duelId: string) => void
   onView?: (duelId: string) => void
 }) {
+  const statusLower = duel.status.toLowerCase()
+  
   // Pending - opponent can accept/reject
-  if (duel.status === 'pending' && isOpponent && !duel.opponentId) {
+  if (statusLower === 'pending' && isOpponent && !duel.opponentId) {
     return (
       <div className="flex gap-2">
         <Button
@@ -454,7 +457,7 @@ function DuelActions({
   }
 
   // Active - participants can complete
-  if ((duel.status === 'active' || duel.status === 'accepted') && (isCreator || isOpponent)) {
+  if ((statusLower === 'active' || statusLower === 'accepted') && (isCreator || isOpponent)) {
     return (
       <Button
         size="sm"
@@ -471,7 +474,7 @@ function DuelActions({
   }
 
   // Completed - view results
-  if (duel.status === 'completed') {
+  if (statusLower === 'completed') {
     return (
       <Button
         size="sm"
@@ -536,7 +539,7 @@ function CompactDuelCard({
       {/* Info */}
       <div className="flex-1 text-left">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-sm">{exercise?.nameIt}</span>
+          <span className="font-semibold text-sm">{exercise?.nameIt || exercise?.name}</span>
           <status.icon className={cn('w-3 h-3', status.color)} />
         </div>
         <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -547,7 +550,7 @@ function CompactDuelCard({
       </div>
 
       {/* Result or XP */}
-      {duel.status === 'completed' ? (
+      {duel.status.toLowerCase() === 'completed' ? (
         <div className="text-right">
           {isWinner ? (
             <div className="text-green-400">
@@ -596,9 +599,6 @@ function LiveDuelCard({
   return (
     <Card
       variant="gradient"
-      gradient="fire"
-      glow
-      glowColor="red"
       className={cn('relative overflow-hidden', className)}
     >
       {/* Live indicator */}
@@ -626,7 +626,7 @@ function LiveDuelCard({
           </div>
           <div>
             <h3 className="text-2xl font-bold text-white">
-              {exercise?.nameIt}
+              {exercise?.nameIt || exercise?.name}
             </h3>
             <p className="text-gray-400">Duello Live</p>
           </div>
@@ -707,7 +707,7 @@ function DetailedDuelCard({
       variant="default"
       className={cn(
         'overflow-hidden',
-        isWinner && 'ring-2 ring-green-500 ring-offset-2 ring-offset-gray-950',
+        isWinner && 'ring-2 ring-green-500 ring-offset-2 ring-offset-background',
         className
       )}
     >
@@ -735,7 +735,7 @@ function DetailedDuelCard({
             <span className="text-4xl">{exercise?.icon}</span>
           </div>
           <div className="text-white">
-            <h2 className="text-2xl font-bold">{exercise?.nameIt}</h2>
+            <h2 className="text-2xl font-bold">{exercise?.nameIt || exercise?.name}</h2>
             <p className="text-white/80">
               {duel.challengeType === '1v1' ? 'Duello 1v1' :
                duel.challengeType === 'open' ? 'Sfida Aperta' :
