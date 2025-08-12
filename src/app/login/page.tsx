@@ -149,7 +149,7 @@ export default function LoginPage() {
                   onChange={handleChange}
                   placeholder="email@example.com"
                   icon={<Mail className="w-5 h-5" />}
-                  errorMessage={error?.field === 'email' ? error.message : undefined}
+                  error={error?.field === 'email' ? error.message : undefined}
                   disabled={isLoading}
                   required
                 />
@@ -160,22 +160,14 @@ export default function LoginPage() {
                   Password
                 </label>
                 <Input
-                  type={showPassword ? 'text' : 'password'}
+                  type="password"
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="••••••••"
                   icon={<Lock className="w-5 h-5" />}
-                  endIcon={
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="text-gray-400 hover:text-white"
-                    >
-                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                    </button>
-                  }
-                  errorMessage={error?.field === 'password' ? error.message : undefined}
+                  showPasswordToggle={true}
+                  error={error?.field === 'password' ? error.message : undefined}
                   disabled={isLoading}
                   required
                 />
