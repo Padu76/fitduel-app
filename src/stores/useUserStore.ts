@@ -210,13 +210,13 @@ export const useUserStore = create<UserStore>()(
 
       // Achievements & Badges
       addAchievement: (achievement) => set((state) => {
-        if (!state.achievements.find(a => a.id === achievement.id)) {
+        if (!state.achievements.find((a: UserAchievement) => a.id === achievement.id)) {
           state.achievements.push(achievement)
         }
       }),
 
       updateAchievementProgress: (id, progress) => set((state) => {
-        const achievement = state.achievements.find(a => a.id === id)
+        const achievement = state.achievements.find((a: UserAchievement) => a.id === id)
         if (achievement) {
           achievement.progress = progress
           if (achievement.maxProgress && progress >= achievement.maxProgress && !achievement.unlockedAt) {
@@ -226,7 +226,7 @@ export const useUserStore = create<UserStore>()(
       }),
 
       addBadge: (badge) => set((state) => {
-        if (!state.badges.find(b => b.id === badge.id)) {
+        if (!state.badges.find((b: UserBadge) => b.id === badge.id)) {
           state.badges.push(badge)
         }
       }),
