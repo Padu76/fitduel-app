@@ -1,14 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
   User, Trophy, Zap, Shield, Target, Activity,
   Medal, Crown, Star, Flame, TrendingUp, Calendar,
   Settings, Edit2, Camera, Award, Users, Swords,
   ChevronRight, Clock, Heart, BarChart3, Share2,
-  LogOut, Bell, Lock, Palette, Globe, Mail
+  LogOut, Bell, Lock, Palette, Globe, Mail,
+  Loader2, AlertCircle, CheckCircle, Upload
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/Button'
@@ -17,74 +19,199 @@ import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { XPBar } from '@/components/game/XPBar'
 import { formatNumber, calculateLevel, calculateProgress } from '@/utils/helpers'
-
-// Mock user data
-const userData = {
-  username: 'Campione123',
-  email: 'campione@fitduel.com',
-  bio: 'Fitness enthusiast | Level 12 Fighter | Never give up! 💪',
-  avatar: '👤',
-  level: 12,
-  currentXP: 2840,
-  nextLevelXP: 3500,
-  totalXP: 15840,
-  rank: 'Gold II',
-  joinDate: '15 Marzo 2024',
-  stats: {
-    totalDuels: 59,
-    wins: 47,
-    losses: 12,
-    winRate: 79.7,
-    streak: 5,
-    bestStreak: 12,
-    totalExercises: 3420,
-    favoriteExercise: 'Push-Up',
-    fitnessScore: 842,
-    avgFormScore: 92
-  },
-  achievements: {
-    total: 24,
-    recent: [
-      { id: '1', name: 'Prima Vittoria', icon: '🏆', date: '2 giorni fa', description: 'Vinci il tuo primo duello' },
-      { id: '2', name: 'Streak Master', icon: '🔥', date: '5 giorni fa', description: '5 giorni di streak' },
-      { id: '3', name: 'Forma Perfetta', icon: '⭐', date: '1 settimana fa', description: 'Ottieni 100% form score' },
-      { id: '4', name: 'Early Bird', icon: '🌅', date: '2 settimane fa', description: 'Completa sfida alle 6am' },
-      { id: '5', name: 'Social Butterfly', icon: '🦋', date: '3 settimane fa', description: 'Sfida 10 amici diversi' }
-    ]
-  },
-  badges: [
-    { name: 'Beginner', icon: '🌱', color: 'bg-green-500' },
-    { name: 'Warrior', icon: '⚔️', color: 'bg-red-500' },
-    { name: 'Champion', icon: '👑', color: 'bg-yellow-500' },
-    { name: 'Legend', icon: '🌟', color: 'bg-purple-500' },
-    { name: 'Speed Demon', icon: '⚡', color: 'bg-blue-500' },
-    { name: 'Iron Will', icon: '🛡️', color: 'bg-gray-500' }
-  ],
-  weeklyActivity: [
-    { day: 'Lun', duels: 3, xp: 240 },
-    { day: 'Mar', duels: 2, xp: 180 },
-    { day: 'Mer', duels: 4, xp: 320 },
-    { day: 'Gio', duels: 1, xp: 80 },
-    { day: 'Ven', duels: 5, xp: 400 },
-    { day: 'Sab', duels: 3, xp: 260 },
-    { day: 'Dom', duels: 2, xp: 160 }
-  ]
-}
+import { useUser, auth, db, storage } from '@/lib/supabase-client'
 
 export default function ProfilePage() {
+  const router = useRouter()
+  const { user, profile, stats, loading: userLoading } = useUser()
+  
   const [selectedTab, setSelectedTab] = useState<'overview' | 'stats' | 'achievements' | 'settings'>('overview')
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showAvatarModal, setShowAvatarModal] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  
+  // Form data
   const [editForm, setEditForm] = useState({
-    username: userData.username,
-    bio: userData.bio,
-    email: userData.email
+    username: '',
+    display_name: '',
+    bio: '',
+    email: ''
   })
+  
+  // Performance data
+  const [performances, setPerformances] = useState<any[]>([])
+  const [achievements, setAchievements] = useState<any[]>([])
+  const [weeklyActivity, setWeeklyActivity] = useState<any[]>([])
+  const [loadingPerformances, setLoadingPerformances] = useState(true)
 
-  const maxActivity = Math.max(...userData.weeklyActivity.map(d => d.duels))
+  // Initialize form data when profile loads
+  useEffect(() => {
+    if (profile) {
+      setEditForm({
+        username: profile.username || '',
+        display_name: profile.display_name || profile.username || '',
+        bio: profile.bio || '',
+        email: profile.email || ''
+      })
+    }
+  }, [profile])
+
+  // Check authentication
+  useEffect(() => {
+    if (!userLoading && !user) {
+      router.push('/login')
+    }
+  }, [user, userLoading, router])
+
+  // Fetch additional data
+  useEffect(() => {
+    if (user) {
+      fetchUserData()
+    }
+  }, [user])
+
+  const fetchUserData = async () => {
+    if (!user) return
+    
+    try {
+      // Fetch recent performances
+      const perfs = await db.performances.getMyPerformances(user.id, 10)
+      setPerformances(perfs)
+      
+      // Calculate weekly activity
+      const weekData = calculateWeeklyActivity(perfs)
+      setWeeklyActivity(weekData)
+      
+      // Fetch achievements (mock for now)
+      setAchievements([
+        { id: '1', name: 'Prima Vittoria', icon: '🏆', date: '2 giorni fa', description: 'Vinci il tuo primo duello' },
+        { id: '2', name: 'Streak Master', icon: '🔥', date: '5 giorni fa', description: '5 giorni di streak' },
+        { id: '3', name: 'Forma Perfetta', icon: '⭐', date: '1 settimana fa', description: 'Ottieni 100% form score' }
+      ])
+    } catch (error) {
+      console.error('Error fetching user data:', error)
+    } finally {
+      setLoadingPerformances(false)
+    }
+  }
+
+  const calculateWeeklyActivity = (performances: any[]) => {
+    const days = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab']
+    const weekData = days.map(day => ({ day, duels: 0, xp: 0 }))
+    
+    performances.forEach(perf => {
+      const date = new Date(perf.performed_at)
+      const dayIndex = date.getDay()
+      weekData[dayIndex].duels += 1
+      weekData[dayIndex].xp += Math.round(perf.calories_burned * 0.5) // Approximate XP
+    })
+    
+    // Rotate to start from Monday
+    const sunday = weekData.shift()!
+    weekData.push(sunday)
+    
+    return weekData
+  }
+
+  const handleEditProfile = async () => {
+    if (!user) return
+    
+    setIsSaving(true)
+    setError(null)
+    setSuccess(null)
+    
+    try {
+      await db.profiles.update(user.id, {
+        username: editForm.username,
+        display_name: editForm.display_name,
+        bio: editForm.bio
+      })
+      
+      setSuccess('Profilo aggiornato con successo!')
+      setShowEditModal(false)
+      
+      // Refresh profile data
+      window.location.reload()
+    } catch (error: any) {
+      console.error('Error updating profile:', error)
+      setError(error.message || 'Errore durante l\'aggiornamento del profilo')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+    
+    // Validate file
+    if (!file.type.startsWith('image/')) {
+      setError('Seleziona un\'immagine valida')
+      return
+    }
+    
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      setError('L\'immagine deve essere inferiore a 5MB')
+      return
+    }
+    
+    setIsUploading(true)
+    setError(null)
+    
+    try {
+      // Upload to storage
+      const avatarUrl = await storage.uploadAvatar(file, user.id)
+      
+      // Update profile
+      await db.profiles.update(user.id, { avatar_url: avatarUrl })
+      
+      setSuccess('Avatar aggiornato con successo!')
+      setShowAvatarModal(false)
+      
+      // Refresh page to show new avatar
+      window.location.reload()
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error)
+      setError('Errore durante il caricamento dell\'avatar')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleLogout = async () => {
+    await auth.signOut()
+    router.push('/login')
+  }
+
+  // Calculate stats
+  const winRate = stats && stats.total_duels > 0 
+    ? Math.round((stats.duels_won / stats.total_duels) * 100) 
+    : 0
+  
+  const maxActivity = Math.max(...weeklyActivity.map(d => d.duels), 1)
   
   // Calculate level data from totalXP
-  const userLevel = calculateLevel(userData.totalXP)
-  const progress = calculateProgress(userData.totalXP)
+  const userLevel = calculateLevel(stats?.total_xp || 0)
+  const progress = calculateProgress(stats?.total_xp || 0)
+
+  // Loading state
+  if (userLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-indigo-950 to-purple-950 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mx-auto mb-4" />
+          <p className="text-gray-400">Caricamento profilo...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user || !profile) {
+    return null
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-indigo-950 to-purple-950">
@@ -93,7 +220,7 @@ export default function ProfilePage() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link href="/dashboard" className="flex items-center gap-2">
+              <Link href="/" className="flex items-center gap-2">
                 <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center">
                   <Flame className="w-6 h-6 text-white" />
                 </div>
@@ -126,10 +253,21 @@ export default function ProfilePage() {
           >
             {/* Avatar */}
             <div className="relative">
-              <div className="w-32 h-32 bg-gray-800 rounded-full flex items-center justify-center text-6xl border-4 border-white/20">
-                {userData.avatar}
-              </div>
-              <button className="absolute bottom-0 right-0 w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center border-2 border-white">
+              {profile.avatar_url ? (
+                <img 
+                  src={profile.avatar_url} 
+                  alt={profile.username}
+                  className="w-32 h-32 rounded-full object-cover border-4 border-white/20"
+                />
+              ) : (
+                <div className="w-32 h-32 bg-gray-800 rounded-full flex items-center justify-center text-6xl border-4 border-white/20">
+                  <User className="w-16 h-16 text-gray-600" />
+                </div>
+              )}
+              <button 
+                onClick={() => setShowAvatarModal(true)}
+                className="absolute bottom-0 right-0 w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center border-2 border-white hover:bg-indigo-600 transition"
+              >
                 <Camera className="w-5 h-5 text-white" />
               </button>
             </div>
@@ -137,20 +275,28 @@ export default function ProfilePage() {
             {/* User Info */}
             <div className="flex-1 text-center md:text-left">
               <div className="flex items-center gap-3 justify-center md:justify-start">
-                <h1 className="text-3xl font-bold text-white">{userData.username}</h1>
+                <h1 className="text-3xl font-bold text-white">
+                  {profile.display_name || profile.username}
+                </h1>
                 <button onClick={() => setShowEditModal(true)}>
                   <Edit2 className="w-5 h-5 text-white/70 hover:text-white" />
                 </button>
               </div>
-              <p className="text-white/80 mt-2 max-w-md">{userData.bio}</p>
+              <p className="text-white/80 mt-2 max-w-md">
+                {profile.bio || 'Nessuna bio ancora. Clicca per aggiungerne una!'}
+              </p>
               <div className="flex items-center gap-4 mt-4 justify-center md:justify-start">
                 <div className="flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-yellow-400" />
-                  <span className="text-white font-semibold">{userData.rank}</span>
+                  <span className="text-white font-semibold">
+                    Level {stats?.level || 1}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-white/60" />
-                  <span className="text-white/80 text-sm">Iscritto dal {userData.joinDate}</span>
+                  <span className="text-white/80 text-sm">
+                    Iscritto dal {new Date(profile.created_at).toLocaleDateString('it-IT')}
+                  </span>
                 </div>
               </div>
             </div>
@@ -158,19 +304,19 @@ export default function ProfilePage() {
             {/* Quick Stats */}
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center">
-                <p className="text-3xl font-bold text-white">{userData.stats.wins}</p>
+                <p className="text-3xl font-bold text-white">{stats?.duels_won || 0}</p>
                 <p className="text-white/70 text-sm">Vittorie</p>
               </div>
               <div className="text-center">
-                <p className="text-3xl font-bold text-white">{userData.stats.winRate}%</p>
+                <p className="text-3xl font-bold text-white">{winRate}%</p>
                 <p className="text-white/70 text-sm">Win Rate</p>
               </div>
               <div className="text-center">
-                <p className="text-3xl font-bold text-white">{userData.stats.streak}</p>
+                <p className="text-3xl font-bold text-white">{stats?.daily_streak || 0}</p>
                 <p className="text-white/70 text-sm">Streak</p>
               </div>
               <div className="text-center">
-                <p className="text-3xl font-bold text-white">{formatNumber(userData.totalXP)}</p>
+                <p className="text-3xl font-bold text-white">{formatNumber(stats?.total_xp || 0)}</p>
                 <p className="text-white/70 text-sm">XP Totali</p>
               </div>
             </div>
@@ -180,6 +326,21 @@ export default function ProfilePage() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 -mt-24">
+        {/* Success/Error Alerts */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start space-x-2">
+            <AlertCircle className="w-5 h-5 text-red-400 mt-0.5" />
+            <p className="text-sm text-red-400">{error}</p>
+          </div>
+        )}
+        
+        {success && (
+          <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-start space-x-2">
+            <CheckCircle className="w-5 h-5 text-green-400 mt-0.5" />
+            <p className="text-sm text-green-400">{success}</p>
+          </div>
+        )}
+
         {/* Tabs */}
         <div className="flex gap-2 mb-6">
           {[
@@ -210,7 +371,7 @@ export default function ProfilePage() {
               <Card variant="glass" className="p-6">
                 <h2 className="text-xl font-bold text-white mb-4">Progresso Livello</h2>
                 <XPBar
-                  currentXP={userData.totalXP}
+                  currentXP={stats?.total_xp || 0}
                   showLevel
                   showProgress
                   showAnimation
@@ -224,72 +385,74 @@ export default function ProfilePage() {
               {/* Weekly Activity */}
               <Card variant="glass" className="p-6">
                 <h2 className="text-xl font-bold text-white mb-4">Attività Settimanale</h2>
-                <div className="flex items-end justify-between gap-2 h-32">
-                  {userData.weeklyActivity.map((day, index) => (
-                    <motion.div
-                      key={day.day}
-                      initial={{ height: 0 }}
-                      animate={{ height: `${(day.duels / maxActivity) * 100}%` }}
-                      transition={{ delay: index * 0.1 }}
-                      className="flex-1 flex flex-col items-center gap-2"
-                    >
-                      <div className="flex-1 w-full flex items-end">
-                        <div
-                          className="w-full bg-gradient-to-t from-indigo-500 to-purple-500 rounded-t-lg relative group"
-                          style={{ height: '100%' }}
-                        >
-                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 px-2 py-1 rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                            {day.duels} sfide • {day.xp} XP
+                {loadingPerformances ? (
+                  <div className="h-32 flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+                  </div>
+                ) : (
+                  <div className="flex items-end justify-between gap-2 h-32">
+                    {weeklyActivity.map((day, index) => (
+                      <motion.div
+                        key={day.day}
+                        initial={{ height: 0 }}
+                        animate={{ height: `${(day.duels / maxActivity) * 100}%` }}
+                        transition={{ delay: index * 0.1 }}
+                        className="flex-1 flex flex-col items-center gap-2"
+                      >
+                        <div className="flex-1 w-full flex items-end">
+                          <div
+                            className="w-full bg-gradient-to-t from-indigo-500 to-purple-500 rounded-t-lg relative group"
+                            style={{ height: '100%' }}
+                          >
+                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 px-2 py-1 rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                              {day.duels} sfide • {day.xp} XP
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <span className="text-xs text-gray-400">{day.day}</span>
-                    </motion.div>
-                  ))}
-                </div>
+                        <span className="text-xs text-gray-400">{day.day}</span>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
               </Card>
 
-              {/* Recent Achievements */}
+              {/* Recent Performances */}
               <Card variant="glass" className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-white">Achievement Recenti</h2>
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedTab('achievements')}>
-                    Vedi tutti
+                  <h2 className="text-xl font-bold text-white">Performance Recenti</h2>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedTab('stats')}>
+                    Vedi tutte
                     <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 </div>
-                <div className="space-y-3">
-                  {userData.achievements.recent.slice(0, 3).map((achievement) => (
-                    <div key={achievement.id} className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg">
-                      <div className="text-2xl">{achievement.icon}</div>
-                      <div className="flex-1">
-                        <p className="font-semibold text-white">{achievement.name}</p>
-                        <p className="text-xs text-gray-400">{achievement.description}</p>
+                {performances.length > 0 ? (
+                  <div className="space-y-3">
+                    {performances.slice(0, 3).map((perf) => (
+                      <div key={perf.id} className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg">
+                        <div className="text-2xl">💪</div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-white">
+                            {perf.reps} ripetizioni
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            Form score: {perf.form_score}% • {perf.calories_burned} cal
+                          </p>
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          {new Date(perf.performed_at).toLocaleDateString()}
+                        </span>
                       </div>
-                      <span className="text-xs text-gray-500">{achievement.date}</span>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-400 py-4">
+                    Nessuna performance registrata
+                  </p>
+                )}
               </Card>
             </div>
 
             <div className="space-y-6">
-              {/* Badges */}
-              <Card variant="glass" className="p-6">
-                <h2 className="text-xl font-bold text-white mb-4">Badge</h2>
-                <div className="grid grid-cols-3 gap-3">
-                  {userData.badges.map((badge) => (
-                    <div
-                      key={badge.name}
-                      className="text-center p-3 bg-gray-800/50 rounded-lg hover:bg-gray-800/70 transition-colors cursor-pointer"
-                    >
-                      <div className="text-2xl mb-1">{badge.icon}</div>
-                      <p className="text-xs text-white">{badge.name}</p>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-
               {/* Fitness Score */}
               <Card variant="gradient" className="p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -297,21 +460,25 @@ export default function ProfilePage() {
                   <Shield className="w-5 h-5 text-purple-400" />
                 </div>
                 <div className="text-center">
-                  <p className="text-5xl font-bold text-white mb-2">{userData.stats.fitnessScore}</p>
+                  <p className="text-5xl font-bold text-white mb-2">
+                    {Math.round((stats?.average_form_score || 0) * 10)}
+                  </p>
                   <div className="flex items-center justify-center gap-1 mb-3">
                     {[...Array(5)].map((_, i) => (
                       <Star
                         key={i}
                         className={cn(
                           'w-5 h-5',
-                          i < Math.floor(userData.stats.fitnessScore / 200)
+                          i < Math.floor((stats?.average_form_score || 0) / 20)
                             ? 'text-yellow-400 fill-yellow-400'
                             : 'text-gray-600'
                         )}
                       />
                     ))}
                   </div>
-                  <p className="text-sm text-white/80">Top 10% dei giocatori</p>
+                  <p className="text-sm text-white/80">
+                    {stats?.average_form_score >= 80 ? 'Top 10% dei giocatori' : 'Continua a migliorare!'}
+                  </p>
                 </div>
               </Card>
 
@@ -321,23 +488,44 @@ export default function ProfilePage() {
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-gray-400">Sfide Totali</span>
-                    <span className="text-white font-semibold">{userData.stats.totalDuels}</span>
+                    <span className="text-white font-semibold">{stats?.total_duels || 0}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">Miglior Streak</span>
-                    <span className="text-white font-semibold">{userData.stats.bestStreak} giorni</span>
+                    <span className="text-white font-semibold">{stats?.max_daily_streak || 0} giorni</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">Esercizi Totali</span>
-                    <span className="text-white font-semibold">{formatNumber(userData.stats.totalExercises)}</span>
+                    <span className="text-white font-semibold">{formatNumber(stats?.total_exercises || 0)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Esercizio Preferito</span>
-                    <span className="text-white font-semibold">{userData.stats.favoriteExercise}</span>
+                    <span className="text-gray-400">Calorie Bruciate</span>
+                    <span className="text-white font-semibold">{formatNumber(stats?.total_calories || 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">Form Score Medio</span>
-                    <span className="text-white font-semibold">{userData.stats.avgFormScore}%</span>
+                    <span className="text-white font-semibold">{stats?.average_form_score || 0}%</span>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Coins & Gems */}
+              <Card variant="glass" className="p-6">
+                <h3 className="text-lg font-bold text-white mb-4">Risorse</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Monete</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">🪙</span>
+                      <span className="text-white font-bold text-xl">{stats?.coins || 0}</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400">Gemme</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">💎</span>
+                      <span className="text-white font-bold text-xl">{stats?.gems || 0}</span>
+                    </div>
                   </div>
                 </div>
               </Card>
@@ -349,12 +537,15 @@ export default function ProfilePage() {
         {selectedTab === 'stats' && (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { icon: Trophy, label: 'Vittorie Totali', value: userData.stats.wins, color: 'text-yellow-500' },
-              { icon: Swords, label: 'Sfide Totali', value: userData.stats.totalDuels, color: 'text-blue-500' },
-              { icon: TrendingUp, label: 'Win Rate', value: `${userData.stats.winRate}%`, color: 'text-green-500' },
-              { icon: Flame, label: 'Streak Attuale', value: `${userData.stats.streak} giorni`, color: 'text-orange-500' },
-              { icon: Activity, label: 'Esercizi Totali', value: formatNumber(userData.stats.totalExercises), color: 'text-purple-500' },
-              { icon: Star, label: 'Form Score', value: `${userData.stats.avgFormScore}%`, color: 'text-indigo-500' }
+              { icon: Trophy, label: 'Vittorie Totali', value: stats?.duels_won || 0, color: 'text-yellow-500' },
+              { icon: Swords, label: 'Sfide Totali', value: stats?.total_duels || 0, color: 'text-blue-500' },
+              { icon: TrendingUp, label: 'Win Rate', value: `${winRate}%`, color: 'text-green-500' },
+              { icon: Flame, label: 'Streak Attuale', value: `${stats?.daily_streak || 0} giorni`, color: 'text-orange-500' },
+              { icon: Activity, label: 'Esercizi Totali', value: formatNumber(stats?.total_exercises || 0), color: 'text-purple-500' },
+              { icon: Star, label: 'Form Score', value: `${stats?.average_form_score || 0}%`, color: 'text-indigo-500' },
+              { icon: Zap, label: 'XP Totali', value: formatNumber(stats?.total_xp || 0), color: 'text-yellow-500' },
+              { icon: Medal, label: 'Livello', value: stats?.level || 1, color: 'text-blue-500' },
+              { icon: Heart, label: 'Calorie', value: formatNumber(stats?.total_calories || 0), color: 'text-red-500' }
             ].map((stat, index) => {
               const Icon = stat.icon
               return (
@@ -386,58 +577,38 @@ export default function ProfilePage() {
           <div>
             <Card variant="glass" className="p-6 mb-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-white">Tutti gli Achievement</h2>
+                <h2 className="text-xl font-bold text-white">Achievement Sbloccati</h2>
                 <div className="flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-yellow-500" />
-                  <span className="text-white font-semibold">{userData.achievements.total} / 50</span>
+                  <span className="text-white font-semibold">{achievements.length} / 50</span>
                 </div>
               </div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {userData.achievements.recent.map((achievement, index) => (
-                  <motion.div
-                    key={achievement.id}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="p-4 bg-gray-800/50 rounded-xl hover:bg-gray-800/70 transition-colors"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="text-3xl">{achievement.icon}</div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-white">{achievement.name}</h3>
-                        <p className="text-xs text-gray-400 mt-1">{achievement.description}</p>
-                        <p className="text-xs text-gray-500 mt-2">{achievement.date}</p>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </Card>
-
-            {/* Locked Achievements */}
-            <Card variant="glass" className="p-6">
-              <h3 className="text-lg font-bold text-white mb-4">Achievement Bloccati</h3>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 opacity-50">
-                {[
-                  { name: 'Elite Warrior', icon: '🎖️', description: 'Raggiungi livello 50' },
-                  { name: 'Unstoppable', icon: '🚀', description: '30 giorni di streak' },
-                  { name: 'Perfectionist', icon: '💯', description: '100% form score per 10 sfide' }
-                ].map((achievement) => (
-                  <div key={achievement.name} className="p-4 bg-gray-800/30 rounded-xl">
-                    <div className="flex items-start gap-3">
-                      <div className="text-3xl grayscale">{achievement.icon}</div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-400">{achievement.name}</h3>
-                        <p className="text-xs text-gray-500 mt-1">{achievement.description}</p>
-                        <div className="flex items-center gap-1 mt-2">
-                          <Lock className="w-3 h-3 text-gray-600" />
-                          <span className="text-xs text-gray-600">Bloccato</span>
+              {achievements.length > 0 ? (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {achievements.map((achievement, index) => (
+                    <motion.div
+                      key={achievement.id}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="p-4 bg-gray-800/50 rounded-xl hover:bg-gray-800/70 transition-colors"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="text-3xl">{achievement.icon}</div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-white">{achievement.name}</h3>
+                          <p className="text-xs text-gray-400 mt-1">{achievement.description}</p>
+                          <p className="text-xs text-gray-500 mt-2">{achievement.date}</p>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-gray-400 py-8">
+                  Nessun achievement sbloccato ancora. Continua a giocare!
+                </p>
+              )}
             </Card>
           </div>
         )}
@@ -452,7 +623,7 @@ export default function ProfilePage() {
                   <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
                   <Input
                     type="email"
-                    value={userData.email}
+                    value={profile.email}
                     disabled
                     icon={<Mail className="w-5 h-5" />}
                   />
@@ -492,7 +663,7 @@ export default function ProfilePage() {
                   </Button>
                 </div>
                 <div className="pt-4 border-t border-gray-800">
-                  <Button variant="danger" className="w-full">
+                  <Button variant="danger" className="w-full" onClick={handleLogout}>
                     <LogOut className="w-4 h-4 mr-2" />
                     Logout
                   </Button>
@@ -517,6 +688,16 @@ export default function ProfilePage() {
               value={editForm.username}
               onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
               icon={<User className="w-5 h-5" />}
+              disabled={isSaving}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Nome Visualizzato</label>
+            <Input
+              value={editForm.display_name}
+              onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })}
+              icon={<User className="w-5 h-5" />}
+              disabled={isSaving}
             />
           </div>
           <div>
@@ -526,15 +707,85 @@ export default function ProfilePage() {
               onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
               className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none resize-none"
               rows={3}
+              disabled={isSaving}
+              maxLength={200}
             />
+            <p className="text-xs text-gray-500 mt-1">
+              {editForm.bio.length}/200 caratteri
+            </p>
           </div>
           <div className="flex gap-3 pt-4">
-            <Button variant="secondary" onClick={() => setShowEditModal(false)} className="flex-1">
+            <Button 
+              variant="secondary" 
+              onClick={() => setShowEditModal(false)} 
+              className="flex-1"
+              disabled={isSaving}
+            >
               Annulla
             </Button>
-            <Button variant="gradient" onClick={() => setShowEditModal(false)} className="flex-1">
-              Salva Modifiche
+            <Button 
+              variant="gradient" 
+              onClick={handleEditProfile} 
+              className="flex-1"
+              disabled={isSaving}
+            >
+              {isSaving ? 'Salvataggio...' : 'Salva Modifiche'}
             </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Avatar Upload Modal */}
+      <Modal
+        isOpen={showAvatarModal}
+        onClose={() => setShowAvatarModal(false)}
+        title="Cambia Avatar"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div className="text-center">
+            {profile.avatar_url ? (
+              <img 
+                src={profile.avatar_url} 
+                alt="Current avatar"
+                className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+              />
+            ) : (
+              <div className="w-32 h-32 bg-gray-800 rounded-full mx-auto mb-4 flex items-center justify-center">
+                <User className="w-16 h-16 text-gray-600" />
+              </div>
+            )}
+            
+            <label className="cursor-pointer">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+                disabled={isUploading}
+              />
+              <Button 
+                variant="gradient" 
+                className="w-full"
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Caricamento...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Scegli Immagine
+                  </>
+                )}
+              </Button>
+            </label>
+            
+            <p className="text-xs text-gray-400 mt-2">
+              Max 5MB • JPG, PNG, GIF
+            </p>
           </div>
         </div>
       </Modal>
