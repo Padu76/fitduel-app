@@ -1,272 +1,459 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Mail, Lock, LogIn, Flame, AlertCircle, CheckCircle, Info } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { 
+  User, 
+  Flame, 
+  ArrowRight, 
+  Loader2, 
+  GamepadIcon,
+  Zap,
+  Trophy,
+  Star,
+  Crown
+} from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
-import { auth } from '@/lib/supabase-client'
+import { cn } from '@/utils/cn'
 
+// ====================================
+// TYPES
+// ====================================
+interface QuickUser {
+  id: string
+  username: string
+  level: number
+  xp: number
+  coins: number
+  isGuest: boolean
+  avatar: string
+  tier: 'newbie' | 'user' | 'premium'
+}
+
+type AuthState = 'idle' | 'loading' | 'success' | 'error'
+
+// ====================================
+// DEMO USERS DATA
+// ====================================
+const DEMO_USERS: QuickUser[] = [
+  {
+    id: 'mario-demo',
+    username: 'mario',
+    level: 25,
+    xp: 6250,
+    coins: 1200,
+    isGuest: false,
+    avatar: '💪',
+    tier: 'premium'
+  },
+  {
+    id: 'giulia-demo',
+    username: 'giulia',
+    level: 12,
+    xp: 1440,
+    coins: 350,
+    isGuest: false,
+    avatar: '🏋️‍♀️',
+    tier: 'user'
+  },
+  {
+    id: 'luca-demo',
+    username: 'luca',
+    level: 3,
+    xp: 225,
+    coins: 80,
+    isGuest: false,
+    avatar: '🚀',
+    tier: 'newbie'
+  }
+]
+
+const TIER_CONFIG = {
+  newbie: { 
+    label: 'Newbie', 
+    color: 'text-green-400', 
+    icon: Star,
+    bgColor: 'bg-green-500/10 border-green-500/20' 
+  },
+  user: { 
+    label: 'User', 
+    color: 'text-blue-400', 
+    icon: User,
+    bgColor: 'bg-blue-500/10 border-blue-500/20' 
+  },
+  premium: { 
+    label: 'Premium', 
+    color: 'text-yellow-400', 
+    icon: Crown,
+    bgColor: 'bg-yellow-500/10 border-yellow-500/20' 
+  }
+}
+
+// ====================================
+// MAIN COMPONENT
+// ====================================
 export default function LoginPage() {
   const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [rememberMe, setRememberMe] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [authState, setAuthState] = useState<AuthState>('idle')
+  const [username, setUsername] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
-  const [showDemoInfo, setShowDemoInfo] = useState(true)
 
   // Check if user is already logged in
   useEffect(() => {
-    auth.getSession().then(session => {
-      if (session) {
+    const savedUser = localStorage.getItem('fitduel_user')
+    if (savedUser) {
+      try {
+        const user = JSON.parse(savedUser)
+        console.log('👋 User già loggato:', user.username)
         router.push('/dashboard')
+      } catch (err) {
+        console.error('Error parsing saved user:', err)
+        localStorage.removeItem('fitduel_user')
       }
-    })
+    }
   }, [router])
 
-  // Demo account quick fill
-  const fillDemoAccount = (accountType: 'mario' | 'giulia' | 'luca') => {
-    const accounts = {
-      mario: { email: 'mario@demo.fitduel', name: 'Mario (Level 25)' },
-      giulia: { email: 'giulia@demo.fitduel', name: 'Giulia (Level 12)' },
-      luca: { email: 'luca@demo.fitduel', name: 'Luca (Level 3)' }
+  // ====================================
+  // QUICK LOGIN/REGISTER
+  // ====================================
+  const handleQuickAuth = async () => {
+    if (!username.trim()) {
+      setError('Inserisci un username')
+      return
     }
-    
-    const account = accounts[accountType]
-    setEmail(account.email)
-    setPassword('Demo123!')
-    setSuccess(`Account demo ${account.name} selezionato`)
-    setError(null)
-  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+    if (username.length < 3) {
+      setError('Username deve essere almeno 3 caratteri')
+      return
+    }
+
+    // Simple validation
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      setError('Username può contenere solo lettere, numeri e underscore')
+      return
+    }
+
+    setAuthState('loading')
     setError(null)
-    setSuccess(null)
-    
+
     try {
-      // Attempt to sign in with Supabase
-      const { session, user } = await auth.signIn(email, password)
-      
-      if (!session || !user) {
-        throw new Error('Login fallito. Verifica le credenziali.')
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 800))
+
+      // Check if user exists in demo users
+      let user = DEMO_USERS.find(u => u.username.toLowerCase() === username.toLowerCase())
+
+      if (!user) {
+        // Create new user
+        user = {
+          id: `user_${Date.now()}`,
+          username: username.toLowerCase(),
+          level: 1,
+          xp: 100, // Welcome bonus
+          coins: 50, // Starting coins
+          isGuest: false,
+          avatar: getRandomAvatar(),
+          tier: 'newbie'
+        }
+        
+        console.log('🎉 Nuovo utente creato:', user)
+      } else {
+        console.log('👋 Bentornato:', user)
       }
 
-      // Success!
-      setSuccess('Login effettuato con successo! Reindirizzamento...')
+      // Store user in localStorage
+      localStorage.setItem('fitduel_user', JSON.stringify(user))
       
-      // Store remember me preference
-      if (rememberMe) {
-        localStorage.setItem('fitduel_remember', 'true')
-      } else {
-        localStorage.removeItem('fitduel_remember')
-      }
+      setAuthState('success')
       
-      // Redirect to dashboard after a brief delay
+      // Redirect to dashboard
       setTimeout(() => {
         router.push('/dashboard')
-      }, 1000)
-      
-    } catch (error: any) {
-      console.error('Login error:', error)
-      
-      // Handle specific error messages
-      if (error.message?.includes('Invalid login credentials')) {
-        setError('Email o password non corretti')
-      } else if (error.message?.includes('Email not confirmed')) {
-        setError('Devi confermare la tua email prima di accedere')
-      } else if (error.message?.includes('Network')) {
-        setError('Errore di connessione. Verifica la tua connessione internet')
-      } else {
-        setError(error.message || 'Errore durante il login. Riprova più tardi')
-      }
-      
-      // If Supabase is not configured, fallback to demo mode
-      if (email === 'demo@fitduel.com' && password === 'demo123') {
-        setSuccess('Modalità demo attivata. Reindirizzamento...')
-        setError(null)
-        
-        // Store demo session
-        localStorage.setItem('fitduel_demo_user', JSON.stringify({
-          id: 'demo-user',
-          email: 'demo@fitduel.com',
-          username: 'DemoUser'
-        }))
-        
-        setTimeout(() => {
-          router.push('/dashboard')
-        }, 1000)
-      }
-    } finally {
-      setIsLoading(false)
+      }, 500)
+
+    } catch (err: any) {
+      console.error('Auth error:', err)
+      setError('Errore durante l\'autenticazione')
+      setAuthState('error')
     }
   }
 
+  // ====================================
+  // GUEST MODE
+  // ====================================
+  const handleGuestMode = async () => {
+    setAuthState('loading')
+    
+    try {
+      await new Promise(resolve => setTimeout(resolve, 300))
+
+      const guestUser: QuickUser = {
+        id: `guest_${Date.now()}`,
+        username: `Ospite${Math.floor(Math.random() * 1000)}`,
+        level: 1,
+        xp: 0,
+        coins: 0,
+        isGuest: true,
+        avatar: '👤',
+        tier: 'newbie'
+      }
+
+      localStorage.setItem('fitduel_user', JSON.stringify(guestUser))
+      
+      setAuthState('success')
+      
+      setTimeout(() => {
+        router.push('/dashboard')
+      }, 300)
+
+    } catch (err: any) {
+      console.error('Guest mode error:', err)
+      setError('Errore modalità ospite')
+      setAuthState('error')
+    }
+  }
+
+  // ====================================
+  // DEMO USERS LOGIN
+  // ====================================
+  const handleDemoLogin = async (demoUser: QuickUser) => {
+    setAuthState('loading')
+    
+    try {
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
+      localStorage.setItem('fitduel_user', JSON.stringify(demoUser))
+      setAuthState('success')
+      
+      setTimeout(() => {
+        router.push('/dashboard')
+      }, 300)
+
+    } catch (err: any) {
+      console.error('Demo login error:', err)
+      setError('Errore demo login')
+      setAuthState('error')
+    }
+  }
+
+  // ====================================
+  // UTILITY FUNCTIONS
+  // ====================================
+  const getRandomAvatar = () => {
+    const avatars = ['💪', '🏋️‍♀️', '🏋️‍♂️', '🚀', '⚡', '🔥', '🏆', '⭐', '💎', '🎯', '🦾', '🌟']
+    return avatars[Math.floor(Math.random() * avatars.length)]
+  }
+
+  // ====================================
+  // RENDER
+  // ====================================
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 to-indigo-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-indigo-950 to-purple-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Demo Info Card */}
-        {showDemoInfo && (
-          <Card variant="glass" className="p-4 mb-4 border-indigo-500/20">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start space-x-3">
-                <Info className="w-5 h-5 text-indigo-400 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm text-gray-300 font-medium mb-2">Account Demo Disponibili:</p>
-                  <div className="space-y-1">
-                    <button
-                      type="button"
-                      onClick={() => fillDemoAccount('mario')}
-                      className="block text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                    >
-                      • mario@demo.fitduel (Level 25 - Premium)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => fillDemoAccount('giulia')}
-                      className="block text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                    >
-                      • giulia@demo.fitduel (Level 12 - User)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => fillDemoAccount('luca')}
-                      className="block text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                    >
-                      • luca@demo.fitduel (Level 3 - Newbie)
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-2">Password: Demo123!</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowDemoInfo(false)}
-                className="text-gray-400 hover:text-gray-300"
-              >
-                ×
-              </button>
+        {/* Header */}
+        <div className="text-center mb-8">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", duration: 0.6 }}
+            className="w-20 h-20 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-3xl flex items-center justify-center mx-auto mb-6"
+          >
+            <Flame className="w-10 h-10 text-white" />
+          </motion.div>
+          
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-3xl font-bold text-white mb-2"
+          >
+            FitDuel
+          </motion.h1>
+          
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="text-gray-400"
+          >
+            Inizia la tua avventura fitness
+          </motion.p>
+        </div>
+
+        {/* Demo Users */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="mb-6"
+        >
+          <Card variant="glass" className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Trophy className="w-4 h-4 text-yellow-500" />
+              <span className="text-sm font-medium text-white">Account Demo Pronti</span>
+            </div>
+            
+            <div className="space-y-2">
+              {DEMO_USERS.map((user, index) => {
+                const tierConfig = TIER_CONFIG[user.tier]
+                const TierIcon = tierConfig.icon
+                
+                return (
+                  <motion.button
+                    key={user.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 + index * 0.1 }}
+                    onClick={() => handleDemoLogin(user)}
+                    disabled={authState === 'loading'}
+                    className="w-full flex items-center justify-between p-3 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-all group disabled:opacity-50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{user.avatar}</span>
+                      <div className="text-left">
+                        <div className="flex items-center gap-2">
+                          <p className="text-white font-medium">{user.username}</p>
+                          <span className={cn(
+                            'text-xs px-2 py-0.5 rounded-full border',
+                            tierConfig.bgColor,
+                            tierConfig.color
+                          )}>
+                            <TierIcon className="w-3 h-3 inline mr-1" />
+                            {tierConfig.label}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400">
+                          Level {user.level} • {user.xp} XP • {user.coins} coins
+                        </p>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
+                  </motion.button>
+                )
+              })}
             </div>
           </Card>
-        )}
+        </motion.div>
 
-        {/* Login Card */}
-        <Card variant="glass" className="p-8">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center mx-auto mb-4">
-              <Flame className="w-8 h-8 text-white" />
+        {/* Quick Auth */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="space-y-4"
+        >
+          <Card variant="glass" className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <User className="w-4 h-4 text-indigo-400" />
+              <span className="text-sm font-medium text-white">Crea Nuovo Account</span>
             </div>
-            <h1 className="text-2xl font-bold text-white">FitDuel</h1>
-            <p className="text-gray-400 mt-2">Accedi al tuo account</p>
-          </div>
 
-          {/* Error Alert */}
-          {error && (
-            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start space-x-2">
-              <AlertCircle className="w-5 h-5 text-red-400 mt-0.5" />
-              <p className="text-sm text-red-400">{error}</p>
-            </div>
-          )}
+            <div className="space-y-4">
+              <Input
+                type="text"
+                placeholder="Scegli il tuo username..."
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleQuickAuth()}
+                disabled={authState === 'loading'}
+                icon={<User className="w-5 h-5" />}
+                className="text-lg"
+              />
 
-          {/* Success Alert */}
-          {success && (
-            <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-start space-x-2">
-              <CheckCircle className="w-5 h-5 text-green-400 mt-0.5" />
-              <p className="text-sm text-green-400">{success}</p>
-            </div>
-          )}
+              {error && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-red-400 text-sm flex items-center gap-1"
+                >
+                  <span>⚠️</span> {error}
+                </motion.p>
+              )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email"
-              icon={<Mail className="w-5 h-5" />}
-              required
-              disabled={isLoading}
-            />
-
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password"
-              icon={<Lock className="w-5 h-5" />}
-              showPasswordToggle
-              required
-              disabled={isLoading}
-            />
-
-            <div className="flex items-center justify-between">
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-0"
-                  disabled={isLoading}
-                />
-                <span className="text-sm text-gray-400">Ricordami</span>
-              </label>
-              
-              <Link 
-                href="/forgot-password" 
-                className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+              <Button
+                variant="gradient"
+                size="lg"
+                onClick={handleQuickAuth}
+                disabled={authState === 'loading' || !username.trim()}
+                className="w-full"
               >
-                Password dimenticata?
-              </Link>
-            </div>
+                {authState === 'loading' ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Accesso...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-5 h-5 mr-2" />
+                    Inizia Subito
+                  </>
+                )}
+              </Button>
 
-            <Button
-              type="submit"
-              variant="gradient"
-              size="lg"
-              className="w-full"
-              disabled={isLoading || !email || !password}
-            >
-              <LogIn className="w-5 h-5 mr-2" />
-              {isLoading ? 'Accesso in corso...' : 'Accedi'}
-            </Button>
-          </form>
-
-          <div className="mt-6 relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-700"></div>
+              <div className="text-center">
+                <p className="text-xs text-gray-500 mb-2">oppure</p>
+                <Button
+                  variant="secondary"
+                  onClick={handleGuestMode}
+                  disabled={authState === 'loading'}
+                  className="w-full"
+                >
+                  <GamepadIcon className="w-4 h-4 mr-2" />
+                  Gioca come Ospite
+                </Button>
+              </div>
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-gray-900 text-gray-400">oppure</span>
-            </div>
-          </div>
+          </Card>
+        </motion.div>
 
-          <p className="text-center mt-6 text-gray-400">
-            Non hai un account?{' '}
-            <Link 
-              href="/register" 
-              className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
-            >
-              Registrati ora
-            </Link>
+        {/* Benefits */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
+          className="mt-6"
+        >
+          <Card variant="glass" className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Flame className="w-4 h-4 text-orange-500" />
+              <span className="text-sm font-medium text-white">Perché FitDuel?</span>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2 text-xs text-gray-400">
+              <div className="flex items-center gap-1">
+                <span className="text-green-400">⚡</span>
+                <span>Sfide fitness</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-blue-400">🏆</span>
+                <span>Sistema livelli</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-purple-400">👥</span>
+                <span>Duelli 1v1</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-yellow-400">🏅</span>
+                <span>Achievement</span>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+
+        {/* Footer */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1 }}
+          className="mt-6 text-center"
+        >
+          <p className="text-xs text-gray-500">
+            Accedendo accetti i nostri termini di servizio
           </p>
-
-          {/* Footer */}
-          <div className="mt-8 pt-6 border-t border-gray-800">
-            <p className="text-center text-xs text-gray-500">
-              Effettuando l'accesso, accetti i nostri{' '}
-              <Link href="/terms" className="text-indigo-400 hover:text-indigo-300">
-                Termini di Servizio
-              </Link>{' '}
-              e la{' '}
-              <Link href="/privacy" className="text-indigo-400 hover:text-indigo-300">
-                Privacy Policy
-              </Link>
-            </p>
-          </div>
-        </Card>
+        </motion.div>
       </div>
     </div>
   )
