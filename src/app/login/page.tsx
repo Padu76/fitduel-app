@@ -5,19 +5,25 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
   User, 
+  Mail,
+  Lock,
   Flame, 
   ArrowRight, 
   Loader2, 
-  GamepadIcon,
+  Gamepad2,
   Zap,
   Trophy,
   Star,
-  Crown
+  Crown,
+  Eye,
+  EyeOff,
+  AlertCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { cn } from '@/utils/cn'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 // ====================================
 // TYPES
@@ -34,6 +40,7 @@ interface QuickUser {
 }
 
 type AuthState = 'idle' | 'loading' | 'success' | 'error'
+type AuthMode = 'login' | 'demo' | 'guest'
 
 // ====================================
 // DEMO USERS DATA
@@ -97,42 +104,49 @@ const TIER_CONFIG = {
 // ====================================
 export default function LoginPage() {
   const router = useRouter()
+  const supabase = createClientComponentClient()
   const [authState, setAuthState] = useState<AuthState>('idle')
-  const [username, setUsername] = useState('')
+  const [authMode, setAuthMode] = useState<AuthMode>('login')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  // Login form
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
 
   // Check if user is already logged in
   useEffect(() => {
-    const savedUser = localStorage.getItem('fitduel_user')
-    if (savedUser) {
-      try {
-        const user = JSON.parse(savedUser)
-        console.log('👋 User già loggato:', user.username)
+    checkUser()
+  }, [])
+
+  const checkUser = async () => {
+    try {
+      // Check Supabase auth first
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        console.log('👋 User già loggato con Supabase:', user.email)
         router.push('/dashboard')
-      } catch (err) {
-        console.error('Error parsing saved user:', err)
-        localStorage.removeItem('fitduel_user')
+        return
       }
+
+      // Check demo user
+      const savedUser = localStorage.getItem('fitduel_user')
+      if (savedUser) {
+        const user = JSON.parse(savedUser)
+        console.log('👋 User demo già loggato:', user.username)
+        router.push('/dashboard')
+      }
+    } catch (err) {
+      console.error('Error checking user:', err)
     }
-  }, [router])
+  }
 
   // ====================================
-  // QUICK LOGIN/REGISTER
+  // SUPABASE LOGIN
   // ====================================
-  const handleQuickAuth = async () => {
-    if (!username.trim()) {
-      setError('Inserisci un username')
-      return
-    }
-
-    if (username.length < 3) {
-      setError('Username deve essere almeno 3 caratteri')
-      return
-    }
-
-    // Simple validation
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-      setError('Username può contenere solo lettere, numeri e underscore')
+  const handleSupabaseLogin = async () => {
+    if (!email || !password) {
+      setError('Inserisci email e password')
       return
     }
 
@@ -140,40 +154,32 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 800))
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
 
-      // Check if user exists in demo users
-      let user = DEMO_USERS.find(u => u.username.toLowerCase() === username.toLowerCase())
-
-      if (!user) {
-        // Create new user
-        user = {
-          id: `user_${Date.now()}`,
-          username: username.toLowerCase(),
-          level: 1,
-          xp: 100, // Welcome bonus
-          coins: 50, // Starting coins
-          isGuest: false,
-          avatar: getRandomAvatar(),
-          tier: 'newbie'
-        }
-        
-        console.log('🎉 Nuovo utente creato:', user)
-      } else {
-        console.log('👋 Bentornato:', user)
+      if (error) {
+        console.error('Login error:', error)
+        setError(error.message === 'Invalid login credentials' 
+          ? 'Email o password non validi' 
+          : 'Errore durante il login. Riprova.')
+        setAuthState('error')
+        return
       }
 
-      // Store user in localStorage
-      localStorage.setItem('fitduel_user', JSON.stringify(user))
-      
-      setAuthState('success')
-      
-      // Redirect to dashboard
-      setTimeout(() => {
-        router.push('/dashboard')
-      }, 500)
-
+      if (data.user) {
+        console.log('✅ Login con Supabase riuscito:', data.user.email)
+        setAuthState('success')
+        
+        // Clear any demo user data
+        localStorage.removeItem('fitduel_user')
+        
+        // Redirect to dashboard
+        setTimeout(() => {
+          router.push('/dashboard')
+        }, 500)
+      }
     } catch (err: any) {
       console.error('Auth error:', err)
       setError('Errore durante l\'autenticazione')
@@ -240,14 +246,6 @@ export default function LoginPage() {
   }
 
   // ====================================
-  // UTILITY FUNCTIONS
-  // ====================================
-  const getRandomAvatar = () => {
-    const avatars = ['💪', '🏋️‍♀️', '🏋️‍♂️', '🚀', '⚡', '🔥', '🏆', '⭐', '💎', '🎯', '🦾', '🌟']
-    return avatars[Math.floor(Math.random() * avatars.length)]
-  }
-
-  // ====================================
   // RENDER
   // ====================================
   return (
@@ -279,135 +277,209 @@ export default function LoginPage() {
             transition={{ delay: 0.3 }}
             className="text-gray-400"
           >
-            Inizia la tua avventura fitness
+            {authMode === 'login' ? 'Accedi al tuo account' : 'Inizia la tua avventura fitness'}
           </motion.p>
         </div>
 
-        {/* Demo Users */}
+        {/* Auth Mode Tabs */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="mb-6"
+          transition={{ delay: 0.35 }}
+          className="flex gap-2 mb-6"
         >
-          <Card variant="glass" className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Trophy className="w-4 h-4 text-yellow-500" />
-              <span className="text-sm font-medium text-white">Account Demo Pronti</span>
-            </div>
-            
-            <div className="space-y-2">
-              {DEMO_USERS.map((user, index) => {
-                const tierConfig = TIER_CONFIG[user.tier]
-                const TierIcon = tierConfig.icon
-                
-                return (
-                  <motion.button
-                    key={user.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.5 + index * 0.1 }}
-                    onClick={() => handleDemoLogin(user)}
-                    disabled={authState === 'loading'}
-                    className="w-full flex items-center justify-between p-3 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-all group disabled:opacity-50"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{user.avatar}</span>
-                      <div className="text-left">
-                        <div className="flex items-center gap-2">
-                          <p className="text-white font-medium">{user.username}</p>
-                          <span className={cn(
-                            'text-xs px-2 py-0.5 rounded-full border',
-                            tierConfig.bgColor,
-                            tierConfig.color
-                          )}>
-                            <TierIcon className="w-3 h-3 inline mr-1" />
-                            {tierConfig.label}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-400">
-                          Level {user.level} • {user.xp} XP • {user.coins} coins
-                        </p>
-                      </div>
-                    </div>
-                    <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
-                  </motion.button>
-                )
-              })}
-            </div>
-          </Card>
+          <Button
+            variant={authMode === 'login' ? 'gradient' : 'ghost'}
+            onClick={() => setAuthMode('login')}
+            className="flex-1"
+            size="sm"
+          >
+            Accedi
+          </Button>
+          <Button
+            variant={authMode === 'demo' ? 'gradient' : 'ghost'}
+            onClick={() => setAuthMode('demo')}
+            className="flex-1"
+            size="sm"
+          >
+            Account Demo
+          </Button>
         </motion.div>
 
-        {/* Quick Auth */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="space-y-4"
-        >
-          <Card variant="glass" className="p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <User className="w-4 h-4 text-indigo-400" />
-              <span className="text-sm font-medium text-white">Crea Nuovo Account</span>
-            </div>
+        {/* Login Form */}
+        {authMode === 'login' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="space-y-4"
+          >
+            <Card variant="glass" className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Email
+                  </label>
+                  <Input
+                    type="email"
+                    placeholder="tua@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSupabaseLogin()}
+                    disabled={authState === 'loading'}
+                    icon={<Mail className="w-5 h-5" />}
+                  />
+                </div>
 
-            <div className="space-y-4">
-              <Input
-                type="text"
-                placeholder="Scegli il tuo username..."
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleQuickAuth()}
-                disabled={authState === 'loading'}
-                icon={<User className="w-5 h-5" />}
-                className="text-lg"
-              />
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSupabaseLogin()}
+                      disabled={authState === 'loading'}
+                      icon={<Lock className="w-5 h-5" />}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
+                </div>
 
-              {error && (
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-red-400 text-sm flex items-center gap-1"
-                >
-                  <span>⚠️</span> {error}
-                </motion.p>
-              )}
-
-              <Button
-                variant="gradient"
-                size="lg"
-                onClick={handleQuickAuth}
-                disabled={authState === 'loading' || !username.trim()}
-                className="w-full"
-              >
-                {authState === 'loading' ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Accesso...
-                  </>
-                ) : (
-                  <>
-                    <Zap className="w-5 h-5 mr-2" />
-                    Inizia Subito
-                  </>
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-2"
+                  >
+                    <AlertCircle className="w-5 h-5 text-red-400 mt-0.5" />
+                    <p className="text-sm text-red-400">{error}</p>
+                  </motion.div>
                 )}
-              </Button>
 
-              <div className="text-center">
-                <p className="text-xs text-gray-500 mb-2">oppure</p>
+                <Button
+                  variant="gradient"
+                  size="lg"
+                  onClick={handleSupabaseLogin}
+                  disabled={authState === 'loading'}
+                  className="w-full"
+                >
+                  {authState === 'loading' ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Accesso...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-5 h-5 mr-2" />
+                      Accedi
+                    </>
+                  )}
+                </Button>
+
+                <div className="text-center space-y-2">
+                  <p className="text-sm text-gray-400">
+                    Non hai un account?{' '}
+                    <a 
+                      href="/register" 
+                      className="text-indigo-400 hover:text-indigo-300 transition-colors"
+                    >
+                      Registrati
+                    </a>
+                  </p>
+                  <p className="text-xs text-gray-500">oppure</p>
+                  <Button
+                    variant="secondary"
+                    onClick={handleGuestMode}
+                    disabled={authState === 'loading'}
+                    className="w-full"
+                  >
+                    <Gamepad2 className="w-4 h-4 mr-2" />
+                    Gioca come Ospite
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Demo Users */}
+        {authMode === 'demo' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="mb-6"
+          >
+            <Card variant="glass" className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Trophy className="w-4 h-4 text-yellow-500" />
+                <span className="text-sm font-medium text-white">Account Demo Pronti</span>
+              </div>
+              
+              <div className="space-y-2">
+                {DEMO_USERS.map((user, index) => {
+                  const tierConfig = TIER_CONFIG[user.tier]
+                  const TierIcon = tierConfig.icon
+                  
+                  return (
+                    <motion.button
+                      key={user.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.5 + index * 0.1 }}
+                      onClick={() => handleDemoLogin(user)}
+                      disabled={authState === 'loading'}
+                      className="w-full flex items-center justify-between p-3 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg transition-all group disabled:opacity-50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{user.avatar}</span>
+                        <div className="text-left">
+                          <div className="flex items-center gap-2">
+                            <p className="text-white font-medium">{user.username}</p>
+                            <span className={cn(
+                              'text-xs px-2 py-0.5 rounded-full border',
+                              tierConfig.bgColor,
+                              tierConfig.color
+                            )}>
+                              <TierIcon className="w-3 h-3 inline mr-1" />
+                              {tierConfig.label}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-400">
+                            Level {user.level} • {user.xp} XP • {user.coins} coins
+                          </p>
+                        </div>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
+                    </motion.button>
+                  )
+                })}
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-gray-800">
                 <Button
                   variant="secondary"
                   onClick={handleGuestMode}
                   disabled={authState === 'loading'}
                   className="w-full"
                 >
-                  <GamepadIcon className="w-4 h-4 mr-2" />
+                  <Gamepad2 className="w-4 h-4 mr-2" />
                   Gioca come Ospite
                 </Button>
               </div>
-            </div>
-          </Card>
-        </motion.div>
+            </Card>
+          </motion.div>
+        )}
 
         {/* Benefits */}
         <motion.div
@@ -451,7 +523,10 @@ export default function LoginPage() {
           className="mt-6 text-center"
         >
           <p className="text-xs text-gray-500">
-            Accedendo accetti i nostri termini di servizio
+            Accedendo accetti i nostri{' '}
+            <a href="/terms" className="text-indigo-400 hover:text-indigo-300">
+              termini di servizio
+            </a>
           </p>
         </motion.div>
       </div>
