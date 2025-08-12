@@ -373,7 +373,7 @@ async function handleSupabaseLeaderboard(
     }
 
     // Transform data to leaderboard format
-    const leaderboard: LeaderboardEntry[] = profiles.map((profile: any, index) => {
+    const leaderboard: LeaderboardEntry[] = profiles.map((profile: any, index: number) => {
       const stats = profile.user_stats[0] || {}
       const totalDuels = (stats.total_wins || 0) + (stats.total_losses || 0)
       const winRate = totalDuels > 0 ? ((stats.total_wins || 0) / totalDuels) * 100 : 0
