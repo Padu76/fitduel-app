@@ -8,7 +8,7 @@ import {
   Flame, Trophy, Zap, Users, Calendar, Bell, Plus, 
   TrendingUp, Medal, Star, Crown, Swords, Timer,
   BarChart3, Target, ChevronRight, Settings, LogOut,
-  Activity, Coins
+  Activity, Coins, CheckCircle, ExternalLink, RefreshCw
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/Button'
@@ -44,6 +44,19 @@ interface Achievement {
   name: string
   icon: string
   unlockedAt: string
+}
+
+interface Notification {
+  id: string
+  userId: string
+  type: 'challenge' | 'achievement' | 'level_up' | 'friend_request' | 'system'
+  title: string
+  message: string
+  isRead: boolean
+  metadata?: Record<string, any>
+  actionUrl?: string
+  createdAt: string
+  readAt?: string
 }
 
 // ====================================
@@ -218,7 +231,130 @@ const DuelCard = ({ duel }: { duel: DuelCardData }) => {
   )
 }
 
-const NotificationModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+const NotificationModal = ({ 
+  isOpen, 
+  onClose,
+  userId 
+}: { 
+  isOpen: boolean
+  onClose: () => void
+  userId: string
+}) => {
+  const router = useRouter()
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [showOnlyUnread, setShowOnlyUnread] = useState(false)
+
+  useEffect(() => {
+    if (isOpen && userId) {
+      fetchNotifications()
+    }
+  }, [isOpen, userId, showOnlyUnread])
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true)
+      const params = new URLSearchParams({
+        userId,
+        unreadOnly: showOnlyUnread.toString()
+      })
+
+      const response = await fetch(`/api/notifications?${params}`)
+      const result = await response.json()
+
+      if (result.success && result.data) {
+        setNotifications(result.data.notifications)
+        setUnreadCount(result.data.unreadCount)
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const markAsRead = async (notificationId: string) => {
+    try {
+      const response = await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'mark_read',
+          notificationId,
+          userId
+        })
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        // Update local state
+        setNotifications(prev => 
+          prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
+        )
+        setUnreadCount(prev => Math.max(0, prev - 1))
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error)
+    }
+  }
+
+  const markAllAsRead = async () => {
+    try {
+      const response = await fetch('/api/notifications', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'mark_all_read',
+          userId
+        })
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
+        setUnreadCount(0)
+      }
+    } catch (error) {
+      console.error('Error marking all as read:', error)
+    }
+  }
+
+  const handleNotificationClick = (notification: Notification) => {
+    if (!notification.isRead) {
+      markAsRead(notification.id)
+    }
+    if (notification.actionUrl) {
+      onClose()
+      router.push(notification.actionUrl)
+    }
+  }
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'challenge': return '🎯'
+      case 'achievement': return '🏆'
+      case 'level_up': return '⚡'
+      case 'friend_request': return '👥'
+      case 'system': return '📢'
+      default: return '🔔'
+    }
+  }
+
+  const formatTime = (date: string) => {
+    const now = new Date()
+    const notifDate = new Date(date)
+    const diffMs = now.getTime() - notifDate.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+
+    if (diffMins < 60) return `${diffMins} min fa`
+    if (diffHours < 24) return `${diffHours} ore fa`
+    if (diffDays < 7) return `${diffDays} giorni fa`
+    return notifDate.toLocaleDateString('it-IT')
+  }
+
   if (!isOpen) return null
 
   return (
@@ -226,33 +362,119 @@ const NotificationModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-gray-900 rounded-xl p-6 max-w-md w-full border border-gray-800"
+        className="bg-gray-900 rounded-xl p-6 max-w-md w-full max-h-[80vh] flex flex-col border border-gray-800"
       >
+        {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-white">Notifiche</h3>
+          <div>
+            <h3 className="text-lg font-bold text-white">Notifiche</h3>
+            <p className="text-sm text-gray-400">
+              {unreadCount > 0 ? `${unreadCount} non lette` : 'Tutte lette'}
+            </p>
+          </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white">
             ✕
           </button>
         </div>
+
+        {/* Filters */}
+        <div className="flex gap-2 mb-4">
+          <Button
+            variant={!showOnlyUnread ? 'gradient' : 'secondary'}
+            size="sm"
+            onClick={() => setShowOnlyUnread(false)}
+          >
+            Tutte
+          </Button>
+          <Button
+            variant={showOnlyUnread ? 'gradient' : 'secondary'}
+            size="sm"
+            onClick={() => setShowOnlyUnread(true)}
+          >
+            Non lette ({unreadCount})
+          </Button>
+          {unreadCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto"
+              onClick={markAllAsRead}
+            >
+              <CheckCircle className="w-4 h-4 mr-1" />
+              Segna tutte come lette
+            </Button>
+          )}
+        </div>
         
-        <div className="space-y-3">
-          <div className="p-3 bg-gray-800 rounded-lg">
-            <p className="text-sm text-white">🎯 FitGuru ti ha sfidato!</p>
-            <p className="text-xs text-gray-400">2 minuti fa</p>
-          </div>
-          <div className="p-3 bg-gray-800 rounded-lg">
-            <p className="text-sm text-white">🏆 Hai sbloccato un nuovo achievement!</p>
-            <p className="text-xs text-gray-400">1 ora fa</p>
-          </div>
-          <div className="p-3 bg-gray-800 rounded-lg">
-            <p className="text-sm text-white">⚡ Sei salito di livello!</p>
-            <p className="text-xs text-gray-400">3 ore fa</p>
-          </div>
+        {/* Notifications List */}
+        <div className="flex-1 overflow-y-auto space-y-2">
+          {loading ? (
+            <div className="text-center py-8">
+              <RefreshCw className="w-6 h-6 animate-spin text-gray-500 mx-auto mb-2" />
+              <p className="text-sm text-gray-500">Caricamento...</p>
+            </div>
+          ) : notifications.length === 0 ? (
+            <div className="text-center py-8">
+              <Bell className="w-12 h-12 text-gray-600 mx-auto mb-2" />
+              <p className="text-gray-400">
+                {showOnlyUnread ? 'Nessuna notifica non letta' : 'Nessuna notifica'}
+              </p>
+            </div>
+          ) : (
+            notifications.map((notification) => (
+              <motion.button
+                key={notification.id}
+                onClick={() => handleNotificationClick(notification)}
+                className={cn(
+                  'w-full p-3 rounded-lg text-left transition-all',
+                  'hover:bg-gray-700',
+                  notification.isRead ? 'bg-gray-800/50' : 'bg-gray-800'
+                )}
+                whileHover={{ x: 4 }}
+              >
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl flex-shrink-0">
+                    {getNotificationIcon(notification.type)}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className={cn(
+                        'text-sm font-medium',
+                        notification.isRead ? 'text-gray-300' : 'text-white'
+                      )}>
+                        {notification.title}
+                      </p>
+                      {!notification.isRead && (
+                        <span className="w-2 h-2 bg-indigo-500 rounded-full flex-shrink-0 mt-1"></span>
+                      )}
+                    </div>
+                    <p className={cn(
+                      'text-xs mt-1',
+                      notification.isRead ? 'text-gray-500' : 'text-gray-400'
+                    )}>
+                      {notification.message}
+                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <p className="text-xs text-gray-500">
+                        {formatTime(notification.createdAt)}
+                      </p>
+                      {notification.actionUrl && (
+                        <ExternalLink className="w-3 h-3 text-gray-500" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.button>
+            ))
+          )}
         </div>
 
-        <Button variant="gradient" className="w-full mt-4" onClick={onClose}>
-          Chiudi
-        </Button>
+        {/* Footer */}
+        <div className="mt-4 pt-4 border-t border-gray-800">
+          <Button variant="gradient" className="w-full" onClick={onClose}>
+            Chiudi
+          </Button>
+        </div>
       </motion.div>
     </div>
   )
@@ -266,6 +488,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
 
   // Load user from localStorage
   useEffect(() => {
@@ -274,6 +497,8 @@ export default function DashboardPage() {
       if (savedUser) {
         const userData = JSON.parse(savedUser)
         setUser(userData)
+        // Check unread notifications count
+        checkUnreadNotifications(userData.id)
       } else {
         // No user found, redirect to login
         router.push('/login')
@@ -285,6 +510,24 @@ export default function DashboardPage() {
       setLoading(false)
     }
   }, [router])
+
+  const checkUnreadNotifications = async (userId: string) => {
+    try {
+      const params = new URLSearchParams({
+        userId,
+        unreadOnly: 'true'
+      })
+
+      const response = await fetch(`/api/notifications?${params}`)
+      const result = await response.json()
+
+      if (result.success && result.data) {
+        setUnreadNotifications(result.data.unreadCount)
+      }
+    } catch (error) {
+      console.error('Error checking notifications:', error)
+    }
+  }
 
   const handleLogout = () => {
     localStorage.removeItem('fitduel_user')
@@ -336,7 +579,11 @@ export default function DashboardPage() {
                 >
                   <Bell className="w-5 h-5" />
                 </Button>
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                {unreadNotifications > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 rounded-full flex items-center justify-center text-xs text-white font-bold px-1">
+                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                  </span>
+                )}
               </div>
               
               <Link href="/profile">
@@ -438,16 +685,12 @@ export default function DashboardPage() {
                   </Button>
                 </Link>
 
-                <Button 
-                  variant="secondary"
-                  onClick={() => {
-                    // Per ora vai alla pagina challenges
-                    router.push('/challenges')
-                  }}
-                >
-                  <Activity className="w-5 h-5 mr-2" />
-                  Allenamento Libero
-                </Button>
+                <Link href="/training">
+                  <Button variant="secondary">
+                    <Activity className="w-5 h-5 mr-2" />
+                    Allenamento Libero
+                  </Button>
+                </Link>
 
                 <Button 
                   variant="secondary"
@@ -601,10 +844,17 @@ export default function DashboardPage() {
         </div>
       </main>
 
-      {/* Notification Modal */}
+      {/* Notification Modal with API Integration */}
       <NotificationModal 
         isOpen={showNotifications} 
-        onClose={() => setShowNotifications(false)} 
+        onClose={() => {
+          setShowNotifications(false)
+          // Refresh unread count after closing
+          if (user) {
+            checkUnreadNotifications(user.id)
+          }
+        }}
+        userId={user?.id || ''}
       />
     </div>
   )
