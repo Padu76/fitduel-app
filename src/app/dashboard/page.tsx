@@ -132,6 +132,8 @@ const XPBar = ({ currentXP, level }: { currentXP: number; level: number }) => {
 }
 
 const DuelCard = ({ duel }: { duel: DuelCardData }) => {
+  const router = useRouter()
+  
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'text-green-400 bg-green-500/10'
@@ -150,8 +152,22 @@ const DuelCard = ({ duel }: { duel: DuelCardData }) => {
     }
   }
 
+  const handleCardClick = () => {
+    // Se il duello è attivo o completato, vai alla pagina del duello
+    if (duel.status === 'active' || duel.status === 'completed') {
+      router.push(`/duel/${duel.id}`)
+    } else {
+      // Se è pending, vai alla pagina challenges per accettare
+      router.push('/challenges')
+    }
+  }
+
   return (
-    <Card variant="glass" className="p-4 hover:bg-gray-800/30 transition-all cursor-pointer">
+    <Card 
+      variant="glass" 
+      className="p-4 hover:bg-gray-800/30 transition-all cursor-pointer"
+      onClick={handleCardClick}
+    >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
@@ -185,11 +201,60 @@ const DuelCard = ({ duel }: { duel: DuelCardData }) => {
         </div>
       </div>
 
-      <Button variant="gradient" size="sm" className="w-full">
-        {duel.status === 'active' ? 'Continua' : 'Visualizza'}
+      <Button 
+        variant="gradient" 
+        size="sm" 
+        className="w-full"
+        onClick={(e) => {
+          e.stopPropagation() // Previene il doppio click
+          handleCardClick()
+        }}
+      >
+        {duel.status === 'active' ? 'Continua' : 
+         duel.status === 'pending' ? 'Accetta Sfida' : 'Visualizza'}
         <ChevronRight className="w-4 h-4 ml-1" />
       </Button>
     </Card>
+  )
+}
+
+const NotificationModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-gray-900 rounded-xl p-6 max-w-md w-full border border-gray-800"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-white">Notifiche</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">
+            ✕
+          </button>
+        </div>
+        
+        <div className="space-y-3">
+          <div className="p-3 bg-gray-800 rounded-lg">
+            <p className="text-sm text-white">🎯 FitGuru ti ha sfidato!</p>
+            <p className="text-xs text-gray-400">2 minuti fa</p>
+          </div>
+          <div className="p-3 bg-gray-800 rounded-lg">
+            <p className="text-sm text-white">🏆 Hai sbloccato un nuovo achievement!</p>
+            <p className="text-xs text-gray-400">1 ora fa</p>
+          </div>
+          <div className="p-3 bg-gray-800 rounded-lg">
+            <p className="text-sm text-white">⚡ Sei salito di livello!</p>
+            <p className="text-xs text-gray-400">3 ore fa</p>
+          </div>
+        </div>
+
+        <Button variant="gradient" className="w-full mt-4" onClick={onClose}>
+          Chiudi
+        </Button>
+      </motion.div>
+    </div>
   )
 }
 
@@ -200,6 +265,7 @@ export default function DashboardPage() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showNotifications, setShowNotifications] = useState(false)
 
   // Load user from localStorage
   useEffect(() => {
@@ -263,7 +329,11 @@ export default function DashboardPage() {
 
             <div className="flex items-center gap-3">
               <div className="relative">
-                <Button variant="ghost" size="sm">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setShowNotifications(true)}
+                >
                   <Bell className="w-5 h-5" />
                 </Button>
                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
@@ -368,12 +438,24 @@ export default function DashboardPage() {
                   </Button>
                 </Link>
 
-                <Button variant="secondary">
+                <Button 
+                  variant="secondary"
+                  onClick={() => {
+                    // Per ora vai alla pagina challenges
+                    router.push('/challenges')
+                  }}
+                >
                   <Activity className="w-5 h-5 mr-2" />
                   Allenamento Libero
                 </Button>
 
-                <Button variant="secondary">
+                <Button 
+                  variant="secondary"
+                  onClick={() => {
+                    // Coming soon
+                    alert('Torneo settimanale - Coming Soon! 🏆')
+                  }}
+                >
                   <Trophy className="w-5 h-5 mr-2" />
                   Torneo Settimanale
                 </Button>
@@ -518,6 +600,12 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
+
+      {/* Notification Modal */}
+      <NotificationModal 
+        isOpen={showNotifications} 
+        onClose={() => setShowNotifications(false)} 
+      />
     </div>
   )
 }
