@@ -3,14 +3,16 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Mail, Lock, User, Flame, AlertCircle, CheckCircle, Info, Calendar } from 'lucide-react'
+import { Mail, Lock, User, Flame, AlertCircle, CheckCircle, Info, Calendar, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
-import { auth } from '@/lib/supabase-client'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 export default function RegisterPage() {
   const router = useRouter()
+  const supabase = createClientComponentClient()
+  
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -20,16 +22,25 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
 
   // Check if user is already logged in
   useEffect(() => {
-    auth.getSession().then(session => {
-      if (session) {
+    checkUser()
+  }, [])
+
+  const checkUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
         router.push('/dashboard')
       }
-    })
-  }, [router])
+    } catch (error) {
+      console.error('Error checking user:', error)
+    }
+  }
 
   // Real-time validation
   useEffect(() => {
@@ -48,12 +59,8 @@ export default function RegisterPage() {
     }
     
     // Password validation
-    if (password) {
-      if (password.length < 6) {
-        errors.password = 'Password deve essere almeno 6 caratteri'
-      } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
-        errors.password = 'Password deve contenere maiuscole, minuscole e numeri'
-      }
+    if (password && password.length < 6) {
+      errors.password = 'Password deve essere almeno 6 caratteri'
     }
     
     // Confirm password validation
@@ -95,29 +102,55 @@ export default function RegisterPage() {
     setSuccess(null)
     
     try {
-      // Register with Supabase
-      const { user, session } = await auth.signUp(email, password, username)
+      // 1. Sign up the user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            username,
+            date_of_birth: birthDate
+          }
+        }
+      })
       
-      if (!user) {
-        throw new Error('Registrazione fallita. Riprova.')
-      }
+      if (authError) throw authError
       
-      // Success!
-      setSuccess('Account creato con successo! 🎉')
-      
-      // Note: Supabase might require email confirmation
-      // If email confirmation is disabled, auto-login will work
-      if (session) {
-        // Auto-login successful
-        setTimeout(() => {
-          router.push('/dashboard')
-        }, 1500)
-      } else {
-        // Email confirmation required
-        setSuccess('Account creato! Controlla la tua email per confermare la registrazione.')
-        setTimeout(() => {
-          router.push('/login')
-        }, 3000)
+      if (authData.user) {
+        // 2. Create profile in profiles table
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: authData.user.id,
+            username,
+            email,
+            display_name: username,
+            date_of_birth: birthDate,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+        
+        if (profileError) {
+          console.error('Profile creation error:', profileError)
+          // Continue anyway - the profile might be created by a trigger
+        }
+        
+        // Success!
+        setSuccess('Account creato con successo! 🎉')
+        
+        // Check if email confirmation is required
+        if (authData.session) {
+          // Auto-login successful
+          setTimeout(() => {
+            router.push('/dashboard')
+          }, 1500)
+        } else {
+          // Email confirmation required
+          setSuccess('Account creato! Controlla la tua email per confermare la registrazione.')
+          setTimeout(() => {
+            router.push('/login')
+          }, 3000)
+        }
       }
       
     } catch (error: any) {
@@ -134,14 +167,6 @@ export default function RegisterPage() {
         setError('Troppi tentativi. Riprova tra qualche minuto')
       } else {
         setError(error.message || 'Errore durante la registrazione. Riprova.')
-      }
-      
-      // Fallback to demo mode if Supabase not configured
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-        setSuccess('Modalità demo - Registrazione simulata')
-        setTimeout(() => {
-          router.push('/login')
-        }, 2000)
       }
     } finally {
       setIsLoading(false)
@@ -229,16 +254,24 @@ export default function RegisterPage() {
 
             {/* Password */}
             <div>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                icon={<Lock className="w-5 h-5" />}
-                showPasswordToggle
-                required
-                disabled={isLoading}
-              />
+              <div className="relative">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password"
+                  icon={<Lock className="w-5 h-5" />}
+                  required
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
               {validationErrors.password && (
                 <p className="text-xs text-red-400 mt-1">{validationErrors.password}</p>
               )}
@@ -253,16 +286,24 @@ export default function RegisterPage() {
 
             {/* Confirm Password */}
             <div>
-              <Input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Conferma Password"
-                icon={<Lock className="w-5 h-5" />}
-                showPasswordToggle
-                required
-                disabled={isLoading}
-              />
+              <div className="relative">
+                <Input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Conferma Password"
+                  icon={<Lock className="w-5 h-5" />}
+                  required
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
               {validationErrors.confirmPassword && (
                 <p className="text-xs text-red-400 mt-1">{validationErrors.confirmPassword}</p>
               )}
