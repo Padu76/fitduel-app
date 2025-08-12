@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
@@ -40,7 +40,7 @@ interface QuickUser {
 }
 
 type AuthState = 'idle' | 'loading' | 'success' | 'error'
-type AuthMode = 'login' | 'demo' | 'guest'
+type AuthMode = 'login' | 'demo'
 
 // ====================================
 // DEMO USERS DATA
@@ -109,19 +109,23 @@ export default function LoginPage() {
   const [authMode, setAuthMode] = useState<AuthMode>('login')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const hasCheckedAuth = useRef(false)
   
   // Login form
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
-  // Check if user is already logged in
+  // Check if user is already logged in - ONLY ONCE
   useEffect(() => {
-    checkUser()
+    if (!hasCheckedAuth.current) {
+      hasCheckedAuth.current = true
+      checkUser()
+    }
   }, [])
 
   const checkUser = async () => {
     try {
-      // Check Supabase auth first
+      // Check Supabase auth
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         console.log('👋 User già loggato con Supabase:', user.email)
@@ -132,8 +136,8 @@ export default function LoginPage() {
       // Check demo user
       const savedUser = localStorage.getItem('fitduel_user')
       if (savedUser) {
-        const user = JSON.parse(savedUser)
-        console.log('👋 User demo già loggato:', user.username)
+        const demoUser = JSON.parse(savedUser)
+        console.log('👋 User demo già loggato:', demoUser.username)
         router.push('/dashboard')
       }
     } catch (err) {
@@ -161,9 +165,18 @@ export default function LoginPage() {
 
       if (error) {
         console.error('Login error:', error)
-        setError(error.message === 'Invalid login credentials' 
-          ? 'Email o password non validi' 
-          : 'Errore durante il login. Riprova.')
+        
+        // Better error messages in Italian
+        if (error.message === 'Invalid login credentials') {
+          setError('Email o password non corretti')
+        } else if (error.message.includes('Email not confirmed')) {
+          setError('Devi confermare la tua email prima di accedere')
+        } else if (error.message.includes('rate limit')) {
+          setError('Troppi tentativi. Riprova tra qualche minuto')
+        } else {
+          setError('Errore durante il login. Riprova.')
+        }
+        
         setAuthState('error')
         return
       }
@@ -175,10 +188,8 @@ export default function LoginPage() {
         // Clear any demo user data
         localStorage.removeItem('fitduel_user')
         
-        // Redirect to dashboard
-        setTimeout(() => {
-          router.push('/dashboard')
-        }, 500)
+        // Navigate to dashboard
+        router.push('/dashboard')
       }
     } catch (err: any) {
       console.error('Auth error:', err)
@@ -208,12 +219,8 @@ export default function LoginPage() {
       }
 
       localStorage.setItem('fitduel_user', JSON.stringify(guestUser))
-      
       setAuthState('success')
-      
-      setTimeout(() => {
-        router.push('/dashboard')
-      }, 300)
+      router.push('/dashboard')
 
     } catch (err: any) {
       console.error('Guest mode error:', err)
@@ -233,10 +240,7 @@ export default function LoginPage() {
       
       localStorage.setItem('fitduel_user', JSON.stringify(demoUser))
       setAuthState('success')
-      
-      setTimeout(() => {
-        router.push('/dashboard')
-      }, 300)
+      router.push('/dashboard')
 
     } catch (err: any) {
       console.error('Demo login error:', err)
@@ -290,17 +294,25 @@ export default function LoginPage() {
         >
           <Button
             variant={authMode === 'login' ? 'gradient' : 'ghost'}
-            onClick={() => setAuthMode('login')}
+            onClick={() => {
+              setAuthMode('login')
+              setError(null)
+            }}
             className="flex-1"
             size="sm"
+            disabled={authState === 'loading'}
           >
             Accedi
           </Button>
           <Button
             variant={authMode === 'demo' ? 'gradient' : 'ghost'}
-            onClick={() => setAuthMode('demo')}
+            onClick={() => {
+              setAuthMode('demo')
+              setError(null)
+            }}
             className="flex-1"
             size="sm"
+            disabled={authState === 'loading'}
           >
             Account Demo
           </Button>
@@ -325,7 +337,7 @@ export default function LoginPage() {
                     placeholder="tua@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSupabaseLogin()}
+                    onKeyDown={(e) => e.key === 'Enter' && password && handleSupabaseLogin()}
                     disabled={authState === 'loading'}
                     icon={<Mail className="w-5 h-5" />}
                   />
@@ -341,7 +353,7 @@ export default function LoginPage() {
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSupabaseLogin()}
+                      onKeyDown={(e) => e.key === 'Enter' && email && handleSupabaseLogin()}
                       disabled={authState === 'loading'}
                       icon={<Lock className="w-5 h-5" />}
                     />
@@ -349,6 +361,7 @@ export default function LoginPage() {
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                      disabled={authState === 'loading'}
                     >
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
@@ -370,7 +383,7 @@ export default function LoginPage() {
                   variant="gradient"
                   size="lg"
                   onClick={handleSupabaseLogin}
-                  disabled={authState === 'loading'}
+                  disabled={authState === 'loading' || !email || !password}
                   className="w-full"
                 >
                   {authState === 'loading' ? (
