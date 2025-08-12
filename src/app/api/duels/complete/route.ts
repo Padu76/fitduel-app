@@ -372,8 +372,8 @@ async function handleSupabaseCompleteDuel(
     }
 
     // Check if both users have completed
-    const challengerPerf = performances.find(p => p.user_id === duel.challenger_id)
-    const opponentPerf = performances.find(p => p.user_id === duel.challenged_id)
+    const challengerPerf = performances.find((p: any) => p.user_id === duel.challenger_id)
+    const opponentPerf = performances.find((p: any) => p.user_id === duel.challenged_id)
 
     if (!challengerPerf || !opponentPerf) {
       // Only one user has completed, mark as partial completion
@@ -601,7 +601,7 @@ async function handleSupabaseCompleteDuel(
       .eq('user_id', data.userId)
       .single()
 
-    const userPerformance = performances.find(p => p.user_id === data.userId)
+    const userPerformance = performances.find((p: any) => p.user_id === data.userId)
     const achievements = await checkAchievements(supabase, data.userId, userStats, userPerformance)
 
     // Calculate final user result
