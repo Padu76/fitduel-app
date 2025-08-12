@@ -477,7 +477,7 @@ export default function ProfilePage() {
                     ))}
                   </div>
                   <p className="text-sm text-white/80">
-                    {stats?.average_form_score >= 80 ? 'Top 10% dei giocatori' : 'Continua a migliorare!'}
+                    {(stats?.average_form_score || 0) >= 80 ? 'Top 10% dei giocatori' : 'Continua a migliorare!'}
                   </p>
                 </div>
               </Card>
