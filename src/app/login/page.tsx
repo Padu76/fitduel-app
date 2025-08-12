@@ -149,7 +149,6 @@ export default function LoginPage() {
                   onChange={handleChange}
                   placeholder="email@example.com"
                   icon={<Mail className="w-5 h-5" />}
-                  error={error?.field === 'email'}
                   errorMessage={error?.field === 'email' ? error.message : undefined}
                   disabled={isLoading}
                   required
@@ -176,7 +175,6 @@ export default function LoginPage() {
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   }
-                  error={error?.field === 'password'}
                   errorMessage={error?.field === 'password' ? error.message : undefined}
                   disabled={isLoading}
                   required
