@@ -295,7 +295,6 @@ export default function HomePage() {
                       key={duel.id}
                       duel={{
                         id: duel.id,
-                        type: duel.type as any,
                         status: duel.status as any,
                         exercise: duel.exercise?.name || 'Unknown',
                         opponent: duel.challenged?.username || duel.challenger?.username || 'Unknown',
