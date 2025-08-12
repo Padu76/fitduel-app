@@ -7,7 +7,7 @@ import { motion } from 'framer-motion'
 import { 
   Trophy, Medal, Award, Star, Crown, Zap, Target, Flame, Shield, 
   Heart, TrendingUp, Users, Timer, CheckCircle, Lock, ChevronLeft,
-  Filter, Search, X, Sparkles, Progress
+  Filter, Search, X, Sparkles
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/Button'
