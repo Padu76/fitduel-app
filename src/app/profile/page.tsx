@@ -8,7 +8,7 @@ import {
   Medal, Crown, Star, Flame, TrendingUp, Calendar,
   Settings, Edit2, Camera, Award, Users, Swords,
   ChevronRight, Clock, Heart, BarChart3, Share2,
-  LogOut, Bell, Lock, Palette, Globe
+  LogOut, Bell, Lock, Palette, Globe, Mail
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/Button'
@@ -16,7 +16,7 @@ import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { XPBar } from '@/components/game/XPBar'
-import { formatNumber } from '@/utils/helpers'
+import { formatNumber, calculateLevel, calculateProgress } from '@/utils/helpers'
 
 // Mock user data
 const userData = {
@@ -81,6 +81,10 @@ export default function ProfilePage() {
   })
 
   const maxActivity = Math.max(...userData.weeklyActivity.map(d => d.duels))
+  
+  // Calculate level data from totalXP
+  const userLevel = calculateLevel(userData.totalXP)
+  const progress = calculateProgress(userData.totalXP)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-indigo-950 to-purple-950">
@@ -206,15 +210,14 @@ export default function ProfilePage() {
               <Card variant="glass" className="p-6">
                 <h2 className="text-xl font-bold text-white mb-4">Progresso Livello</h2>
                 <XPBar
-                  currentXP={userData.currentXP}
-                  requiredXP={userData.nextLevelXP}
-                  level={userData.level}
-                  showLabel
-                  animated
+                  currentXP={userData.totalXP}
+                  showLevel
+                  showProgress
+                  showAnimation
                   size="lg"
                 />
                 <p className="text-sm text-gray-400 mt-2">
-                  {userData.nextLevelXP - userData.currentXP} XP al prossimo livello
+                  {progress.remaining} XP al prossimo livello
                 </p>
               </Card>
 
