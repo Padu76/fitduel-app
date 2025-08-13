@@ -491,7 +491,7 @@ export class AIMissionGenerator {
         win_rate: stats?.total_duels > 0 ? (stats?.duels_won / stats?.total_duels) * 100 : 0,
         daily_streak: stats?.daily_streak || 0,
         max_daily_streak: stats?.max_daily_streak || 0,
-        favorite_exercises: this.analyzeFavoriteExercises(missions?.data || []),
+        favorite_exercises: this.analyzeFavoriteExercises(missions || []),
         preferred_difficulty: this.analyzePreferredDifficulty(stats),
         activity_patterns: {
           most_active_time: '18:00', // Default, could be analyzed from data
@@ -499,9 +499,9 @@ export class AIMissionGenerator {
           weekly_frequency: 4 // Default days per week
         },
         completion_history: {
-          daily_completed: missions?.data?.filter(m => m.is_completed)?.length || 0,
+          daily_completed: missions?.filter((m: any) => m.is_completed)?.length || 0,
           weekly_completed: 0, // Could be calculated
-          preferred_categories: this.analyzePreferredCategories(missions?.data || [])
+          preferred_categories: this.analyzePreferredCategories(missions || [])
         }
       }
 
