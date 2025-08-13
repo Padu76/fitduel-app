@@ -259,16 +259,94 @@ export type DuelStatus = typeof DUEL_STATUS[keyof typeof DUEL_STATUS]
 // LEVELS SYSTEM
 // ====================================
 export const LEVELS = {
-  1: { xpRequired: 0, title: 'Principiante', icon: '🥉' },
-  2: { xpRequired: 100, title: 'Novizio', icon: '🥉' },
-  3: { xpRequired: 250, title: 'Apprendista', icon: '🥉' },
-  4: { xpRequired: 450, title: 'Praticante', icon: '🥈' },
-  5: { xpRequired: 700, title: 'Esperto', icon: '🥈' },
-  6: { xpRequired: 1000, title: 'Veterano', icon: '🥈' },
-  7: { xpRequired: 1350, title: 'Maestro', icon: '🥇' },
-  8: { xpRequired: 1750, title: 'Campione', icon: '🥇' },
-  9: { xpRequired: 2200, title: 'Leggenda', icon: '🏆' },
-  10: { xpRequired: 2700, title: 'Immortale', icon: '👑' }
+  0: { 
+    level: 0, 
+    xpRequired: 0, 
+    title: 'Nuovo', 
+    titleIt: 'Nuovo', 
+    icon: '🆕', 
+    badge: 'Starter' 
+  },
+  1: { 
+    level: 1, 
+    xpRequired: 0, 
+    title: 'Principiante', 
+    titleIt: 'Principiante', 
+    icon: '🥉', 
+    badge: 'Novizio' 
+  },
+  2: { 
+    level: 2, 
+    xpRequired: 100, 
+    title: 'Novizio', 
+    titleIt: 'Novizio', 
+    icon: '🥉', 
+    badge: 'Apprendista' 
+  },
+  3: { 
+    level: 3, 
+    xpRequired: 250, 
+    title: 'Apprendista', 
+    titleIt: 'Apprendista', 
+    icon: '🥉', 
+    badge: 'Praticante' 
+  },
+  4: { 
+    level: 4, 
+    xpRequired: 450, 
+    title: 'Praticante', 
+    titleIt: 'Praticante', 
+    icon: '🥈', 
+    badge: 'Esperto' 
+  },
+  5: { 
+    level: 5, 
+    xpRequired: 700, 
+    title: 'Esperto', 
+    titleIt: 'Esperto', 
+    icon: '🥈', 
+    badge: 'Veterano' 
+  },
+  6: { 
+    level: 6, 
+    xpRequired: 1000, 
+    title: 'Veterano', 
+    titleIt: 'Veterano', 
+    icon: '🥈', 
+    badge: 'Maestro' 
+  },
+  7: { 
+    level: 7, 
+    xpRequired: 1350, 
+    title: 'Maestro', 
+    titleIt: 'Maestro', 
+    icon: '🥇', 
+    badge: 'Campione' 
+  },
+  8: { 
+    level: 8, 
+    xpRequired: 1750, 
+    title: 'Campione', 
+    titleIt: 'Campione', 
+    icon: '🥇', 
+    badge: 'Leggenda' 
+  },
+  9: { 
+    level: 9, 
+    xpRequired: 2200, 
+    title: 'Leggenda', 
+    titleIt: 'Leggenda', 
+    icon: '🏆', 
+    badge: 'Immortale' 
+  },
+  10: { 
+    level: 10, 
+    xpRequired: 2700, 
+    title: 'Immortale', 
+    titleIt: 'Immortale', 
+    icon: '👑', 
+    badge: 'Divino' 
+  }
 } as const
 
 // ====================================
