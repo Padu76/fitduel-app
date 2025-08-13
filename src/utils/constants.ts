@@ -5,32 +5,41 @@ export const APP_NAME = 'FitDuel'
 export const APP_VERSION = '0.1.0'
 export const APP_DOMAIN = 'fit-duel.com'
 export const APP_DOMAIN_IT = 'fit-duel.it'
-export const APP_TAGLINE = 'Sfida. Allenati. Domina.'
 
 // ====================================
-// EXERCISES CONFIGURATION
+// API CONFIGURATION
 // ====================================
-export const EXERCISES = {
-  PUSHUP: 'pushup',
-  SQUAT: 'squat',
-  PLANK: 'plank',
-  BURPEE: 'burpee',
-  JUMPING_JACK: 'jumping_jack',
-  MOUNTAIN_CLIMBER: 'mountain_climber',
-  WALL_SIT: 'wall_sit',
-  DEAD_HANG: 'dead_hang',
-  BRIDGE_HOLD: 'bridge_hold',
-} as const
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 
-export const EXERCISE_DATA = {
-  [EXERCISES.PUSHUP]: {
+// ====================================
+// EXERCISE DATA
+// ====================================
+export interface ExerciseData {
+  name: string
+  nameIt: string
+  icon: string
+  measurement: string
+  unit: string
+  color: string
+  difficulty: number
+  isTimeBased: boolean
+  defaultTargets: {
+    easy: number
+    medium: number
+    hard: number
+    extreme: number
+  }
+}
+
+export const EXERCISE_DATA: Record<string, ExerciseData> = {
+  pushup: {
     name: 'Push-Up',
     nameIt: 'Flessioni',
     icon: '💪',
-    measurement: 'reps',
-    unit: 'ripetizioni',
-    color: 'indigo',
-    difficulty: 2,
+    measurement: 'Ripetizioni',
+    unit: 'reps',
+    color: 'from-red-500 to-orange-500',
+    difficulty: 3,
     isTimeBased: false,
     defaultTargets: {
       easy: 10,
@@ -39,388 +48,302 @@ export const EXERCISE_DATA = {
       extreme: 50
     }
   },
-  [EXERCISES.SQUAT]: {
-    name: 'Squat',
-    nameIt: 'Squat',
-    icon: '🦵',
-    measurement: 'reps',
-    unit: 'ripetizioni',
-    color: 'purple',
-    difficulty: 1,
-    isTimeBased: false,
-    defaultTargets: {
-      easy: 15,
-      medium: 30,
-      hard: 45,
-      extreme: 60
-    }
-  },
-  [EXERCISES.PLANK]: {
+  plank: {
     name: 'Plank',
     nameIt: 'Plank',
     icon: '🏋️',
-    measurement: 'duration',
-    unit: 'secondi',
-    color: 'green',
+    measurement: 'Tempo',
+    unit: 'seconds',
+    color: 'from-blue-500 to-indigo-500',
+    difficulty: 4,
+    isTimeBased: true,
+    defaultTargets: {
+      easy: 30,
+      medium: 60,
+      hard: 120,
+      extreme: 300
+    }
+  },
+  squat: {
+    name: 'Squat',
+    nameIt: 'Squat',
+    icon: '🦵',
+    measurement: 'Ripetizioni',
+    unit: 'reps',
+    color: 'from-green-500 to-emerald-500',
+    difficulty: 2,
+    isTimeBased: false,
+    defaultTargets: {
+      easy: 15,
+      medium: 25,
+      hard: 40,
+      extreme: 60
+    }
+  },
+  burpee: {
+    name: 'Burpee',
+    nameIt: 'Burpee',
+    icon: '🔥',
+    measurement: 'Ripetizioni',
+    unit: 'reps',
+    color: 'from-purple-500 to-pink-500',
+    difficulty: 5,
+    isTimeBased: false,
+    defaultTargets: {
+      easy: 5,
+      medium: 10,
+      hard: 20,
+      extreme: 30
+    }
+  },
+  situp: {
+    name: 'Sit-Up',
+    nameIt: 'Addominali',
+    icon: '🎯',
+    measurement: 'Ripetizioni',
+    unit: 'reps',
+    color: 'from-yellow-500 to-orange-500',
+    difficulty: 2,
+    isTimeBased: false,
+    defaultTargets: {
+      easy: 15,
+      medium: 25,
+      hard: 40,
+      extreme: 60
+    }
+  },
+  pullup: {
+    name: 'Pull-Up',
+    nameIt: 'Trazioni',
+    icon: '🏆',
+    measurement: 'Ripetizioni',
+    unit: 'reps',
+    color: 'from-cyan-500 to-blue-500',
+    difficulty: 5,
+    isTimeBased: false,
+    defaultTargets: {
+      easy: 3,
+      medium: 8,
+      hard: 15,
+      extreme: 25
+    }
+  },
+  wall_sit: {
+    name: 'Wall Sit',
+    nameIt: 'Wall Sit',
+    icon: '🧱',
+    measurement: 'Tempo',
+    unit: 'seconds',
+    color: 'from-gray-500 to-slate-500',
     difficulty: 3,
     isTimeBased: true,
     defaultTargets: {
       easy: 30,
       medium: 60,
-      hard: 90,
-      extreme: 120
+      hard: 120,
+      extreme: 180
     }
   },
-  [EXERCISES.WALL_SIT]: {
-    name: 'Wall Sit',
-    nameIt: 'Seduta al Muro',
-    icon: '🪑',
-    measurement: 'duration',
-    unit: 'secondi',
-    color: 'orange',
-    difficulty: 2,
-    isTimeBased: true,
-    defaultTargets: {
-      easy: 20,
-      medium: 45,
-      hard: 60,
-      extreme: 90
-    }
-  },
-  [EXERCISES.DEAD_HANG]: {
+  dead_hang: {
     name: 'Dead Hang',
-    nameIt: 'Appeso alla Sbarra',
-    icon: '🤸',
-    measurement: 'duration',
-    unit: 'secondi',
-    color: 'cyan',
-    difficulty: 3,
+    nameIt: 'Sospensione',
+    icon: '🏃',
+    measurement: 'Tempo',
+    unit: 'seconds',
+    color: 'from-teal-500 to-green-500',
+    difficulty: 4,
     isTimeBased: true,
     defaultTargets: {
       easy: 15,
       medium: 30,
-      hard: 45,
-      extreme: 60
+      hard: 60,
+      extreme: 120
     }
   },
-  [EXERCISES.BRIDGE_HOLD]: {
+  bridge_hold: {
     name: 'Bridge Hold',
-    nameIt: 'Ponte Isometrico',
+    nameIt: 'Ponte',
     icon: '🌉',
-    measurement: 'duration',
-    unit: 'secondi',
-    color: 'pink',
-    difficulty: 2,
+    measurement: 'Tempo',
+    unit: 'seconds',
+    color: 'from-rose-500 to-pink-500',
+    difficulty: 3,
     isTimeBased: true,
     defaultTargets: {
       easy: 20,
-      medium: 40,
-      hard: 60,
-      extreme: 90
+      medium: 45,
+      hard: 90,
+      extreme: 150
     }
   },
-  [EXERCISES.BURPEE]: {
-    name: 'Burpee',
-    nameIt: 'Burpee',
-    icon: '🔥',
-    measurement: 'reps',
-    unit: 'ripetizioni',
-    color: 'red',
+  mountain_climber: {
+    name: 'Mountain Climber',
+    nameIt: 'Scalata in Montagna',
+    icon: '⛰️',
+    measurement: 'Ripetizioni',
+    unit: 'reps',
+    color: 'from-amber-500 to-yellow-500',
     difficulty: 4,
     isTimeBased: false,
     defaultTargets: {
-      easy: 5,
-      medium: 10,
-      hard: 15,
-      extreme: 25
-    }
-  },
-  [EXERCISES.JUMPING_JACK]: {
-    name: 'Jumping Jack',
-    nameIt: 'Jumping Jack',
-    icon: '⭐',
-    measurement: 'reps',
-    unit: 'ripetizioni',
-    color: 'yellow',
-    difficulty: 1,
-    isTimeBased: false,
-    defaultTargets: {
       easy: 20,
-      medium: 40,
-      hard: 60,
-      extreme: 100
-    }
-  },
-  [EXERCISES.MOUNTAIN_CLIMBER]: {
-    name: 'Mountain Climber',
-    nameIt: 'Mountain Climber',
-    icon: '⛰️',
-    measurement: 'reps',
-    unit: 'ripetizioni',
-    color: 'blue',
-    difficulty: 3,
-    isTimeBased: false,
-    defaultTargets: {
-      easy: 10,
-      medium: 20,
-      hard: 30,
-      extreme: 50
-    }
-  },
-}
-
-// Helper function to get exercise by any identifier
-export const getExerciseData = (exerciseKey: string) => {
-  // Try direct lookup
-  if (EXERCISE_DATA[exerciseKey]) {
-    return EXERCISE_DATA[exerciseKey]
-  }
-  
-  // Try to find by name or code variations
-  const normalizedKey = exerciseKey.toLowerCase().replace(/[_-]/g, '')
-  for (const [key, data] of Object.entries(EXERCISE_DATA)) {
-    const normalizedDataKey = key.toLowerCase().replace(/[_-]/g, '')
-    const normalizedName = data.name.toLowerCase().replace(/[_-\s]/g, '')
-    const normalizedNameIt = data.nameIt.toLowerCase().replace(/[_-\s]/g, '')
-    
-    if (normalizedDataKey === normalizedKey || 
-        normalizedName === normalizedKey || 
-        normalizedNameIt === normalizedKey) {
-      return data
+      medium: 30,
+      hard: 50,
+      extreme: 80
     }
   }
-  
-  return null
-}
-
-// Get all time-based exercises
-export const getTimeBasedExercises = () => {
-  return Object.entries(EXERCISE_DATA)
-    .filter(([_, data]) => data.isTimeBased)
-    .map(([key, data]) => ({ key, ...data }))
-}
-
-// Get all rep-based exercises
-export const getRepBasedExercises = () => {
-  return Object.entries(EXERCISE_DATA)
-    .filter(([_, data]) => !data.isTimeBased)
-    .map(([key, data]) => ({ key, ...data }))
 }
 
 // ====================================
-// DUEL CONFIGURATION
+// HELPER FUNCTIONS
 // ====================================
-export const DUEL_STATUS = {
-  PENDING: 'pending',      // In attesa di accettazione
-  ACCEPTED: 'accepted',    // Accettato, in attesa di completamento
-  ACTIVE: 'active',       // In corso
-  COMPLETED: 'completed', // Completato
-  CANCELLED: 'cancelled', // Annullato
-  EXPIRED: 'expired',     // Scaduto
-  REJECTED: 'rejected',   // Rifiutato
-  OPEN: 'open',          // Aperto a tutti
-} as const
+export const getExerciseData = (exerciseKey: string): ExerciseData | null => {
+  // Use type assertion with proper checking
+  const exercise = EXERCISE_DATA[exerciseKey as keyof typeof EXERCISE_DATA]
+  return exercise || null
+}
 
-export const DUEL_TYPES = {
-  CLASSIC: '1v1',           // Duello classico 1 contro 1
-  OPEN: 'open',            // Sfida aperta a tutti
-  TOURNAMENT: 'tournament',  // Torneo
-  MISSION: 'mission',       // Missione giornaliera
-  TEAM: 'team',            // Sfida a squadre
-  ROYALE: 'royale',        // Battle royale (multipli partecipanti)
-} as const
+export const getTimeBasedExercises = (): string[] => {
+  return Object.keys(EXERCISE_DATA).filter(
+    key => EXERCISE_DATA[key as keyof typeof EXERCISE_DATA]?.isTimeBased
+  )
+}
 
-export const DUEL_MODES = {
-  LIVE: 'live',           // In tempo reale
-  ASYNC: 'async',         // Asincrono (entro tempo limite)
-  TIMED: 'timed',         // Con timer fisso
-} as const
+export const getRepBasedExercises = (): string[] => {
+  return Object.keys(EXERCISE_DATA).filter(
+    key => !EXERCISE_DATA[key as keyof typeof EXERCISE_DATA]?.isTimeBased
+  )
+}
 
-// ====================================
-// XP & REWARDS SYSTEM
-// ====================================
-export const XP_REWARDS = {
-  // Duel rewards
-  DUEL_WIN: 100,
-  DUEL_LOSE: 25,
-  DUEL_DRAW: 50,
-  DUEL_PERFECT: 150,        // Vittoria con form perfetta
-  DUEL_COMEBACK: 200,       // Vittoria in rimonta
-  DUEL_STREAK_3: 50,        // 3 vittorie di fila
-  DUEL_STREAK_5: 100,       // 5 vittorie di fila
-  DUEL_STREAK_10: 250,      // 10 vittorie di fila
-  
-  // Exercise rewards
-  EXERCISE_COMPLETE: 50,
-  PERSONAL_BEST: 100,
-  FORM_EXCELLENT: 75,       // Form score > 90%
-  FORM_GOOD: 35,            // Form score > 70%
-  
-  // Daily rewards
-  DAILY_LOGIN: 10,
-  DAILY_FIRST_DUEL: 25,
-  DAILY_THREE_DUELS: 50,
-  DAILY_MISSION: 75,
-  
-  // Social rewards
-  FRIEND_INVITED: 100,
-  FRIEND_ACCEPTED: 50,
-  SHARED_VICTORY: 25,
-} as const
+export const getAllExercises = (): string[] => {
+  return Object.keys(EXERCISE_DATA)
+}
+
+export const getExercisesByDifficulty = (difficulty: number): string[] => {
+  return Object.keys(EXERCISE_DATA).filter(
+    key => EXERCISE_DATA[key as keyof typeof EXERCISE_DATA]?.difficulty === difficulty
+  )
+}
 
 // ====================================
-// LEVELS & RANKS
+// DIFFICULTY LEVELS
 // ====================================
-export const LEVELS = [
-  { level: 1, minXP: 0, title: 'Rookie', titleIt: 'Principiante', badge: '🥉' },
-  { level: 2, minXP: 200, title: 'Beginner', titleIt: 'Novizio', badge: '🥉' },
-  { level: 3, minXP: 500, title: 'Apprentice', titleIt: 'Apprendista', badge: '🥉' },
-  { level: 4, minXP: 900, title: 'Fighter', titleIt: 'Combattente', badge: '🥈' },
-  { level: 5, minXP: 1500, title: 'Warrior', titleIt: 'Guerriero', badge: '🥈' },
-  { level: 6, minXP: 2500, title: 'Veteran', titleIt: 'Veterano', badge: '🥈' },
-  { level: 7, minXP: 4000, title: 'Elite', titleIt: 'Elite', badge: '🥇' },
-  { level: 8, minXP: 6000, title: 'Master', titleIt: 'Maestro', badge: '🥇' },
-  { level: 9, minXP: 9000, title: 'Champion', titleIt: 'Campione', badge: '🏆' },
-  { level: 10, minXP: 13000, title: 'Legend', titleIt: 'Leggenda', badge: '👑' },
-  { level: 11, minXP: 18000, title: 'Mythic', titleIt: 'Mitico', badge: '⚔️' },
-  { level: 12, minXP: 25000, title: 'Immortal', titleIt: 'Immortale', badge: '🔥' },
-]
-
-// ====================================
-// BADGES & ACHIEVEMENTS
-// ====================================
-export const BADGE_CATEGORIES = {
-  ACHIEVEMENT: 'achievement',
-  MILESTONE: 'milestone',
-  SPECIAL: 'special',
-  SEASONAL: 'seasonal',
-  SOCIAL: 'social',
+export const DIFFICULTY_LEVELS = {
+  easy: { name: 'Facile', color: 'text-green-500', multiplier: 1 },
+  medium: { name: 'Medio', color: 'text-yellow-500', multiplier: 1.5 },
+  hard: { name: 'Difficile', color: 'text-orange-500', multiplier: 2 },
+  extreme: { name: 'Estremo', color: 'text-red-500', multiplier: 3 }
 } as const
 
-export const BADGE_RARITY = {
-  COMMON: 'common',
-  RARE: 'rare',
-  EPIC: 'epic',
-  LEGENDARY: 'legendary',
-  MYTHIC: 'mythic',
-} as const
+export type DifficultyLevel = keyof typeof DIFFICULTY_LEVELS
 
 // ====================================
-// MISSIONS & CHALLENGES
+// GAME CONSTANTS
 // ====================================
-export const MISSION_TYPES = {
-  DAILY: 'daily',
-  WEEKLY: 'weekly',
-  SPECIAL: 'special',
-  EVENT: 'event',
-} as const
-
-export const MISSION_DIFFICULTY = {
-  EASY: 'easy',
-  MEDIUM: 'medium',
-  HARD: 'hard',
-  EXTREME: 'extreme',
-} as const
+export const GAME_CONFIG = {
+  XP_PER_VICTORY: 100,
+  COINS_PER_VICTORY: 25,
+  STREAK_BONUS_MULTIPLIER: 1.1,
+  MAX_DAILY_STREAK: 365,
+  LEVEL_XP_BASE: 100,
+  DUEL_DURATION_HOURS: 24,
+  TOURNAMENT_DURATION_DAYS: 7
+}
 
 // ====================================
-// LEADERBOARD TYPES
+// UI CONSTANTS
 // ====================================
-export const LEADERBOARD_TYPES = {
-  GLOBAL: 'global',           // Classifica globale
-  WEEKLY: 'weekly',           // Classifica settimanale
-  MONTHLY: 'monthly',         // Classifica mensile
-  FRIENDS: 'friends',         // Solo amici
-  NATIONAL: 'national',       // Nazionale (Italia)
-  EXERCISE: 'exercise',       // Per esercizio specifico
-} as const
+export const THEME_COLORS = {
+  primary: 'from-indigo-500 to-purple-500',
+  secondary: 'from-gray-700 to-gray-800',
+  success: 'from-green-500 to-emerald-500',
+  warning: 'from-yellow-500 to-orange-500',
+  danger: 'from-red-500 to-pink-500',
+  info: 'from-blue-500 to-cyan-500'
+}
 
 // ====================================
-// NOTIFICATIONS
+// ANIMATION CONSTANTS
 // ====================================
-export const NOTIFICATION_TYPES = {
-  DUEL_RECEIVED: 'duel_received',
-  DUEL_ACCEPTED: 'duel_accepted',
-  DUEL_REJECTED: 'duel_rejected',
-  DUEL_COMPLETED: 'duel_completed',
-  DUEL_WON: 'duel_won',
-  DUEL_LOST: 'duel_lost',
-  FRIEND_REQUEST: 'friend_request',
-  BADGE_UNLOCKED: 'badge_unlocked',
-  LEVEL_UP: 'level_up',
-  TOURNAMENT_START: 'tournament_start',
-  MISSION_COMPLETE: 'mission_complete',
-  PERSONAL_BEST: 'personal_best',
-} as const
+export const ANIMATION_DURATIONS = {
+  fast: 0.2,
+  normal: 0.3,
+  slow: 0.5,
+  verySlow: 1.0
+}
 
 // ====================================
-// AI FORM VALIDATION
+// VALIDATION CONSTANTS
 // ====================================
-export const FORM_SCORE_THRESHOLDS = {
-  PERFECT: 95,
-  EXCELLENT: 85,
-  GOOD: 70,
-  ACCEPTABLE: 50,
-  POOR: 30,
-} as const
-
-export const FORM_FEEDBACK = {
-  PERFECT: 'Forma perfetta! Esecuzione impeccabile! 🔥',
-  EXCELLENT: 'Ottima forma! Continua così! 💪',
-  GOOD: 'Buona esecuzione, piccoli miglioramenti possibili 👍',
-  ACCEPTABLE: 'Forma accettabile, ma puoi fare meglio 💡',
-  POOR: 'Attenzione alla forma, rischi infortuni ⚠️',
-} as const
-
-// ====================================
-// TIMER PRESETS
-// ====================================
-export const TIMER_PRESETS = {
-  QUICK: 30,          // 30 secondi
-  STANDARD: 60,       // 1 minuto
-  EXTENDED: 120,      // 2 minuti
-  MARATHON: 180,      // 3 minuti
-  EPIC: 300,         // 5 minuti
-} as const
+export const VALIDATION_RULES = {
+  username: {
+    minLength: 3,
+    maxLength: 20,
+    pattern: /^[a-zA-Z0-9_]+$/
+  },
+  password: {
+    minLength: 8,
+    maxLength: 100
+  },
+  duelDuration: {
+    min: 1,
+    max: 168 // 7 days in hours
+  },
+  repsRange: {
+    min: 1,
+    max: 1000
+  },
+  timeRange: {
+    min: 5, // 5 seconds
+    max: 600 // 10 minutes
+  }
+}
 
 // ====================================
-// SOCIAL FEATURES
+// LOCAL STORAGE KEYS
 // ====================================
-export const FRIEND_STATUS = {
-  PENDING: 'pending',
-  ACCEPTED: 'accepted',
-  BLOCKED: 'blocked',
-  REJECTED: 'rejected',
-} as const
-
-export const PRIVACY_LEVELS = {
-  PUBLIC: 'public',
-  FRIENDS: 'friends',
-  PRIVATE: 'private',
-} as const
+export const STORAGE_KEYS = {
+  user: 'fitduel_user',
+  preferences: 'fitduel_preferences',
+  tutorial: 'fitduel_tutorial_completed',
+  theme: 'fitduel_theme'
+}
 
 // ====================================
 // ERROR MESSAGES
 // ====================================
 export const ERROR_MESSAGES = {
-  GENERIC: 'Ops! Qualcosa è andato storto. Riprova.',
-  NETWORK: 'Errore di connessione. Controlla la tua rete.',
-  AUTH_REQUIRED: 'Devi effettuare il login per continuare.',
-  DUEL_NOT_FOUND: 'Duello non trovato.',
+  NETWORK_ERROR: 'Errore di connessione. Riprova più tardi.',
+  INVALID_CREDENTIALS: 'Credenziali non valide.',
   USER_NOT_FOUND: 'Utente non trovato.',
-  INVALID_FORM: 'Compila tutti i campi richiesti.',
-  DUEL_EXPIRED: 'Questo duello è scaduto.',
-  ALREADY_COMPLETED: 'Hai già completato questo duello.',
-} as const
+  DUEL_NOT_FOUND: 'Duello non trovato.',
+  UNAUTHORIZED: 'Non autorizzato.',
+  VALIDATION_ERROR: 'Dati non validi.',
+  GENERIC_ERROR: 'Si è verificato un errore. Riprova più tardi.'
+}
 
 // ====================================
 // SUCCESS MESSAGES
 // ====================================
 export const SUCCESS_MESSAGES = {
-  DUEL_CREATED: 'Duello creato! In attesa dell\'avversario...',
-  DUEL_ACCEPTED: 'Duello accettato! Che vinca il migliore!',
-  DUEL_COMPLETED: 'Duello completato! Controlla i risultati.',
-  FRIEND_ADDED: 'Amico aggiunto con successo!',
+  DUEL_CREATED: 'Duello creato con successo!',
+  DUEL_ACCEPTED: 'Duello accettato!',
+  DUEL_COMPLETED: 'Duello completato!',
+  FRIEND_ADDED: 'Amico aggiunto!',
   PROFILE_UPDATED: 'Profilo aggiornato!',
-  BADGE_UNLOCKED: 'Nuovo badge sbloccato! 🎉',
-  LEVEL_UP: 'Level Up! Sei salito di livello! 🚀',
+  ACHIEVEMENT_UNLOCKED: 'Achievement sbloccato!'
+}
+
+// ====================================
+// NOTIFICATION TYPES
+// ====================================
+export const NOTIFICATION_TYPES = {
+  DUEL_INVITATION: 'duel_invitation',
+  DUEL_COMPLETED: 'duel_completed',
+  FRIEND_REQUEST: 'friend_request',
+  ACHIEVEMENT_UNLOCKED: 'achievement_unlocked',
+  LEVEL_UP: 'level_up',
+  TOURNAMENT_UPDATE: 'tournament_update'
 } as const
+
+export type NotificationType = typeof NOTIFICATION_TYPES[keyof typeof NOTIFICATION_TYPES]
