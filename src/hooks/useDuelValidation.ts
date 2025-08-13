@@ -584,8 +584,8 @@ export function useDuelValidation(options: DuelValidationOptions) {
     if (duration >= 180) badges.push('three_minutes')
     if (duration >= 300) badges.push('five_minutes')
 
-    // Exercise specific
-    if (options.exercise === EXERCISES.PLANK && duration >= 120) {
+    // Exercise specific - FIXED: Use string comparison instead of object comparison
+    if (options.exercise === 'plank' && duration >= 120) {
       badges.push('plank_master')
     }
 
