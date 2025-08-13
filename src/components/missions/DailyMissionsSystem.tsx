@@ -574,8 +574,8 @@ export const DailyMissionsSystem = ({
       current_progress: Math.floor(Math.random() * template.target_value * 0.8), // Random progress
       reward_xp: template.reward_xp,
       reward_coins: template.reward_coins,
-      reward_badges: template.reward_badges,
-      streak_bonus: template.streak_bonus,
+      reward_badges: template.reward_badges || [], // FIX: Fornisco array vuoto se undefined
+      streak_bonus: template.streak_bonus || 0, // FIX: Fornisco 0 se undefined
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       metadata: template.metadata
