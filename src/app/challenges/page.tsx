@@ -8,13 +8,14 @@ import {
   Swords, Trophy, Zap, Users, Target, Timer, Shield,
   Plus, Search, Filter, ChevronRight, Flame, Crown,
   Star, Medal, Activity, TrendingUp, Calendar, Bell,
-  ArrowLeft, RefreshCw, AlertCircle, CheckCircle
+  ArrowLeft, RefreshCw, AlertCircle, CheckCircle, Clock
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { EXERCISE_DATA, getExerciseData } from '@/utils/constants'
 
 // ====================================
 // TYPES
@@ -25,6 +26,7 @@ interface Exercise {
   code: string
   category: string
   difficulty: string
+  isTimeBased?: boolean
 }
 
 interface Profile {
@@ -63,14 +65,17 @@ interface Duel {
   updated_at: string
 }
 
-// Mock exercises for fallback
+// Mock exercises with time-based flag
 const MOCK_EXERCISES = [
-  { id: '1', name: 'Push-Up', code: 'push_up', category: 'strength', difficulty: 'medium' },
-  { id: '2', name: 'Squat', code: 'squat', category: 'strength', difficulty: 'easy' },
-  { id: '3', name: 'Plank', code: 'plank', category: 'core', difficulty: 'medium' },
-  { id: '4', name: 'Burpee', code: 'burpee', category: 'cardio', difficulty: 'hard' },
-  { id: '5', name: 'Mountain Climber', code: 'mountain_climber', category: 'cardio', difficulty: 'hard' },
-  { id: '6', name: 'Jumping Jack', code: 'jumping_jack', category: 'cardio', difficulty: 'easy' }
+  { id: '1', name: 'Push-Up', code: 'pushup', category: 'strength', difficulty: 'medium', isTimeBased: false },
+  { id: '2', name: 'Squat', code: 'squat', category: 'strength', difficulty: 'easy', isTimeBased: false },
+  { id: '3', name: 'Plank', code: 'plank', category: 'core', difficulty: 'medium', isTimeBased: true },
+  { id: '4', name: 'Burpee', code: 'burpee', category: 'cardio', difficulty: 'hard', isTimeBased: false },
+  { id: '5', name: 'Mountain Climber', code: 'mountain_climber', category: 'cardio', difficulty: 'hard', isTimeBased: false },
+  { id: '6', name: 'Jumping Jack', code: 'jumping_jack', category: 'cardio', difficulty: 'easy', isTimeBased: false },
+  { id: '7', name: 'Wall Sit', code: 'wall_sit', category: 'strength', difficulty: 'medium', isTimeBased: true },
+  { id: '8', name: 'Dead Hang', code: 'dead_hang', category: 'strength', difficulty: 'hard', isTimeBased: true },
+  { id: '9', name: 'Bridge Hold', code: 'bridge_hold', category: 'core', difficulty: 'medium', isTimeBased: true }
 ]
 
 // ====================================
@@ -124,6 +129,17 @@ const DuelCard = ({
     return 'Sfidante'
   }
 
+  // Check if exercise is time-based
+  const exerciseData = duel.exercise?.code ? getExerciseData(duel.exercise.code) : null
+  const isTimeBased = exerciseData?.isTimeBased || duel.target_time !== null
+
+  const formatTarget = () => {
+    if (isTimeBased && duel.target_time) {
+      return `${duel.target_time}s`
+    }
+    return duel.target_reps || '-'
+  }
+
   return (
     <Card variant="glass" className="p-4 hover:bg-gray-800/30 transition-all">
       <div className="flex items-center justify-between mb-3">
@@ -160,8 +176,13 @@ const DuelCard = ({
 
       <div className="grid grid-cols-3 gap-2 mb-3 text-center">
         <div>
-          <p className="text-2xl font-bold text-white">{duel.target_reps || '-'}</p>
-          <p className="text-xs text-gray-400">Ripetizioni</p>
+          <p className="text-2xl font-bold text-white flex items-center justify-center gap-1">
+            {isTimeBased && <Clock className="w-4 h-4 text-gray-400" />}
+            {formatTarget()}
+          </p>
+          <p className="text-xs text-gray-400">
+            {isTimeBased ? 'Tempo' : 'Ripetizioni'}
+          </p>
         </div>
         <div>
           <p className="text-2xl font-bold text-yellow-500">+{duel.reward_xp}</p>
@@ -213,9 +234,26 @@ const CreateDuelModal = ({
 }) => {
   const [selectedExercise, setSelectedExercise] = useState<string>('')
   const [difficulty, setDifficulty] = useState<string>('medium')
-  const [targetReps, setTargetReps] = useState<number>(20)
+  const [targetValue, setTargetValue] = useState<number>(20)
   const [wagerXP, setWagerXP] = useState<number>(50)
   const [duelType, setDuelType] = useState<'1v1' | 'open'>('open')
+
+  // Get exercise data to check if time-based
+  const selectedExerciseData = selectedExercise ? 
+    exercises.find(e => e.id === selectedExercise) : null
+  
+  const exerciseConfig = selectedExerciseData ? 
+    getExerciseData(selectedExerciseData.code) : null
+  
+  const isTimeBased = exerciseConfig?.isTimeBased || false
+
+  // Update target value when exercise or difficulty changes
+  useEffect(() => {
+    if (exerciseConfig && difficulty) {
+      const defaultTarget = exerciseConfig.defaultTargets[difficulty as keyof typeof exerciseConfig.defaultTargets]
+      setTargetValue(defaultTarget || (isTimeBased ? 60 : 20))
+    }
+  }, [selectedExercise, difficulty, exerciseConfig, isTimeBased])
 
   const handleCreate = () => {
     if (!selectedExercise) return
@@ -224,7 +262,8 @@ const CreateDuelModal = ({
       exercise_id: selectedExercise,
       type: duelType,
       difficulty,
-      target_reps: targetReps,
+      target_reps: isTimeBased ? null : targetValue,
+      target_time: isTimeBased ? targetValue : null,
       wager_xp: wagerXP,
       reward_xp: wagerXP * 2,
       max_participants: 2,
@@ -234,13 +273,37 @@ const CreateDuelModal = ({
     // Reset form
     setSelectedExercise('')
     setDifficulty('medium')
-    setTargetReps(20)
+    setTargetValue(20)
     setWagerXP(50)
     setDuelType('open')
     onClose()
   }
 
+  const getTargetRange = () => {
+    if (isTimeBased) {
+      // Time in seconds
+      return { min: 10, max: 300, step: 5 }
+    } else {
+      // Repetitions
+      return { min: 5, max: 100, step: 5 }
+    }
+  }
+
+  const formatTargetDisplay = (value: number) => {
+    if (isTimeBased) {
+      const minutes = Math.floor(value / 60)
+      const seconds = value % 60
+      if (minutes > 0) {
+        return `${minutes}m ${seconds}s`
+      }
+      return `${seconds} secondi`
+    }
+    return `${value} ripetizioni`
+  }
+
   if (!isOpen) return null
+
+  const range = getTargetRange()
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Crea Nuova Sfida" size="md">
@@ -253,11 +316,14 @@ const CreateDuelModal = ({
             className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
           >
             <option value="">Seleziona un esercizio</option>
-            {exercises.map((exercise) => (
-              <option key={exercise.id} value={exercise.id}>
-                {exercise.name}
-              </option>
-            ))}
+            {exercises.map((exercise) => {
+              const data = getExerciseData(exercise.code)
+              return (
+                <option key={exercise.id} value={exercise.id}>
+                  {exercise.name} {data?.isTimeBased ? '⏱️' : '🔢'}
+                </option>
+              )
+            })}
           </select>
         </div>
 
@@ -301,17 +367,33 @@ const CreateDuelModal = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">
-            Ripetizioni Target: {targetReps}
+            <div className="flex items-center gap-2">
+              {isTimeBased ? (
+                <>
+                  <Clock className="w-4 h-4 text-indigo-400" />
+                  Tempo Target: {formatTargetDisplay(targetValue)}
+                </>
+              ) : (
+                <>
+                  <Target className="w-4 h-4 text-indigo-400" />
+                  Ripetizioni Target: {targetValue}
+                </>
+              )}
+            </div>
           </label>
           <input
             type="range"
-            min="10"
-            max="100"
-            step="5"
-            value={targetReps}
-            onChange={(e) => setTargetReps(Number(e.target.value))}
+            min={range.min}
+            max={range.max}
+            step={range.step}
+            value={targetValue}
+            onChange={(e) => setTargetValue(Number(e.target.value))}
             className="w-full"
           />
+          <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <span>{formatTargetDisplay(range.min)}</span>
+            <span>{formatTargetDisplay(range.max)}</span>
+          </div>
         </div>
 
         <div>
@@ -328,6 +410,18 @@ const CreateDuelModal = ({
             className="w-full"
           />
         </div>
+
+        {isTimeBased && selectedExerciseData && (
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+            <div className="flex items-start gap-2">
+              <Info className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+              <div className="text-xs text-blue-300">
+                <p className="font-medium mb-1">Sfida Isometrica</p>
+                <p>Vince chi raggiunge il tempo target mantenendo la forma corretta. Se nessuno raggiunge il target, vince chi resiste più a lungo.</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-3 pt-4">
           <Button variant="secondary" onClick={onClose} className="flex-1">
@@ -346,6 +440,9 @@ const CreateDuelModal = ({
     </Modal>
   )
 }
+
+// Info icon component helper
+const Info = Clock // Using Clock as placeholder since Info might not be in lucide-react
 
 // ====================================
 // MAIN COMPONENT
@@ -680,11 +777,14 @@ export default function ChallengesPage() {
               className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
             >
               <option value="all">Tutti gli esercizi</option>
-              {exercises.map((exercise) => (
-                <option key={exercise.id} value={exercise.id}>
-                  {exercise.name}
-                </option>
-              ))}
+              {exercises.map((exercise) => {
+                const data = getExerciseData(exercise.code)
+                return (
+                  <option key={exercise.id} value={exercise.id}>
+                    {exercise.name} {data?.isTimeBased ? '⏱️' : ''}
+                  </option>
+                )
+              })}
             </select>
 
             <select
