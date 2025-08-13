@@ -26,7 +26,7 @@ export interface ProgressiveStep {
   timeLimit?: number // hours
 }
 
-export interface ProgressiveMissionTemplate extends MissionTemplate {
+export interface ProgressiveMissionTemplate extends Omit<MissionTemplate, 'category'> {
   steps: ProgressiveStep[]
   totalDuration: number // days
   bonusRewards?: {
@@ -35,7 +35,8 @@ export interface ProgressiveMissionTemplate extends MissionTemplate {
     badge?: string
     title?: string
   }
-  category: 'progressive'
+  category: MissionCategory // Use existing categories
+  missionType: 'progressive' // Identify as progressive
 }
 
 // ====================================
@@ -48,7 +49,8 @@ export const progressiveMissionTemplates: ProgressiveMissionTemplate[] = [
     id: 'prog_fitness_journey_beginner',
     name: '🌟 Fitness Journey: Beginner',
     description: 'Start your fitness transformation with this 7-day progressive challenge',
-    category: 'progressive',
+    category: 'exercise', // Using existing category
+    missionType: 'progressive',
     difficulty: 'easy',
     steps: [
       {
@@ -114,7 +116,8 @@ export const progressiveMissionTemplates: ProgressiveMissionTemplate[] = [
     id: 'prog_strength_builder',
     name: '💪 Strength Builder Protocol',
     description: 'Progressive overload program to build real strength',
-    category: 'progressive',
+    category: 'performance', // Using existing category
+    missionType: 'progressive',
     difficulty: 'medium',
     steps: [
       {
@@ -182,7 +185,8 @@ export const progressiveMissionTemplates: ProgressiveMissionTemplate[] = [
     id: 'prog_cardio_endurance',
     name: '🏃 Cardio Endurance Builder',
     description: 'Build your cardiovascular endurance step by step',
-    category: 'progressive',
+    category: 'exercise', // Using existing category
+    missionType: 'progressive',
     difficulty: 'medium',
     steps: [
       {
@@ -248,7 +252,8 @@ export const progressiveMissionTemplates: ProgressiveMissionTemplate[] = [
     id: 'prog_flexibility_flow',
     name: '🧘 Flexibility Flow Journey',
     description: 'Unlock your body\'s full range of motion',
-    category: 'progressive',
+    category: 'exercise', // Using existing category
+    missionType: 'progressive',
     difficulty: 'easy',
     steps: [
       {
@@ -314,7 +319,8 @@ export const progressiveMissionTemplates: ProgressiveMissionTemplate[] = [
     id: 'prog_weight_loss_kickstart',
     name: '🔥 Weight Loss Kickstart',
     description: '30-day progressive fat burning program',
-    category: 'progressive',
+    category: 'performance', // Using existing category
+    missionType: 'progressive',
     difficulty: 'medium',
     steps: [
       {
@@ -380,7 +386,8 @@ export const progressiveMissionTemplates: ProgressiveMissionTemplate[] = [
     id: 'prog_muscle_mass_builder',
     name: '💯 Muscle Mass Protocol',
     description: 'Progressive muscle building program',
-    category: 'progressive',
+    category: 'performance', // Using existing category
+    missionType: 'progressive',
     difficulty: 'hard',
     steps: [
       {
@@ -446,7 +453,8 @@ export const progressiveMissionTemplates: ProgressiveMissionTemplate[] = [
     id: 'prog_morning_warrior',
     name: '🌅 Morning Warrior Challenge',
     description: 'Build an unbreakable morning routine',
-    category: 'progressive',
+    category: 'streak', // Using existing category
+    missionType: 'progressive',
     difficulty: 'medium',
     steps: [
       {
@@ -515,7 +523,8 @@ export const progressiveMissionTemplates: ProgressiveMissionTemplate[] = [
     id: 'prog_nutrition_master',
     name: '🥗 Nutrition Mastery Path',
     description: 'Build healthy eating habits progressively',
-    category: 'progressive',
+    category: 'exercise', // Using existing category (nutrition is part of fitness)
+    missionType: 'progressive',
     difficulty: 'easy',
     steps: [
       {
@@ -581,7 +590,8 @@ export const progressiveMissionTemplates: ProgressiveMissionTemplate[] = [
     id: 'prog_recovery_protocol',
     name: '🧊 Recovery & Restoration',
     description: 'Master the art of recovery for better performance',
-    category: 'progressive',
+    category: 'exercise', // Using existing category
+    missionType: 'progressive',
     difficulty: 'easy',
     steps: [
       {
@@ -647,7 +657,8 @@ export const progressiveMissionTemplates: ProgressiveMissionTemplate[] = [
     id: 'prog_mental_toughness',
     name: '🧠 Mental Toughness Builder',
     description: 'Forge an unbreakable mindset through progressive challenges',
-    category: 'progressive',
+    category: 'performance', // Using existing category
+    missionType: 'progressive',
     difficulty: 'hard',
     steps: [
       {
@@ -842,7 +853,8 @@ export class ProgressiveMissionManager {
         energy_level: template.energyLevel,
         quote: template.quote,
         tips: template.tips,
-        total_duration_days: template.totalDuration
+        total_duration_days: template.totalDuration,
+        is_progressive: true // Flag to identify progressive missions
       }
     }
   }
@@ -932,6 +944,22 @@ export class ProgressiveMissionManager {
 
     // Sort by relevance (could be enhanced with ML)
     return recommendations.slice(0, 5)
+  }
+
+  /**
+   * Get templates by category
+   */
+  static getByCategory(category: MissionCategory): ProgressiveMissionTemplate[] {
+    return progressiveMissionTemplates.filter(t => t.category === category)
+  }
+
+  /**
+   * Check if a mission is progressive
+   */
+  static isProgressiveMission(mission: any): boolean {
+    return mission.type === 'progressive' || 
+           mission.metadata?.is_progressive === true ||
+           mission.steps_data !== undefined
   }
 }
 
