@@ -31,7 +31,7 @@ export interface AdvancedTimerProps {
   soundEnabled?: boolean
   voiceEnabled?: boolean
   vibrationEnabled?: boolean
-  targetReps?: number
+  targetReps?: number | null
   enableAutoCount?: boolean
   className?: string
 }
