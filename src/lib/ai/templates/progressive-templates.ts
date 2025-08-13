@@ -26,7 +26,7 @@ export interface ProgressiveStep {
   timeLimit?: number // hours
 }
 
-export interface ProgressiveMissionTemplate extends Omit<MissionTemplate, 'category'> {
+export interface ProgressiveMissionTemplate extends MissionTemplate {
   steps: ProgressiveStep[]
   totalDuration: number // days
   bonusRewards?: {
@@ -35,7 +35,6 @@ export interface ProgressiveMissionTemplate extends Omit<MissionTemplate, 'categ
     badge?: string
     title?: string
   }
-  category: MissionCategory // Use existing categories
   missionType: 'progressive' // Identify as progressive
 }
 
@@ -47,11 +46,27 @@ export const progressiveMissionTemplates: ProgressiveMissionTemplate[] = [
   // FITNESS JOURNEY MISSIONS
   {
     id: 'prog_fitness_journey_beginner',
-    name: '🌟 Fitness Journey: Beginner',
-    description: 'Start your fitness transformation with this 7-day progressive challenge',
-    category: 'exercise', // Using existing category
-    missionType: 'progressive',
+    category: 'exercise',
     difficulty: 'easy',
+    title_pattern: '🌟 Fitness Journey: Beginner - Step {step}',
+    description_pattern: 'Complete step {step} of your fitness transformation journey',
+    target_formula: 'user.level + 5',
+    reward_formula: {
+      xp: '50 + (step * 30)',
+      coins: '20 + (step * 15)'
+    },
+    requirements: ['exercise', 'progressive'],
+    conditions: {
+      min_level: 1,
+      max_level: 10
+    },
+    variations: ['cardio', 'strength', 'flexibility'],
+    ai_prompts: {
+      title_generation: 'Create an encouraging fitness journey title',
+      description_generation: 'Write a motivational description for beginners',
+      creative_twist: 'Add beginner-friendly encouragement'
+    },
+    missionType: 'progressive',
     steps: [
       {
         id: 'step1',
@@ -104,21 +119,31 @@ export const progressiveMissionTemplates: ProgressiveMissionTemplate[] = [
       coins: 200,
       badge: 'journey_starter',
       title: 'Journey Beginner'
-    },
-    tags: ['beginner', 'journey', 'progressive'],
-    estimatedTime: 120,
-    energyLevel: 'medium',
-    quote: 'Every expert was once a beginner',
-    tips: 'Take rest days between steps if needed'
+    }
   },
 
   {
     id: 'prog_strength_builder',
-    name: '💪 Strength Builder Protocol',
-    description: 'Progressive overload program to build real strength',
-    category: 'performance', // Using existing category
-    missionType: 'progressive',
+    category: 'performance',
     difficulty: 'medium',
+    title_pattern: '💪 Strength Builder Protocol - Phase {step}',
+    description_pattern: 'Progressive overload phase {step} to build real strength',
+    target_formula: 'Math.max(5, user.level * 2)',
+    reward_formula: {
+      xp: '100 + (step * 50)',
+      coins: '40 + (step * 20)'
+    },
+    requirements: ['performance', 'strength', 'progressive'],
+    conditions: {
+      min_level: 5
+    },
+    variations: ['push-ups', 'pull-ups', 'squats'],
+    ai_prompts: {
+      title_generation: 'Create a strength-focused progressive title',
+      description_generation: 'Emphasize progressive overload and strength gains',
+      creative_twist: 'Add powerlifting and strength training themes'
+    },
+    missionType: 'progressive',
     steps: [
       {
         id: 'step1',
@@ -173,21 +198,31 @@ export const progressiveMissionTemplates: ProgressiveMissionTemplate[] = [
       coins: 500,
       badge: 'strength_builder',
       title: 'Iron Will'
-    },
-    tags: ['strength', 'progressive', 'overload'],
-    estimatedTime: 180,
-    energyLevel: 'high',
-    quote: 'Strength doesn\'t come from what you can do, it comes from overcoming what you once couldn\'t',
-    tips: 'Track your numbers to see real progress'
+    }
   },
 
   {
     id: 'prog_cardio_endurance',
-    name: '🏃 Cardio Endurance Builder',
-    description: 'Build your cardiovascular endurance step by step',
-    category: 'exercise', // Using existing category
-    missionType: 'progressive',
+    category: 'exercise',
     difficulty: 'medium',
+    title_pattern: '🏃 Cardio Endurance Builder - Week {week}',
+    description_pattern: 'Build cardiovascular endurance progressively',
+    target_formula: 'user.level * 3',
+    reward_formula: {
+      xp: '80 + (step * 40)',
+      coins: '30 + (step * 20)'
+    },
+    requirements: ['exercise', 'cardio', 'progressive'],
+    conditions: {
+      min_level: 3
+    },
+    variations: ['running', 'cycling', 'swimming'],
+    ai_prompts: {
+      title_generation: 'Create an endurance-focused title',
+      description_generation: 'Motivate cardiovascular improvement',
+      creative_twist: 'Add marathon and endurance sport themes'
+    },
+    missionType: 'progressive',
     steps: [
       {
         id: 'step1',
@@ -240,21 +275,29 @@ export const progressiveMissionTemplates: ProgressiveMissionTemplate[] = [
       coins: 400,
       badge: 'endurance_warrior',
       title: 'Marathon Mind'
-    },
-    tags: ['cardio', 'endurance', 'running'],
-    estimatedTime: 240,
-    energyLevel: 'high',
-    quote: 'Endurance is not just the ability to bear a hard thing, but to turn it into glory',
-    tips: 'Listen to your body and take rest days when needed'
+    }
   },
 
   {
     id: 'prog_flexibility_flow',
-    name: '🧘 Flexibility Flow Journey',
-    description: 'Unlock your body\'s full range of motion',
-    category: 'exercise', // Using existing category
-    missionType: 'progressive',
+    category: 'exercise',
     difficulty: 'easy',
+    title_pattern: '🧘 Flexibility Flow Journey - Day {day}',
+    description_pattern: 'Unlock your body\'s range of motion progressively',
+    target_formula: '5 + user.level',
+    reward_formula: {
+      xp: '40 + (step * 20)',
+      coins: '15 + (step * 10)'
+    },
+    requirements: ['exercise', 'flexibility', 'progressive'],
+    conditions: {},
+    variations: ['yoga', 'stretching', 'mobility'],
+    ai_prompts: {
+      title_generation: 'Create a flexibility-focused title',
+      description_generation: 'Encourage gradual flexibility improvement',
+      creative_twist: 'Add yoga and mindfulness themes'
+    },
+    missionType: 'progressive',
     steps: [
       {
         id: 'step1',
@@ -307,21 +350,31 @@ export const progressiveMissionTemplates: ProgressiveMissionTemplate[] = [
       coins: 300,
       badge: 'flexibility_master',
       title: 'Bendy Warrior'
-    },
-    tags: ['flexibility', 'yoga', 'mobility'],
-    estimatedTime: 150,
-    energyLevel: 'low',
-    quote: 'Flexibility is the key to stability',
-    tips: 'Never force a stretch, progress comes with consistency'
+    }
   },
 
   {
     id: 'prog_weight_loss_kickstart',
-    name: '🔥 Weight Loss Kickstart',
-    description: '30-day progressive fat burning program',
-    category: 'performance', // Using existing category
-    missionType: 'progressive',
+    category: 'performance',
     difficulty: 'medium',
+    title_pattern: '🔥 Weight Loss Kickstart - Phase {phase}',
+    description_pattern: 'Progressive fat burning phase {phase}',
+    target_formula: 'user.level * 5',
+    reward_formula: {
+      xp: '100 + (step * 60)',
+      coins: '40 + (step * 30)'
+    },
+    requirements: ['performance', 'cardio', 'progressive'],
+    conditions: {
+      min_level: 4
+    },
+    variations: ['hiit', 'circuit', 'intervals'],
+    ai_prompts: {
+      title_generation: 'Create a weight loss focused title',
+      description_generation: 'Motivate fat burning and healthy habits',
+      creative_twist: 'Add transformation and success themes'
+    },
+    missionType: 'progressive',
     steps: [
       {
         id: 'step1',
@@ -374,21 +427,31 @@ export const progressiveMissionTemplates: ProgressiveMissionTemplate[] = [
       coins: 600,
       badge: 'fat_burner',
       title: 'Calorie Crusher'
-    },
-    tags: ['weight_loss', 'hiit', 'cardio'],
-    estimatedTime: 300,
-    energyLevel: 'high',
-    quote: 'The only bad workout is the one that didn\'t happen',
-    tips: 'Combine with proper nutrition for best results'
+    }
   },
 
   {
     id: 'prog_muscle_mass_builder',
-    name: '💯 Muscle Mass Protocol',
-    description: 'Progressive muscle building program',
-    category: 'performance', // Using existing category
-    missionType: 'progressive',
+    category: 'performance',
     difficulty: 'hard',
+    title_pattern: '💯 Muscle Mass Protocol - Week {week}',
+    description_pattern: 'Progressive muscle building week {week}',
+    target_formula: 'user.level * 10',
+    reward_formula: {
+      xp: '150 + (step * 70)',
+      coins: '60 + (step * 35)'
+    },
+    requirements: ['performance', 'strength', 'progressive'],
+    conditions: {
+      min_level: 10
+    },
+    variations: ['upper_body', 'lower_body', 'full_body'],
+    ai_prompts: {
+      title_generation: 'Create a muscle building focused title',
+      description_generation: 'Emphasize hypertrophy and muscle growth',
+      creative_twist: 'Add bodybuilding and gains themes'
+    },
+    missionType: 'progressive',
     steps: [
       {
         id: 'step1',
@@ -441,21 +504,33 @@ export const progressiveMissionTemplates: ProgressiveMissionTemplate[] = [
       coins: 750,
       badge: 'mass_monster',
       title: 'Gains Machine'
-    },
-    tags: ['muscle', 'strength', 'hypertrophy'],
-    estimatedTime: 360,
-    energyLevel: 'very_high',
-    quote: 'Muscle is built in the kitchen, sculpted in the gym',
-    tips: 'Rest and nutrition are as important as training'
+    }
   },
 
   {
     id: 'prog_morning_warrior',
-    name: '🌅 Morning Warrior Challenge',
-    description: 'Build an unbreakable morning routine',
-    category: 'streak', // Using existing category
-    missionType: 'progressive',
+    category: 'streak',
     difficulty: 'medium',
+    title_pattern: '🌅 Morning Warrior Challenge - Day {day}',
+    description_pattern: 'Build morning routine discipline day {day}',
+    target_formula: 'user.daily_streak + 5',
+    reward_formula: {
+      xp: '80 + (step * 45)',
+      coins: '30 + (step * 20)',
+      streak_bonus: '20'
+    },
+    requirements: ['streak', 'morning', 'progressive'],
+    conditions: {
+      min_level: 3,
+      time_based: true
+    },
+    variations: ['5am', '6am', '7am'],
+    ai_prompts: {
+      title_generation: 'Create a morning routine focused title',
+      description_generation: 'Emphasize discipline and early rising',
+      creative_twist: 'Add warrior and discipline themes'
+    },
+    missionType: 'progressive',
     steps: [
       {
         id: 'step1',
@@ -511,155 +586,31 @@ export const progressiveMissionTemplates: ProgressiveMissionTemplate[] = [
       coins: 500,
       badge: 'morning_warrior',
       title: 'Dawn Destroyer'
-    },
-    tags: ['morning', 'routine', 'discipline'],
-    estimatedTime: 200,
-    energyLevel: 'medium',
-    quote: 'Win the morning, win the day',
-    tips: 'Prepare everything the night before'
-  },
-
-  {
-    id: 'prog_nutrition_master',
-    name: '🥗 Nutrition Mastery Path',
-    description: 'Build healthy eating habits progressively',
-    category: 'exercise', // Using existing category (nutrition is part of fitness)
-    missionType: 'progressive',
-    difficulty: 'easy',
-    steps: [
-      {
-        id: 'step1',
-        order: 1,
-        title: 'Hydration Hero',
-        description: 'Drink 2L of water daily for 3 days',
-        requirements: { value: 3, unit: 'days' },
-        rewards: { xp: 60, coins: 25 }
-      },
-      {
-        id: 'step2',
-        order: 2,
-        title: 'Veggie Victory',
-        description: 'Eat 5 servings of vegetables for 5 days',
-        requirements: { value: 5, unit: 'days' },
-        rewards: { xp: 100, coins: 40 },
-        unlockCondition: 'Hydration achieved'
-      },
-      {
-        id: 'step3',
-        order: 3,
-        title: 'Protein Power',
-        description: 'Hit protein target for 7 consecutive days',
-        requirements: { value: 7, unit: 'days' },
-        rewards: { xp: 150, coins: 60 },
-        unlockCondition: 'Veggie lover'
-      },
-      {
-        id: 'step4',
-        order: 4,
-        title: 'Clean Eating',
-        description: 'No processed foods for 10 days',
-        requirements: { value: 10, unit: 'days' },
-        rewards: { xp: 250, coins: 100 },
-        unlockCondition: 'Protein master'
-      },
-      {
-        id: 'step5',
-        order: 5,
-        title: 'Nutrition Ninja',
-        description: 'Perfect nutrition for 14 consecutive days',
-        requirements: { value: 14, unit: 'days' },
-        rewards: { xp: 400, coins: 160 },
-        unlockCondition: 'Clean eating champion'
-      }
-    ],
-    totalDuration: 42,
-    bonusRewards: {
-      xp: 800,
-      coins: 400,
-      badge: 'nutrition_master',
-      title: 'Food Philosopher'
-    },
-    tags: ['nutrition', 'diet', 'healthy_eating'],
-    estimatedTime: 100,
-    energyLevel: 'low',
-    quote: 'You are what you eat, so don\'t be fast, cheap, easy, or fake',
-    tips: 'Meal prep is your best friend'
-  },
-
-  {
-    id: 'prog_recovery_protocol',
-    name: '🧊 Recovery & Restoration',
-    description: 'Master the art of recovery for better performance',
-    category: 'exercise', // Using existing category
-    missionType: 'progressive',
-    difficulty: 'easy',
-    steps: [
-      {
-        id: 'step1',
-        order: 1,
-        title: 'Stretch It Out',
-        description: '10 minutes post-workout stretching',
-        requirements: { value: 10, unit: 'minutes' },
-        rewards: { xp: 40, coins: 15 }
-      },
-      {
-        id: 'step2',
-        order: 2,
-        title: 'Foam Roll Focus',
-        description: 'Complete foam rolling routine for 3 days',
-        requirements: { value: 3, unit: 'days' },
-        rewards: { xp: 70, coins: 30 },
-        unlockCondition: 'Stretching done'
-      },
-      {
-        id: 'step3',
-        order: 3,
-        title: 'Cold Therapy',
-        description: 'Take 5 cold showers post-workout',
-        requirements: { value: 5, unit: 'showers' },
-        rewards: { xp: 100, coins: 40 },
-        unlockCondition: 'Foam rolling mastered'
-      },
-      {
-        id: 'step4',
-        order: 4,
-        title: 'Sleep Optimization',
-        description: 'Get 8+ hours sleep for 7 nights',
-        requirements: { value: 7, unit: 'nights' },
-        rewards: { xp: 150, coins: 60 },
-        unlockCondition: 'Cold therapy complete'
-      },
-      {
-        id: 'step5',
-        order: 5,
-        title: 'Full Recovery Week',
-        description: 'Complete all recovery protocols for 7 days',
-        requirements: { value: 7, unit: 'days' },
-        rewards: { xp: 200, coins: 80 },
-        unlockCondition: 'Sleep optimized'
-      }
-    ],
-    totalDuration: 28,
-    bonusRewards: {
-      xp: 600,
-      coins: 300,
-      badge: 'recovery_expert',
-      title: 'Restoration Master'
-    },
-    tags: ['recovery', 'rest', 'restoration'],
-    estimatedTime: 120,
-    energyLevel: 'very_low',
-    quote: 'Recovery is when the magic happens',
-    tips: 'Listen to your body\'s signals'
+    }
   },
 
   {
     id: 'prog_mental_toughness',
-    name: '🧠 Mental Toughness Builder',
-    description: 'Forge an unbreakable mindset through progressive challenges',
-    category: 'performance', // Using existing category
-    missionType: 'progressive',
+    category: 'performance',
     difficulty: 'hard',
+    title_pattern: '🧠 Mental Toughness Builder - Level {level}',
+    description_pattern: 'Forge unbreakable mindset level {level}',
+    target_formula: 'user.level * 7',
+    reward_formula: {
+      xp: '100 + (step * 80)',
+      coins: '40 + (step * 40)'
+    },
+    requirements: ['performance', 'mental', 'progressive'],
+    conditions: {
+      min_level: 8
+    },
+    variations: ['discipline', 'focus', 'resilience'],
+    ai_prompts: {
+      title_generation: 'Create a mental toughness focused title',
+      description_generation: 'Emphasize mental strength and discipline',
+      creative_twist: 'Add warrior mindset and spartan themes'
+    },
+    missionType: 'progressive',
     steps: [
       {
         id: 'step1',
@@ -712,12 +663,7 @@ export const progressiveMissionTemplates: ProgressiveMissionTemplate[] = [
       coins: 750,
       badge: 'iron_mind',
       title: 'Mental Warrior'
-    },
-    tags: ['mental', 'discipline', 'mindset'],
-    estimatedTime: 300,
-    energyLevel: 'very_high',
-    quote: 'The mind gives up before the body',
-    tips: 'Embrace the suck, it makes you stronger'
+    }
   }
 ]
 
@@ -741,6 +687,13 @@ export class ProgressiveMissionManager {
   }
 
   /**
+   * Get templates by category
+   */
+  static getByCategory(category: MissionCategory): ProgressiveMissionTemplate[] {
+    return progressiveMissionTemplates.filter(t => t.category === category)
+  }
+
+  /**
    * Get templates by duration range
    */
   static getByDuration(minDays: number, maxDays: number): ProgressiveMissionTemplate[] {
@@ -753,13 +706,11 @@ export class ProgressiveMissionManager {
    * Get templates suitable for user level
    */
   static getForUserLevel(userLevel: number): ProgressiveMissionTemplate[] {
-    if (userLevel < 10) {
-      return this.getByDifficulty('easy')
-    } else if (userLevel < 25) {
-      return this.getByDifficulty('medium')
-    } else {
-      return [...this.getByDifficulty('medium'), ...this.getByDifficulty('hard')]
-    }
+    return progressiveMissionTemplates.filter(t => {
+      const minLevel = t.conditions.min_level || 0
+      const maxLevel = t.conditions.max_level || 999
+      return userLevel >= minLevel && userLevel <= maxLevel
+    })
   }
 
   /**
@@ -802,9 +753,14 @@ export class ProgressiveMissionManager {
     activeProgressiveMissions: number
   ): { canStart: boolean; reason?: string } {
     // Check user level requirements
-    const minLevel = template.difficulty === 'easy' ? 1 : template.difficulty === 'medium' ? 10 : 20
+    const minLevel = template.conditions.min_level || 0
     if (userLevel < minLevel) {
       return { canStart: false, reason: `Need level ${minLevel} to start this mission` }
+    }
+
+    const maxLevel = template.conditions.max_level || 999
+    if (userLevel > maxLevel) {
+      return { canStart: false, reason: `This mission is for levels ${minLevel}-${maxLevel}` }
     }
 
     // Check active mission limit (max 2 progressive missions at once)
@@ -821,7 +777,8 @@ export class ProgressiveMissionManager {
   static generateUserMission(
     template: ProgressiveMissionTemplate,
     userId: string,
-    userLevel: number
+    userLevel: number,
+    currentStep: number = 0
   ): any {
     const rewards = this.calculateTotalRewards(template)
     
@@ -832,11 +789,11 @@ export class ProgressiveMissionManager {
       user_id: userId,
       template_id: template.id,
       type: 'progressive',
-      title: template.name,
-      description: template.description,
+      title: template.title_pattern.replace('{step}', (currentStep + 1).toString()),
+      description: template.description_pattern.replace('{step}', (currentStep + 1).toString()),
       category: template.category,
       difficulty: template.difficulty,
-      current_step: 0,
+      current_step: currentStep,
       total_steps: template.steps.length,
       steps_data: template.steps,
       completed_steps: [],
@@ -847,14 +804,10 @@ export class ProgressiveMissionManager {
       started_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + template.totalDuration * 24 * 60 * 60 * 1000).toISOString(),
       status: 'active',
-      tags: template.tags,
       metadata: {
-        estimated_time: template.estimatedTime,
-        energy_level: template.energyLevel,
-        quote: template.quote,
-        tips: template.tips,
+        is_progressive: true,
         total_duration_days: template.totalDuration,
-        is_progressive: true // Flag to identify progressive missions
+        ai_prompts: template.ai_prompts
       }
     }
   }
@@ -914,7 +867,7 @@ export class ProgressiveMissionManager {
   static getRecommendations(
     userLevel: number,
     userPreferences: {
-      preferred_categories?: string[]
+      preferred_categories?: MissionCategory[]
       preferred_difficulty?: MissionDifficulty
       available_time?: number // minutes per day
     },
@@ -930,27 +883,20 @@ export class ProgressiveMissionManager {
     )
 
     // Filter by preferences
+    if (userPreferences.preferred_categories && userPreferences.preferred_categories.length > 0) {
+      recommendations = recommendations.filter(
+        t => userPreferences.preferred_categories?.includes(t.category)
+      )
+    }
+
     if (userPreferences.preferred_difficulty) {
       recommendations = recommendations.filter(
         t => t.difficulty === userPreferences.preferred_difficulty
       )
     }
 
-    if (userPreferences.available_time) {
-      recommendations = recommendations.filter(
-        t => t.estimatedTime <= userPreferences.available_time
-      )
-    }
-
-    // Sort by relevance (could be enhanced with ML)
+    // Sort by relevance
     return recommendations.slice(0, 5)
-  }
-
-  /**
-   * Get templates by category
-   */
-  static getByCategory(category: MissionCategory): ProgressiveMissionTemplate[] {
-    return progressiveMissionTemplates.filter(t => t.category === category)
   }
 
   /**
@@ -959,7 +905,8 @@ export class ProgressiveMissionManager {
   static isProgressiveMission(mission: any): boolean {
     return mission.type === 'progressive' || 
            mission.metadata?.is_progressive === true ||
-           mission.steps_data !== undefined
+           mission.steps_data !== undefined ||
+           mission.missionType === 'progressive'
   }
 }
 
