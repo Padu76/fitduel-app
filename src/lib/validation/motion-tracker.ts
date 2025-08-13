@@ -53,41 +53,41 @@ export interface ExercisePattern {
 // EXERCISE MOVEMENT PATTERNS
 // ====================================
 const EXERCISE_PATTERNS: Record<string, ExercisePattern> = {
-  [EXERCISES.PUSHUP]: {
+  'pushup': {  // Changed from [EXERCISES.PUSHUP]
     expectedFrequency: 0.5, // 0.5 Hz = 1 rep every 2 seconds
     minAmplitude: 0.3,
     maxAmplitude: 2.0,
     primaryAxis: 'y', // Up/down movement
     secondaryAxis: 'z'
   },
-  [EXERCISES.SQUAT]: {
+  'squat': {  // Changed from [EXERCISES.SQUAT]
     expectedFrequency: 0.4,
     minAmplitude: 0.5,
     maxAmplitude: 2.5,
     primaryAxis: 'y', // Up/down movement
     secondaryAxis: 'x'
   },
-  [EXERCISES.PLANK]: {
+  'plank': {  // Changed from [EXERCISES.PLANK]
     expectedFrequency: 0, // Static hold
     minAmplitude: 0,
     maxAmplitude: 0.2, // Should be mostly still
     primaryAxis: 'y'
   },
-  [EXERCISES.BURPEE]: {
+  'burpee': {  // Changed from [EXERCISES.BURPEE]
     expectedFrequency: 0.3,
     minAmplitude: 1.0,
     maxAmplitude: 3.0,
     primaryAxis: 'y',
     secondaryAxis: 'z'
   },
-  [EXERCISES.JUMPING_JACK]: {
+  'jumping_jack': {  // Changed from [EXERCISES.JUMPING_JACK]
     expectedFrequency: 1.0,
     minAmplitude: 0.8,
     maxAmplitude: 3.0,
     primaryAxis: 'y',
     secondaryAxis: 'x'
   },
-  [EXERCISES.MOUNTAIN_CLIMBER]: {
+  'mountain_climber': {  // Changed from [EXERCISES.MOUNTAIN_CLIMBER]
     expectedFrequency: 1.5,
     minAmplitude: 0.4,
     maxAmplitude: 2.0,
@@ -278,7 +278,8 @@ export class MotionTracker {
     }
 
     // Check for pattern mismatch
-    if (this.exercise === EXERCISES.PLANK && magnitude > pattern.maxAmplitude) {
+    // Fix: Compare with string instead of EXERCISES object
+    if (this.exercise === 'plank' && magnitude > pattern.maxAmplitude) {  // Changed from EXERCISES.PLANK
       this.anomalies.add('Too much movement for plank')
     }
 
@@ -525,7 +526,8 @@ export class MotionTracker {
     // Additional validation based on device orientation
     // Can be used to detect if phone is in pocket, on table, etc.
     
-    if (this.exercise === EXERCISES.PLANK) {
+    // Fix: Compare with string instead of EXERCISES object
+    if (this.exercise === 'plank') {  // Changed from EXERCISES.PLANK
       // Device should be relatively horizontal
       if (Math.abs(orientation.beta) > 45) {
         this.anomalies.add('Device orientation wrong for plank')
