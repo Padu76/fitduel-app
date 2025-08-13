@@ -72,6 +72,29 @@ export interface MissionReward {
 }
 
 // ====================================
+// API RESPONSE TYPES
+// ====================================
+interface ClaimMissionResponse {
+  success: boolean
+  message: string
+  data?: {
+    reward: MissionReward
+    mission: {
+      id: string
+      title: string
+      completed_at: string
+    }
+    user_stats: {
+      new_xp: number
+      new_coins: number
+      new_level?: number
+      level_up?: boolean
+    }
+  }
+  error?: string
+}
+
+// ====================================
 // MISSION TEMPLATE INTERFACE
 // ====================================
 interface MissionTemplate {
@@ -200,14 +223,17 @@ const WEEKLY_MISSIONS_TEMPLATES: MissionTemplate[] = [
 const MissionCard = ({ 
   mission, 
   userProgress, 
-  onClaim 
+  onClaim,
+  isClaimingReward 
 }: { 
   mission: Mission
   userProgress?: UserMissionProgress
-  onClaim: (missionId: string) => void
+  onClaim: (missionId: string) => Promise<void>
+  isClaimingReward: boolean
 }) => {
   const progress = userProgress ? userProgress.current_progress : mission.current_progress
   const isCompleted = userProgress ? userProgress.is_completed : mission.status === 'completed'
+  const isClaimed = userProgress?.completed_at && userProgress.completed_at !== null
   const progressPercentage = Math.min((progress / mission.target_value) * 100, 100)
   
   const getDifficultyColor = (difficulty: MissionDifficulty) => {
@@ -250,6 +276,11 @@ const MissionCard = ({
     return `${current}/${target}`
   }
 
+  const handleClaimClick = async () => {
+    if (!isCompleted || isClaimed || isClaimingReward) return
+    await onClaim(mission.id)
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -261,13 +292,19 @@ const MissionCard = ({
         variant="glass" 
         className={cn(
           "p-4 relative overflow-hidden transition-all duration-300",
-          isCompleted ? "border-green-500/50 bg-green-500/5" : "hover:bg-gray-800/30",
+          isCompleted && !isClaimed ? "border-green-500/50 bg-green-500/5" : "hover:bg-gray-800/30",
+          isClaimed && "border-blue-500/50 bg-blue-500/5",
           mission.status === 'locked' && "opacity-50"
         )}
       >
         {/* Background glow effect for completed missions */}
-        {isCompleted && (
+        {isCompleted && !isClaimed && (
           <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-blue-500/10 pointer-events-none" />
+        )}
+
+        {/* Background glow effect for claimed missions */}
+        {isClaimed && (
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 pointer-events-none" />
         )}
 
         {/* Header */}
@@ -352,15 +389,25 @@ const MissionCard = ({
 
           {/* Action Button */}
           <div>
-            {isCompleted ? (
+            {isClaimed ? (
+              <div className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-lg text-sm flex items-center gap-1">
+                <CheckCircle className="w-4 h-4" />
+                Riscattata
+              </div>
+            ) : isCompleted ? (
               <Button
                 size="sm"
                 variant="gradient"
-                onClick={() => onClaim(mission.id)}
+                onClick={handleClaimClick}
+                disabled={isClaimingReward}
                 className="gap-1"
               >
-                <Gift className="w-4 h-4" />
-                Riscatta
+                {isClaimingReward ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Gift className="w-4 h-4" />
+                )}
+                {isClaimingReward ? 'Riscatto...' : 'Riscatta +50 XP'}
               </Button>
             ) : mission.status === 'locked' ? (
               <Button size="sm" variant="ghost" disabled>
@@ -375,13 +422,24 @@ const MissionCard = ({
         </div>
 
         {/* Completion Effect */}
-        {isCompleted && (
+        {isCompleted && !isClaimed && (
           <motion.div
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             className="absolute top-2 right-2"
           >
             <CheckCircle className="w-6 h-6 text-green-500" />
+          </motion.div>
+        )}
+
+        {/* Claimed Effect */}
+        {isClaimed && (
+          <motion.div
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="absolute top-2 right-2"
+          >
+            <Badge className="w-6 h-6 text-blue-500" />
           </motion.div>
         )}
       </Card>
@@ -395,11 +453,15 @@ const MissionCard = ({
 const MissionRewardsModal = ({
   isOpen,
   onClose,
-  reward
+  reward,
+  missionTitle,
+  levelUp
 }: {
   isOpen: boolean
   onClose: () => void
   reward: MissionReward | null
+  missionTitle?: string
+  levelUp?: boolean
 }) => {
   if (!reward) return null
 
@@ -416,14 +478,27 @@ const MissionRewardsModal = ({
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 200 }}
-          className="w-24 h-24 mx-auto bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center"
+          className={cn(
+            "w-24 h-24 mx-auto rounded-full flex items-center justify-center",
+            levelUp 
+              ? "bg-gradient-to-r from-yellow-500 to-orange-500"
+              : "bg-gradient-to-r from-green-500 to-blue-500"
+          )}
         >
-          <Trophy className="w-12 h-12 text-white" />
+          {levelUp ? (
+            <Crown className="w-12 h-12 text-white" />
+          ) : (
+            <Trophy className="w-12 h-12 text-white" />
+          )}
         </motion.div>
 
         <div>
-          <h3 className="text-2xl font-bold text-white mb-2">Fantastico!</h3>
-          <p className="text-gray-400">Hai completato la missione e ottenuto:</p>
+          <h3 className="text-2xl font-bold text-white mb-2">
+            {levelUp ? 'Level Up!' : 'Fantastico!'}
+          </h3>
+          <p className="text-gray-400">
+            {missionTitle ? `Hai completato "${missionTitle}" e ottenuto:` : 'Hai completato la missione e ottenuto:'}
+          </p>
         </div>
 
         {/* Rewards List */}
@@ -433,7 +508,7 @@ const MissionRewardsModal = ({
             <div className="text-left">
               <p className="text-white font-bold text-lg">{reward.total_xp} XP</p>
               <p className="text-gray-400 text-sm">
-                {reward.xp} base + {reward.streak_bonus} streak bonus
+                {reward.xp} base{reward.streak_bonus > 0 && ` + ${reward.streak_bonus} streak bonus`}
               </p>
             </div>
           </div>
@@ -456,6 +531,15 @@ const MissionRewardsModal = ({
                 {reward.badges.map((badge, i) => (
                   <span key={i} className="text-2xl">{badge}</span>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {levelUp && (
+            <div className="p-4 bg-yellow-500/20 rounded-lg">
+              <div className="flex items-center justify-center gap-2">
+                <Crown className="w-5 h-5 text-yellow-400" />
+                <span className="text-yellow-400 font-medium">Level Up Achieved!</span>
               </div>
             </div>
           )}
@@ -526,6 +610,32 @@ const DailyStreakWidget = ({
 }
 
 // ====================================
+// API FUNCTIONS
+// ====================================
+async function claimMissionRewardAPI(missionId: string): Promise<ClaimMissionResponse> {
+  try {
+    const response = await fetch('/api/missions/claim', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ missionId }),
+    })
+
+    const data = await response.json()
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Errore nella richiesta')
+    }
+
+    return data
+  } catch (error) {
+    console.error('Error claiming mission reward:', error)
+    throw error
+  }
+}
+
+// ====================================
 // MAIN MISSIONS SYSTEM COMPONENT
 // ====================================
 export const DailyMissionsSystem = ({
@@ -539,9 +649,12 @@ export const DailyMissionsSystem = ({
   const [selectedTab, setSelectedTab] = useState<MissionType>('daily')
   const [showRewardModal, setShowRewardModal] = useState(false)
   const [currentReward, setCurrentReward] = useState<MissionReward | null>(null)
+  const [currentMissionTitle, setCurrentMissionTitle] = useState<string>('')
+  const [isLevelUp, setIsLevelUp] = useState(false)
   const [currentStreak, setCurrentStreak] = useState(5)
   const [bestStreak, setBestStreak] = useState(12)
   const [refreshing, setRefreshing] = useState(false)
+  const [claimingRewards, setClaimingRewards] = useState<Set<string>>(new Set())
 
   const supabase = createClientComponentClient()
 
@@ -560,14 +673,32 @@ export const DailyMissionsSystem = ({
       if (user) {
         // Load real missions from database
         const { data, error } = await supabase
-          .from('missions')
+          .from('daily_missions')
           .select('*')
-          .eq('type', selectedTab)
-          .eq('status', 'active')
+          .eq('is_active', true)
           .order('created_at', { ascending: true })
 
         if (error) throw error
-        setMissions(data || [])
+        
+        // Convert database format to component format
+        const formattedMissions: Mission[] = (data || []).map(mission => ({
+          id: mission.id,
+          title: mission.name,
+          description: mission.description,
+          type: selectedTab,
+          category: 'streak' as MissionCategory, // Default, could be dynamic
+          difficulty: 'easy' as MissionDifficulty, // Default, could be dynamic
+          status: 'active' as MissionStatus,
+          target_value: mission.target_value || 1,
+          current_progress: 0, // Will be updated from user progress
+          reward_xp: mission.xp_reward || 50,
+          reward_coins: mission.coins_reward || 10,
+          created_at: mission.created_at,
+          updated_at: mission.updated_at,
+          metadata: { icon: '🔥', color: 'red' }
+        }))
+        
+        setMissions(formattedMissions)
       } else {
         // Load mock missions for demo mode
         loadMockMissions()
@@ -594,7 +725,7 @@ export const DailyMissionsSystem = ({
       difficulty: template.difficulty,
       status: 'active' as MissionStatus,
       target_value: template.target_value,
-      current_progress: Math.floor(Math.random() * template.target_value * 0.8), // Random progress
+      current_progress: template.id === 'daily_streak_1' ? 1 : Math.floor(Math.random() * template.target_value * 0.8), // Make "Dedizione" completed
       reward_xp: template.reward_xp,
       reward_coins: template.reward_coins,
       reward_badges: template.reward_badges || [],
@@ -603,6 +734,13 @@ export const DailyMissionsSystem = ({
       updated_at: new Date().toISOString(),
       metadata: template.metadata
     }))
+
+    // Set "Dedizione" mission as completed but not claimed
+    const dedicazioneMission = mockMissions.find(m => m.id === 'daily_streak_1')
+    if (dedicazioneMission) {
+      dedicazioneMission.current_progress = dedicazioneMission.target_value
+      dedicazioneMission.status = 'completed'
+    }
 
     setMissions(mockMissions)
   }
@@ -613,7 +751,7 @@ export const DailyMissionsSystem = ({
       
       if (user) {
         const { data, error } = await supabase
-          .from('user_mission_progress')
+          .from('user_missions')
           .select('*')
           .eq('user_id', user.id)
 
@@ -625,6 +763,24 @@ export const DailyMissionsSystem = ({
         })
         
         setUserProgress(progressMap)
+      } else {
+        // Mock progress for demo mode
+        const mockProgress = new Map<string, UserMissionProgress>()
+        
+        // Make "Dedizione" mission appear completed but not claimed
+        mockProgress.set('daily_streak_1', {
+          id: 'progress_1',
+          user_id: currentUserId,
+          mission_id: 'daily_streak_1',
+          current_progress: 1,
+          is_completed: true,
+          streak_count: 5,
+          last_reset_date: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        
+        setUserProgress(mockProgress)
       }
     } catch (error) {
       console.error('Error loading user progress:', error)
@@ -633,58 +789,53 @@ export const DailyMissionsSystem = ({
 
   const claimMissionReward = async (missionId: string) => {
     try {
-      const mission = missions.find(m => m.id === missionId)
-      if (!mission) return
-
-      const progress = userProgress.get(missionId)
-      const streakBonus = (progress?.streak_count || 0) * (mission.streak_bonus || 0)
+      setClaimingRewards(prev => new Set(prev).add(missionId))
       
-      const reward: MissionReward = {
-        xp: mission.reward_xp,
-        coins: mission.reward_coins,
-        badges: mission.reward_badges || [],
-        streak_bonus: streakBonus,
-        total_xp: mission.reward_xp + streakBonus,
-        total_coins: mission.reward_coins
+      const mission = missions.find(m => m.id === missionId)
+      if (!mission) {
+        throw new Error('Missione non trovata')
       }
 
-      // Update user stats in database
-      const { data: { user } } = await supabase.auth.getUser()
+      // Call API to claim reward
+      const response = await claimMissionRewardAPI(missionId)
       
-      if (user) {
-        // Add XP and coins to user
-        await supabase.rpc('add_user_rewards', {
-          p_user_id: user.id,
-          p_xp: reward.total_xp,
-          p_coins: reward.total_coins
-        })
+      if (!response.success) {
+        throw new Error(response.message || 'Errore nel riscattare la ricompensa')
+      }
 
-        // Mark mission as claimed
-        await supabase
-          .from('user_mission_progress')
-          .update({ 
-            is_completed: true,
-            completed_at: new Date().toISOString()
-          })
-          .eq('user_id', user.id)
-          .eq('mission_id', missionId)
+      // Update local state
+      const progress = userProgress.get(missionId)
+      if (progress) {
+        const updatedProgress = {
+          ...progress,
+          completed_at: new Date().toISOString()
+        }
+        
+        setUserProgress(prev => {
+          const newMap = new Map(prev)
+          newMap.set(missionId, updatedProgress)
+          return newMap
+        })
       }
 
       // Show reward modal
-      setCurrentReward(reward)
-      setShowRewardModal(true)
-
-      // Update local state
-      setMissions(prev => 
-        prev.map(m => 
-          m.id === missionId 
-            ? { ...m, status: 'completed' as MissionStatus }
-            : m
-        )
-      )
+      if (response.data) {
+        setCurrentReward(response.data.reward)
+        setCurrentMissionTitle(response.data.mission.title)
+        setIsLevelUp(response.data.user_stats.level_up || false)
+        setShowRewardModal(true)
+      }
 
     } catch (error) {
       console.error('Error claiming reward:', error)
+      // Show error notification (you could add a toast here)
+      alert(error instanceof Error ? error.message : 'Errore nel riscattare la ricompensa')
+    } finally {
+      setClaimingRewards(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(missionId)
+        return newSet
+      })
     }
   }
 
@@ -792,6 +943,7 @@ export const DailyMissionsSystem = ({
                 mission={mission}
                 userProgress={userProgress.get(mission.id)}
                 onClaim={claimMissionReward}
+                isClaimingReward={claimingRewards.has(mission.id)}
               />
             ))}
           </div>
@@ -803,6 +955,8 @@ export const DailyMissionsSystem = ({
         isOpen={showRewardModal}
         onClose={() => setShowRewardModal(false)}
         reward={currentReward}
+        missionTitle={currentMissionTitle}
+        levelUp={isLevelUp}
       />
     </div>
   )
