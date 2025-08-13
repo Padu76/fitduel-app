@@ -1001,7 +1001,7 @@ export default function DashboardPage() {
                         <span className="text-lg">💪</span>
                         <div>
                           <p className="text-sm font-medium text-white">Atleta Costante</p>
-                          <p className="text-xs text-gray-400">5 esercizi con form >80%</p>
+                          <p className="text-xs text-gray-400">5 esercizi con form score superiore 80%</p>
                         </div>
                       </div>
                       <span className="text-xs text-yellow-500 font-medium">+150 XP</span>
