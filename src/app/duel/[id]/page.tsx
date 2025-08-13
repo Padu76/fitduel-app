@@ -8,12 +8,13 @@ import {
   Play, Pause, Square, RotateCcw, Upload, CheckCircle,
   Camera, Video, Zap, Target, Award, Coins, Star,
   AlertCircle, Loader2, Plus, Minus, Volume2, VolumeX,
-  Info, Send, XCircle
+  Info, Send, XCircle, Activity, Shield
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
+import { AIExerciseTracker } from '@/components/game/AIExerciseTracker'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 // ====================================
@@ -52,144 +53,18 @@ interface Performance {
   performed_at: string
 }
 
-type DuelPhase = 'overview' | 'countdown' | 'recording' | 'uploading' | 'results'
-type ExerciseState = 'ready' | 'active' | 'paused' | 'completed'
-
-// ====================================
-// TIMER COMPONENT
-// ====================================
-const ExerciseTimer = ({ 
-  isRunning, 
-  onTimeUpdate,
-  maxTime = 300
-}: { 
-  isRunning: boolean
-  onTimeUpdate: (time: number) => void
-  maxTime?: number
-}) => {
-  const [time, setTime] = useState(0)
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
-
-  useEffect(() => {
-    if (isRunning && time < maxTime) {
-      intervalRef.current = setInterval(() => {
-        setTime(prev => {
-          const newTime = prev + 1
-          onTimeUpdate(newTime)
-          return newTime
-        })
-      }, 1000)
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
-    }
-  }, [isRunning, time, maxTime, onTimeUpdate])
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }
-
-  const progress = (time / maxTime) * 100
-
-  return (
-    <div className="space-y-2">
-      <div className="text-center">
-        <p className="text-5xl font-bold text-white font-mono">{formatTime(time)}</p>
-        <p className="text-sm text-gray-400 mt-1">Tempo / {formatTime(maxTime)}</p>
-      </div>
-      <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-        <motion.div
-          className="h-full bg-gradient-to-r from-indigo-500 to-purple-500"
-          animate={{ width: `${progress}%` }}
-          transition={{ duration: 0.3 }}
-        />
-      </div>
-    </div>
-  )
+interface ExerciseResult {
+  exerciseType: string
+  reps: number
+  duration: number
+  formScore: number
+  videoUrl?: string
+  calories: number
+  maxStreak: number
+  timestamps: number[]
 }
 
-// ====================================
-// REP COUNTER COMPONENT
-// ====================================
-const RepCounter = ({ 
-  count, 
-  onCountChange,
-  target,
-  isActive
-}: { 
-  count: number
-  onCountChange: (count: number) => void
-  target: number | null
-  isActive: boolean
-}) => {
-  const handleIncrement = () => {
-    if (isActive) {
-      onCountChange(count + 1)
-    }
-  }
-
-  const handleDecrement = () => {
-    if (isActive && count > 0) {
-      onCountChange(count - 1)
-    }
-  }
-
-  const progress = target ? (count / target) * 100 : 0
-
-  return (
-    <div className="space-y-4">
-      <div className="text-center">
-        <p className="text-6xl font-bold text-white">{count}</p>
-        {target && (
-          <p className="text-sm text-gray-400 mt-1">Target: {target}</p>
-        )}
-      </div>
-
-      {target && (
-        <div className="h-3 bg-gray-800 rounded-full overflow-hidden">
-          <motion.div
-            className={cn(
-              "h-full transition-all",
-              progress >= 100 ? "bg-green-500" : "bg-gradient-to-r from-indigo-500 to-purple-500"
-            )}
-            animate={{ width: `${Math.min(progress, 100)}%` }}
-            transition={{ duration: 0.3 }}
-          />
-        </div>
-      )}
-
-      <div className="flex gap-4">
-        <Button
-          variant="secondary"
-          size="lg"
-          onClick={handleDecrement}
-          disabled={!isActive || count === 0}
-          className="flex-1"
-        >
-          <Minus className="w-6 h-6" />
-        </Button>
-        <Button
-          variant="gradient"
-          size="lg"
-          onClick={handleIncrement}
-          disabled={!isActive}
-          className="flex-1"
-        >
-          <Plus className="w-6 h-6" />
-        </Button>
-      </div>
-    </div>
-  )
-}
+type DuelPhase = 'overview' | 'ai_exercise' | 'uploading' | 'results'
 
 // ====================================
 // MAIN COMPONENT
@@ -209,18 +84,14 @@ export default function DuelPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   
-  // Phase and exercise state
+  // Phase state
   const [duelPhase, setDuelPhase] = useState<DuelPhase>('overview')
-  const [exerciseState, setExerciseState] = useState<ExerciseState>('ready')
-  const [countdown, setCountdown] = useState(0)
-  const [repCount, setRepCount] = useState(0)
-  const [exerciseTime, setExerciseTime] = useState(0)
-  const [formScore, setFormScore] = useState(85) // Mock form score for now
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
+  const [showAITracker, setShowAITracker] = useState(false)
   
-  // Audio feedback
-  const [soundEnabled, setSoundEnabled] = useState(true)
+  // Exercise result from AI
+  const [exerciseResult, setExerciseResult] = useState<ExerciseResult | null>(null)
 
   // Load duel data
   useEffect(() => {
@@ -345,7 +216,7 @@ export default function DuelPage() {
       exercise_id: 'ex-1',
       exercise: {
         name: 'Push-Up',
-        code: 'push_up',
+        code: 'pushup',
         description: 'Esegui più flessioni possibili mantenendo la forma corretta'
       },
       difficulty: 'medium',
@@ -363,45 +234,25 @@ export default function DuelPage() {
     setLoading(false)
   }
 
-  // Exercise flow
+  // Start exercise with AI
   const startExercise = () => {
-    setDuelPhase('countdown')
-    setCountdown(3)
-    
-    const countdownInterval = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(countdownInterval)
-          setDuelPhase('recording')
-          setExerciseState('active')
-          playSound('start')
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
+    setDuelPhase('ai_exercise')
+    setShowAITracker(true)
   }
 
-  const pauseExercise = () => {
-    setExerciseState('paused')
-  }
-
-  const resumeExercise = () => {
-    setExerciseState('active')
-  }
-
-  const resetExercise = () => {
-    setExerciseState('ready')
-    setRepCount(0)
-    setExerciseTime(0)
-    setDuelPhase('overview')
-  }
-
-  const completeExercise = () => {
-    setExerciseState('completed')
+  // Handle AI exercise completion
+  const handleExerciseComplete = (result: ExerciseResult) => {
+    console.log('Exercise completed:', result)
+    setExerciseResult(result)
+    setShowAITracker(false)
     setDuelPhase('uploading')
-    playSound('complete')
     simulateUpload()
+  }
+
+  // Handle AI exercise cancel
+  const handleExerciseCancel = () => {
+    setShowAITracker(false)
+    setDuelPhase('overview')
   }
 
   const simulateUpload = () => {
@@ -421,7 +272,7 @@ export default function DuelPage() {
 
   // Save performance to database
   const savePerformance = async () => {
-    if (!duel || !currentUser) return
+    if (!duel || !currentUser || !exerciseResult) return
 
     try {
       setIsSaving(true)
@@ -438,11 +289,13 @@ export default function DuelPage() {
             user_id: user.id,
             duel_id: duel.id,
             exercise_id: duel.exercise_id,
-            reps: repCount,
-            duration: exerciseTime,
-            form_score: formScore,
+            reps: exerciseResult.reps,
+            duration: exerciseResult.duration,
+            form_score: exerciseResult.formScore,
+            video_url: exerciseResult.videoUrl,
             difficulty: duel.difficulty,
-            calories_burned: calculateCalories(),
+            calories_burned: exerciseResult.calories,
+            max_streak: exerciseResult.maxStreak,
             performed_at: new Date().toISOString()
           })
           .select()
@@ -491,9 +344,10 @@ export default function DuelPage() {
         setMyPerformance({
           user_id: currentUser.id,
           duel_id: duel.id,
-          reps: repCount,
-          duration: exerciseTime,
-          form_score: formScore,
+          reps: exerciseResult.reps,
+          duration: exerciseResult.duration,
+          form_score: exerciseResult.formScore,
+          video_url: exerciseResult.videoUrl,
           performed_at: new Date().toISOString()
         })
       }
@@ -510,26 +364,10 @@ export default function DuelPage() {
   }
 
   // Utility functions
-  const calculateCalories = () => {
-    const difficultyMultiplier = {
-      easy: 0.5,
-      medium: 1,
-      hard: 1.5,
-      extreme: 2
-    }[duel?.difficulty || 'medium']
-    
-    return Math.round(repCount * difficultyMultiplier * (1 + exerciseTime / 60))
-  }
-
   const calculateScore = (perf: Performance) => {
     const baseScore = perf.reps * (perf.form_score / 100)
     const timeBonus = Math.max(0, 300 - perf.duration) * 0.1
     return Math.round(baseScore + timeBonus)
-  }
-
-  const playSound = (type: 'start' | 'complete' | 'rep') => {
-    if (!soundEnabled) return
-    // Add sound effects here
   }
 
   const isMyTurn = () => {
@@ -574,6 +412,20 @@ export default function DuelPage() {
     }
   }
 
+  const getExerciseType = (exerciseCode: string): string => {
+    // Map exercise codes to AI tracker types
+    const mapping: Record<string, string> = {
+      'push_up': 'pushup',
+      'pushup': 'pushup',
+      'squat': 'squat',
+      'plank': 'plank',
+      'jumping_jack': 'jumping_jack',
+      'burpee': 'burpee',
+      'situp': 'situp'
+    }
+    return mapping[exerciseCode?.toLowerCase()] || 'pushup'
+  }
+
   // Loading state
   if (loading) {
     return (
@@ -601,6 +453,21 @@ export default function DuelPage() {
     )
   }
 
+  // Show AI Exercise Tracker in full screen when active
+  if (showAITracker && duelPhase === 'ai_exercise') {
+    return (
+      <AIExerciseTracker
+        exerciseType={getExerciseType(duel.exercise?.code)}
+        targetReps={duel.target_reps || 20}
+        targetTime={duel.target_time || undefined}
+        onComplete={handleExerciseComplete}
+        onCancel={handleExerciseCancel}
+        duelId={duel.id}
+        userId={currentUser?.id}
+      />
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-indigo-950 to-purple-950">
       {/* Header */}
@@ -620,13 +487,6 @@ export default function DuelPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSoundEnabled(!soundEnabled)}
-              >
-                {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-              </Button>
               <span className={cn('text-sm font-medium px-2 py-1 rounded', getDifficultyColor(duel.difficulty))}>
                 {duel.difficulty === 'easy' ? 'Facile' :
                  duel.difficulty === 'medium' ? 'Media' :
@@ -730,28 +590,71 @@ export default function DuelPage() {
                 </div>
               </Card>
 
+              {/* AI Features Info */}
+              <Card variant="gradient" className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-indigo-500/20 rounded-lg">
+                    <Activity className="w-6 h-6 text-indigo-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white">Sistema AI Avanzato</h3>
+                    <p className="text-sm text-gray-300">MediaPipe per il conteggio automatico</p>
+                  </div>
+                </div>
+                
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="flex items-start gap-3">
+                    <Camera className="w-5 h-5 text-green-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-white">Auto-Count</p>
+                      <p className="text-xs text-gray-400">Conta automaticamente le ripetizioni</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <Shield className="w-5 h-5 text-blue-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-white">Form Score</p>
+                      <p className="text-xs text-gray-400">Valutazione forma in tempo reale</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <Zap className="w-5 h-5 text-yellow-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-white">Feedback Live</p>
+                      <p className="text-xs text-gray-400">Correzioni postura istantanee</p>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
               {/* Instructions */}
               <Card variant="glass" className="p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Info className="w-5 h-5 text-indigo-400" />
-                  <h3 className="font-bold text-white">Come funziona</h3>
+                  <h3 className="font-bold text-white">Come funziona con l'AI</h3>
                 </div>
                 <ul className="space-y-2 text-sm text-gray-400">
                   <li className="flex items-start gap-2">
                     <span className="text-indigo-400">1.</span>
-                    <span>Clicca "Inizia Duello" quando sei pronto</span>
+                    <span>Clicca "Inizia con AI" e consenti l'accesso alla camera</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-indigo-400">2.</span>
-                    <span>Conta le ripetizioni con i pulsanti +/- durante l'esercizio</span>
+                    <span>Posizionati al centro dello schermo per la calibrazione</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-indigo-400">3.</span>
-                    <span>Completa quando hai finito o al tempo massimo</span>
+                    <span>L'AI conterà automaticamente le ripetizioni e valuterà la forma</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-indigo-400">4.</span>
-                    <span>Il risultato verrà salvato e confrontato con l'avversario</span>
+                    <span>Riceverai feedback vocale e visivo in tempo reale</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-indigo-400">5.</span>
+                    <span>Il video verrà salvato automaticamente per la verifica</span>
                   </li>
                 </ul>
               </Card>
@@ -763,10 +666,10 @@ export default function DuelPage() {
                     variant="gradient"
                     size="lg"
                     onClick={startExercise}
-                    className="px-12 py-4 text-lg"
+                    className="px-12 py-4 text-lg gap-3"
                   >
-                    <Play className="w-6 h-6 mr-3" />
-                    Inizia Duello
+                    <Activity className="w-6 h-6" />
+                    Inizia con AI
                   </Button>
                 ) : myPerformance ? (
                   <div className="text-center">
@@ -783,153 +686,6 @@ export default function DuelPage() {
             </motion.div>
           )}
 
-          {/* COUNTDOWN PHASE */}
-          {duelPhase === 'countdown' && (
-            <motion.div
-              key="countdown"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.2 }}
-              className="flex items-center justify-center min-h-[60vh]"
-            >
-              <div className="text-center">
-                <motion.div
-                  key={countdown}
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="text-9xl font-bold text-white mb-4"
-                >
-                  {countdown || 'GO!'}
-                </motion.div>
-                <p className="text-xl text-gray-400">Preparati per {duel.exercise?.name}</p>
-              </div>
-            </motion.div>
-          )}
-
-          {/* RECORDING PHASE */}
-          {duelPhase === 'recording' && (
-            <motion.div
-              key="recording"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="max-w-4xl mx-auto"
-            >
-              <Card variant="glass" className="p-6 mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                    <span className="font-bold text-white">ESERCIZIO IN CORSO</span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSoundEnabled(!soundEnabled)}
-                  >
-                    {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-                  </Button>
-                </div>
-
-                <div className="grid lg:grid-cols-2 gap-6">
-                  {/* Video Placeholder */}
-                  <div className="aspect-video bg-gray-900 rounded-lg flex items-center justify-center">
-                    <div className="text-center">
-                      <Camera className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                      <p className="text-gray-400">Camera Recording</p>
-                      <p className="text-sm text-gray-500">Coming Soon - MediaPipe Integration</p>
-                    </div>
-                  </div>
-
-                  {/* Controls */}
-                  <div className="space-y-6">
-                    {/* Timer */}
-                    <ExerciseTimer
-                      isRunning={exerciseState === 'active'}
-                      onTimeUpdate={setExerciseTime}
-                      maxTime={duel.target_time || 300}
-                    />
-
-                    {/* Rep Counter */}
-                    <RepCounter
-                      count={repCount}
-                      onCountChange={setRepCount}
-                      target={duel.target_reps}
-                      isActive={exerciseState === 'active'}
-                    />
-
-                    {/* Form Score Mock */}
-                    <div className="p-4 bg-gray-800/50 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-gray-400">Form Score (Mock)</span>
-                        <span className="text-lg font-bold text-white">{formScore}%</span>
-                      </div>
-                      <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                        <motion.div
-                          className={cn(
-                            "h-full",
-                            formScore >= 80 ? "bg-green-500" :
-                            formScore >= 60 ? "bg-yellow-500" : "bg-red-500"
-                          )}
-                          animate={{ width: `${formScore}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Control Buttons */}
-                    <div className="flex gap-3">
-                      {exerciseState === 'active' && (
-                        <>
-                          <Button
-                            variant="secondary"
-                            size="lg"
-                            onClick={pauseExercise}
-                            className="flex-1"
-                          >
-                            <Pause className="w-5 h-5 mr-2" />
-                            Pausa
-                          </Button>
-                          <Button
-                            variant="gradient"
-                            size="lg"
-                            onClick={completeExercise}
-                            className="flex-1"
-                            disabled={repCount === 0}
-                          >
-                            <CheckCircle className="w-5 h-5 mr-2" />
-                            Completa
-                          </Button>
-                        </>
-                      )}
-
-                      {exerciseState === 'paused' && (
-                        <>
-                          <Button
-                            variant="secondary"
-                            size="lg"
-                            onClick={resetExercise}
-                            className="flex-1"
-                          >
-                            <RotateCcw className="w-5 h-5 mr-2" />
-                            Reset
-                          </Button>
-                          <Button
-                            variant="gradient"
-                            size="lg"
-                            onClick={resumeExercise}
-                            className="flex-1"
-                          >
-                            <Play className="w-5 h-5 mr-2" />
-                            Riprendi
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
-          )}
-
           {/* UPLOADING PHASE */}
           {duelPhase === 'uploading' && (
             <motion.div
@@ -942,7 +698,7 @@ export default function DuelPage() {
               <Card variant="glass" className="p-8 text-center max-w-md">
                 <Upload className="w-16 h-16 text-indigo-500 mx-auto mb-4" />
                 <h3 className="text-xl font-bold text-white mb-2">Salvataggio in corso...</h3>
-                <p className="text-gray-400 mb-6">Stiamo elaborando la tua performance</p>
+                <p className="text-gray-400 mb-6">Stiamo elaborando la tua performance AI</p>
                 
                 <div className="w-full bg-gray-800 rounded-full h-3 mb-4">
                   <motion.div
@@ -954,6 +710,25 @@ export default function DuelPage() {
                 </div>
                 
                 <p className="text-sm text-gray-400">{Math.round(uploadProgress)}% completato</p>
+                
+                {exerciseResult && (
+                  <div className="mt-6 p-4 bg-gray-800/50 rounded-lg">
+                    <div className="grid grid-cols-3 gap-2 text-sm">
+                      <div>
+                        <p className="text-gray-400">Reps</p>
+                        <p className="text-white font-bold">{exerciseResult.reps}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400">Form</p>
+                        <p className="text-white font-bold">{exerciseResult.formScore}%</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400">Tempo</p>
+                        <p className="text-white font-bold">{formatTime(exerciseResult.duration)}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </Card>
             </motion.div>
           )}
@@ -1000,9 +775,13 @@ export default function DuelPage() {
                 {/* Final Scores */}
                 <div className="grid grid-cols-2 gap-6 mb-6">
                   <div className="text-center">
-                    <p className="text-4xl font-bold text-white">{repCount}</p>
+                    <p className="text-4xl font-bold text-white">
+                      {exerciseResult?.reps || myPerformance?.reps || 0}
+                    </p>
                     <p className="text-sm text-gray-400">Il tuo score</p>
-                    <p className="text-xs text-gray-500">{formatTime(exerciseTime)}</p>
+                    <p className="text-xs text-gray-500">
+                      {formatTime(exerciseResult?.duration || myPerformance?.duration || 0)}
+                    </p>
                   </div>
                   <div className="text-center">
                     <p className="text-4xl font-bold text-white">
@@ -1018,11 +797,15 @@ export default function DuelPage() {
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-4 p-4 bg-gray-800/30 rounded-lg">
                   <div className="text-center">
-                    <p className="text-xl font-bold text-white">{formScore}%</p>
+                    <p className="text-xl font-bold text-white">
+                      {exerciseResult?.formScore || myPerformance?.form_score || 0}%
+                    </p>
                     <p className="text-xs text-gray-400">Form Score</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-xl font-bold text-white">{calculateCalories()}</p>
+                    <p className="text-xl font-bold text-white">
+                      {exerciseResult?.calories || 0}
+                    </p>
                     <p className="text-xs text-gray-400">Calorie</p>
                   </div>
                   <div className="text-center">
@@ -1032,6 +815,26 @@ export default function DuelPage() {
                     <p className="text-xs text-gray-400">Guadagnati</p>
                   </div>
                 </div>
+
+                {/* AI Stats */}
+                {exerciseResult && (
+                  <div className="mt-4 p-4 bg-indigo-500/10 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Activity className="w-5 h-5 text-indigo-400" />
+                      <span className="text-sm font-medium text-indigo-400">Statistiche AI</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Max Streak:</span>
+                        <span className="text-white font-medium">{exerciseResult.maxStreak}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Tipo Esercizio:</span>
+                        <span className="text-white font-medium">{exerciseResult.exerciseType}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </Card>
 
               {/* Actions */}
