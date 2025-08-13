@@ -797,7 +797,7 @@ async function sendGlobalEventNotification(
     .eq('is_active', true)
   
   if (users) {
-    const notifications = users.map(user => ({
+    const notifications = users.map((user: { user_id: string }) => ({
       user_id: user.user_id,
       type: 'special_event',
       title,
@@ -839,7 +839,7 @@ async function notifyAdmins(notification: any, supabase: any): Promise<void> {
     .eq('role', 'admin')
   
   if (admins) {
-    const adminNotifications = admins.map(admin => ({
+    const adminNotifications = admins.map((admin: { id: string }) => ({
       user_id: admin.id,
       type: 'admin_alert',
       title: '⚠️ Admin Alert',
