@@ -13,19 +13,40 @@ import {
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 // ====================================
 // TYPES
 // ====================================
 interface User {
   id: string
+  email: string
+  username?: string
+  level?: number
+  xp?: number
+  coins?: number
+  avatar?: string
+}
+
+interface Profile {
+  id: string
   username: string
+  display_name: string | null
+  email: string
+  avatar_url: string | null
+  bio: string | null
+  created_at: string
+  updated_at: string
+}
+
+interface UserStats {
+  user_id: string
   level: number
-  xp: number
+  total_xp: number
   coins: number
-  isGuest: boolean
-  avatar: string
-  tier: 'newbie' | 'user' | 'premium'
+  daily_streak: number
+  total_duels: number
+  duels_won: number
 }
 
 interface DuelCardData {
@@ -166,11 +187,9 @@ const DuelCard = ({ duel }: { duel: DuelCardData }) => {
   }
 
   const handleCardClick = () => {
-    // Se il duello è attivo o completato, vai alla pagina del duello
     if (duel.status === 'active' || duel.status === 'completed') {
       router.push(`/duel/${duel.id}`)
     } else {
-      // Se è pending, vai alla pagina challenges per accettare
       router.push('/challenges')
     }
   }
@@ -219,7 +238,7 @@ const DuelCard = ({ duel }: { duel: DuelCardData }) => {
         size="sm" 
         className="w-full"
         onClick={(e) => {
-          e.stopPropagation() // Previene il doppio click
+          e.stopPropagation()
           handleCardClick()
         }}
       >
@@ -288,7 +307,6 @@ const NotificationModal = ({
 
       const result = await response.json()
       if (result.success) {
-        // Update local state
         setNotifications(prev => 
           prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
         )
@@ -364,7 +382,6 @@ const NotificationModal = ({
         animate={{ opacity: 1, scale: 1 }}
         className="bg-gray-900 rounded-xl p-6 max-w-md w-full max-h-[80vh] flex flex-col border border-gray-800"
       >
-        {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg font-bold text-white">Notifiche</h3>
@@ -377,7 +394,6 @@ const NotificationModal = ({
           </button>
         </div>
 
-        {/* Filters */}
         <div className="flex gap-2 mb-4">
           <Button
             variant={!showOnlyUnread ? 'gradient' : 'secondary'}
@@ -406,7 +422,6 @@ const NotificationModal = ({
           )}
         </div>
         
-        {/* Notifications List */}
         <div className="flex-1 overflow-y-auto space-y-2">
           {loading ? (
             <div className="text-center py-8">
@@ -469,7 +484,6 @@ const NotificationModal = ({
           )}
         </div>
 
-        {/* Footer */}
         <div className="mt-4 pt-4 border-t border-gray-800">
           <Button variant="gradient" className="w-full" onClick={onClose}>
             Chiudi
@@ -485,31 +499,111 @@ const NotificationModal = ({
 // ====================================
 export default function DashboardPage() {
   const router = useRouter()
+  const supabase = createClientComponentClient()
+  
   const [user, setUser] = useState<User | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [stats, setStats] = useState<UserStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [showNotifications, setShowNotifications] = useState(false)
   const [unreadNotifications, setUnreadNotifications] = useState(0)
 
-  // Load user from localStorage
+  // Load user from Supabase
   useEffect(() => {
+    loadUserData()
+  }, [])
+
+  const loadUserData = async () => {
     try {
+      // Get current user from Supabase
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      
+      if (!authUser) {
+        // No Supabase user, check localStorage for demo user
+        const savedUser = localStorage.getItem('fitduel_user')
+        if (savedUser) {
+          const userData = JSON.parse(savedUser)
+          setUser({
+            id: userData.id,
+            email: userData.email || 'demo@fitduel.com',
+            username: userData.username,
+            level: userData.level || 1,
+            xp: userData.xp || 0,
+            coins: userData.coins || 0,
+            avatar: userData.avatar || '💪'
+          })
+          setLoading(false)
+          return
+        }
+        
+        // No user at all, redirect to login
+        router.push('/login')
+        return
+      }
+      
+      // We have a Supabase user
+      console.log('👤 User loggato:', authUser.email)
+      
+      // Get profile from database
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single()
+      
+      if (profileData) {
+        setProfile(profileData)
+      }
+      
+      // Get user stats
+      const { data: statsData } = await supabase
+        .from('user_stats')
+        .select('*')
+        .eq('user_id', authUser.id)
+        .single()
+      
+      if (statsData) {
+        setStats(statsData)
+      }
+      
+      // Set user data
+      setUser({
+        id: authUser.id,
+        email: authUser.email || '',
+        username: profileData?.username || profileData?.display_name || authUser.email?.split('@')[0] || 'User',
+        level: statsData?.level || 1,
+        xp: statsData?.total_xp || 100,
+        coins: statsData?.coins || 50,
+        avatar: profileData?.avatar_url || '💪'
+      })
+      
+      // Check unread notifications count
+      if (authUser.id) {
+        checkUnreadNotifications(authUser.id)
+      }
+      
+    } catch (error) {
+      console.error('Error loading user:', error)
+      // On error, check localStorage as fallback
       const savedUser = localStorage.getItem('fitduel_user')
       if (savedUser) {
         const userData = JSON.parse(savedUser)
-        setUser(userData)
-        // Check unread notifications count
-        checkUnreadNotifications(userData.id)
+        setUser({
+          id: userData.id,
+          email: userData.email || 'demo@fitduel.com',
+          username: userData.username,
+          level: userData.level || 1,
+          xp: userData.xp || 0,
+          coins: userData.coins || 0,
+          avatar: userData.avatar || '💪'
+        })
       } else {
-        // No user found, redirect to login
         router.push('/login')
       }
-    } catch (error) {
-      console.error('Error loading user:', error)
-      router.push('/login')
     } finally {
       setLoading(false)
     }
-  }, [router])
+  }
 
   const checkUnreadNotifications = async (userId: string) => {
     try {
@@ -519,19 +613,32 @@ export default function DashboardPage() {
       })
 
       const response = await fetch(`/api/notifications?${params}`)
-      const result = await response.json()
-
-      if (result.success && result.data) {
-        setUnreadNotifications(result.data.unreadCount)
+      
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success && result.data) {
+          setUnreadNotifications(result.data.unreadCount)
+        }
       }
     } catch (error) {
       console.error('Error checking notifications:', error)
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('fitduel_user')
-    router.push('/login')
+  const handleLogout = async () => {
+    try {
+      // Sign out from Supabase
+      await supabase.auth.signOut()
+      // Clear localStorage
+      localStorage.removeItem('fitduel_user')
+      // Redirect to login
+      router.push('/login')
+    } catch (error) {
+      console.error('Error during logout:', error)
+      // Force redirect anyway
+      localStorage.removeItem('fitduel_user')
+      router.push('/login')
+    }
   }
 
   if (loading) {
@@ -550,9 +657,9 @@ export default function DashboardPage() {
   }
 
   // Calculate stats
-  const winRate = 78.3 // Mock data
-  const totalDuels = 45 // Mock data
-  const currentStreak = 8 // Mock data
+  const winRate = stats ? Math.round((stats.duels_won / Math.max(stats.total_duels, 1)) * 100) : 78
+  const totalDuels = stats?.total_duels || 0
+  const currentStreak = stats?.daily_streak || 0
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-indigo-950 to-purple-950">
@@ -695,7 +802,6 @@ export default function DashboardPage() {
                 <Button 
                   variant="secondary"
                   onClick={() => {
-                    // Coming soon
                     alert('Torneo settimanale - Coming Soon! 🏆')
                   }}
                 >
@@ -844,12 +950,11 @@ export default function DashboardPage() {
         </div>
       </main>
 
-      {/* Notification Modal with API Integration */}
+      {/* Notification Modal */}
       <NotificationModal 
         isOpen={showNotifications} 
         onClose={() => {
           setShowNotifications(false)
-          // Refresh unread count after closing
           if (user) {
             checkUnreadNotifications(user.id)
           }
