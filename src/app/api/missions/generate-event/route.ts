@@ -45,6 +45,12 @@ const createEventMissionSchema = z.object({
 
 type CreateEventMissionRequest = z.infer<typeof createEventMissionSchema>
 
+// Type for eligible users
+interface EligibleUser {
+  user_id: string
+  level?: number
+}
+
 interface EventMissionResponse {
   success: boolean
   message: string
@@ -459,7 +465,7 @@ async function notifyEligibleUsers(mission: any, supabase: any): Promise<void> {
     
     // Create notifications in batches
     const batchSize = 100
-    const notifications = eligibleUsers.map(user => ({
+    const notifications = eligibleUsers.map((user: EligibleUser) => ({
       user_id: user.user_id,
       type: 'event_mission',
       title: `🎉 Nuovo Evento: ${mission.title}`,
