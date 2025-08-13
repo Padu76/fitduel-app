@@ -1031,6 +1031,3 @@ export function AdvancedTimer({
 // ====================================
 export { AdvancedTimer as Timer }
 export default AdvancedTimer
-
-// Re-export existing components for compatibility
-export { ExerciseTimer, CountdownOverlay } from './Timer'
