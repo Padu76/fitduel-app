@@ -939,6 +939,91 @@ export default function DashboardPage() {
               </Card>
             </motion.div>
 
+            {/* Daily Missions Widget */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.35 }}
+            >
+              <Card variant="glass" className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-5 h-5 text-indigo-500" />
+                    <h3 className="font-bold text-white">Missioni del Giorno</h3>
+                  </div>
+                  <span className="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-1 rounded-full">
+                    3 attive
+                  </span>
+                </div>
+                
+                <div className="space-y-3">
+                  {/* Mission 1 - Active */}
+                  <div className="p-3 bg-gray-800/50 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">⚔️</span>
+                        <div>
+                          <p className="text-sm font-medium text-white">Guerriero Quotidiano</p>
+                          <p className="text-xs text-gray-400">Vinci 3 duelli oggi</p>
+                        </div>
+                      </div>
+                      <span className="text-xs text-yellow-500 font-medium">+100 XP</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full" 
+                           style={{ width: '66%' }}>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">2/3 completati</p>
+                  </div>
+
+                  {/* Mission 2 - Completed */}
+                  <div className="p-3 bg-green-500/10 rounded-lg border border-green-500/30">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">🔥</span>
+                        <div>
+                          <p className="text-sm font-medium text-white">Dedizione</p>
+                          <p className="text-xs text-gray-400">Mantieni lo streak</p>
+                        </div>
+                      </div>
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    </div>
+                    <Button variant="gradient" size="sm" className="w-full">
+                      Riscatta +50 XP
+                    </Button>
+                  </div>
+
+                  {/* Mission 3 - Active */}
+                  <div className="p-3 bg-gray-800/50 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">💪</span>
+                        <div>
+                          <p className="text-sm font-medium text-white">Atleta Costante</p>
+                          <p className="text-xs text-gray-400">5 esercizi con form >80%</p>
+                        </div>
+                      </div>
+                      <span className="text-xs text-yellow-500 font-medium">+150 XP</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full" 
+                           style={{ width: '20%' }}>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">1/5 completati</p>
+                  </div>
+                </div>
+
+                <Link href="/missions">
+                  <Button variant="secondary" size="sm" className="w-full mt-4">
+                    Vedi Tutte le Missioni
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </Link>
+              </Card>
+            </motion.div>
+
             {/* Recent Activity */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
