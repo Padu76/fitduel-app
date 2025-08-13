@@ -411,7 +411,7 @@ export class AIValidator {
         break
       case 'plank':   // Changed from EXERCISES.PLANK
         // Plank doesn't have reps, just duration
-        isRep = formScore > FORM_SCORE_THRESHOLDS.ACCEPTABLE
+        isRep = formScore > FORM_SCORE_THRESHOLDS.DECENT
         break
       default:
         isRep = false
@@ -425,7 +425,7 @@ export class AIValidator {
   }
 
   private checkPushupRep(angles: ExerciseAngles, formScore: number): boolean {
-    if (!angles.elbow || formScore < FORM_SCORE_THRESHOLDS.ACCEPTABLE) {
+    if (!angles.elbow || formScore < FORM_SCORE_THRESHOLDS.DECENT) {
       return false
     }
 
@@ -442,7 +442,7 @@ export class AIValidator {
   }
 
   private checkSquatRep(angles: ExerciseAngles, formScore: number): boolean {
-    if (!angles.knee || formScore < FORM_SCORE_THRESHOLDS.ACCEPTABLE) {
+    if (!angles.knee || formScore < FORM_SCORE_THRESHOLDS.DECENT) {
       return false
     }
 
@@ -463,7 +463,7 @@ export class AIValidator {
   // ====================================
   getValidationResult(): ExerciseValidation {
     const duration = Math.floor((Date.now() - this.startTime) / 1000)
-    const validFrames = this.frames.filter(f => f.formScore > FORM_SCORE_THRESHOLDS.ACCEPTABLE)
+    const validFrames = this.frames.filter(f => f.formScore > FORM_SCORE_THRESHOLDS.DECENT)
     const avgFormScore = validFrames.length > 0
       ? validFrames.reduce((sum, f) => sum + f.formScore, 0) / validFrames.length
       : 0
