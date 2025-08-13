@@ -582,8 +582,8 @@ const FriendRequests = ({
               </p>
 
               <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
-                <span>Level {request.requester_stats?.[0]?.level || 1}</span>
-                <span>{request.requester_stats?.[0]?.total_xp?.toLocaleString() || 0} XP</span>
+                <span>Level {request.requester_stats?.level || 1}</span>
+                <span>{request.requester_stats?.total_xp?.toLocaleString() || 0} XP</span>
                 <span>{new Date(request.created_at).toLocaleDateString()}</span>
               </div>
 
@@ -729,7 +729,7 @@ const FriendsList = ({
           return (a.friend_profile.display_name || a.friend_profile.username)
             .localeCompare(b.friend_profile.display_name || b.friend_profile.username)
         case 'level':
-          return (b.friend_stats?.[0]?.level || 0) - (a.friend_stats?.[0]?.level || 0)
+          return (b.friend_stats?.level || 0) - (a.friend_stats?.level || 0)
         case 'last_seen':
           return new Date(b.friend_profile.last_seen).getTime() - 
                  new Date(a.friend_profile.last_seen).getTime()
@@ -739,8 +739,8 @@ const FriendsList = ({
     })
 
   const getWinRate = (stats: any) => {
-    if (!stats?.[0] || stats[0].total_duels === 0) return 0
-    return Math.round((stats[0].duels_won / stats[0].total_duels) * 100)
+    if (!stats || stats.total_duels === 0) return 0
+    return Math.round((stats.duels_won / stats.total_duels) * 100)
   }
 
   const formatLastSeen = (lastSeen: string, isOnline: boolean) => {
@@ -882,7 +882,7 @@ const FriendsList = ({
                 <div className="grid grid-cols-3 gap-2 mb-3 text-center">
                   <div>
                     <p className="text-lg font-bold text-white">
-                      {friend.friend_stats?.[0]?.level || 1}
+                      {friend.friend_stats?.level || 1}
                     </p>
                     <p className="text-xs text-gray-400">Level</p>
                   </div>
@@ -894,7 +894,7 @@ const FriendsList = ({
                   </div>
                   <div>
                     <p className="text-lg font-bold text-white">
-                      {friend.friend_stats?.[0]?.win_streak || 0}
+                      {friend.friend_stats?.win_streak || 0}
                     </p>
                     <p className="text-xs text-gray-400">Streak</p>
                   </div>
