@@ -333,7 +333,7 @@ async function executeDailyReset(
     const batch = users?.slice(i, i + batchSize) || []
     
     const results = await Promise.allSettled(
-      batch.map(async (user) => {
+      batch.map(async (user: { user_id: string }) => {
         try {
           // Generate daily missions using the scheduler's method
           const result = await scheduler['generateDailyMissionsForUser'](user.user_id)
