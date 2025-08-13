@@ -4,12 +4,15 @@ import { LEVELS, XP_REWARDS, FORM_SCORE_THRESHOLDS, FORM_FEEDBACK, EXERCISE_DATA
 // LEVEL & XP CALCULATIONS
 // ====================================
 export function calculateLevel(xp: number): number {
-  const level = LEVELS.findLast((l) => xp >= l.minXP)
+  // Convert LEVELS object to array and find last matching level
+  const levelsArray = Object.values(LEVELS)
+  const level = levelsArray.findLast((l) => xp >= l.xpRequired)
   return level?.level || 1
 }
 
 export function getLevelData(level: number) {
-  return LEVELS.find((l) => l.level === level) || LEVELS[0]
+  // Access LEVELS object directly by key
+  return LEVELS[level as keyof typeof LEVELS] || LEVELS[0]
 }
 
 export function calculateProgress(xp: number): { 
@@ -22,8 +25,8 @@ export function calculateProgress(xp: number): {
   levelTitleIt: string
 } {
   const currentLevel = calculateLevel(xp)
-  const currentLevelData = LEVELS.find((l) => l.level === currentLevel)!
-  const nextLevelData = LEVELS.find((l) => l.level === currentLevel + 1)
+  const currentLevelData = LEVELS[currentLevel as keyof typeof LEVELS]
+  const nextLevelData = LEVELS[(currentLevel + 1) as keyof typeof LEVELS]
   
   if (!nextLevelData) {
     return { 
@@ -37,8 +40,8 @@ export function calculateProgress(xp: number): {
     }
   }
   
-  const current = xp - currentLevelData.minXP
-  const next = nextLevelData.minXP - currentLevelData.minXP
+  const current = xp - currentLevelData.xpRequired
+  const next = nextLevelData.xpRequired - currentLevelData.xpRequired
   const percentage = Math.round((current / next) * 100)
   
   return { 
@@ -136,36 +139,36 @@ export function getFormFeedback(score: number): {
 } {
   if (score >= FORM_SCORE_THRESHOLDS.PERFECT) {
     return {
-      message: FORM_FEEDBACK.PERFECT,
+      message: FORM_FEEDBACK.PERFECT.message,
       color: 'text-green-400',
-      emoji: '🔥'
+      emoji: '🔥'  // Fixed emoji
     }
   }
   if (score >= FORM_SCORE_THRESHOLDS.EXCELLENT) {
     return {
-      message: FORM_FEEDBACK.EXCELLENT,
+      message: FORM_FEEDBACK.EXCELLENT.message,
       color: 'text-blue-400',
-      emoji: '💪'
+      emoji: '💪'  // Fixed emoji
     }
   }
   if (score >= FORM_SCORE_THRESHOLDS.GOOD) {
     return {
-      message: FORM_FEEDBACK.GOOD,
+      message: FORM_FEEDBACK.GOOD.message,
       color: 'text-yellow-400',
-      emoji: '👍'
+      emoji: '👍'  // Fixed emoji
     }
   }
-  if (score >= FORM_SCORE_THRESHOLDS.ACCEPTABLE) {
+  if (score >= FORM_SCORE_THRESHOLDS.DECENT) {
     return {
-      message: FORM_FEEDBACK.ACCEPTABLE,
+      message: FORM_FEEDBACK.DECENT.message,
       color: 'text-orange-400',
-      emoji: '💡'
+      emoji: '💡'  // Fixed emoji
     }
   }
   return {
-    message: FORM_FEEDBACK.POOR,
+    message: FORM_FEEDBACK.POOR.message,
     color: 'text-red-400',
-    emoji: '⚠️'
+    emoji: '⚠️'  // Fixed emoji
   }
 }
 
@@ -195,13 +198,17 @@ export function calculateCaloriesBurned(
   weight: number = 70 // kg default
 ): number {
   // MET values approximation
+  // Use string keys instead of EXERCISES object properties
   const metValues: Record<string, number> = {
-    [EXERCISES.PUSHUP]: 8.0,
-    [EXERCISES.SQUAT]: 5.0,
-    [EXERCISES.PLANK]: 3.5,
-    [EXERCISES.BURPEE]: 10.0,
-    [EXERCISES.JUMPING_JACK]: 7.0,
-    [EXERCISES.MOUNTAIN_CLIMBER]: 8.0,
+    'pushup': 8.0,
+    'squat': 5.0,
+    'plank': 3.5,
+    'burpee': 10.0,
+    'jumping_jack': 7.0,
+    'mountain_climber': 8.0,
+    'wall_sit': 3.0,
+    'dead_hang': 3.5,
+    'bridge_hold': 3.0,
   }
   
   const met = metValues[exerciseCode] || 5.0
@@ -283,21 +290,21 @@ export function getRankTitle(percentile: number): {
   icon: string
 } {
   if (percentile >= 99) {
-    return { title: 'Top 1%', color: 'text-purple-400', icon: '👑' }
+    return { title: 'Top 1%', color: 'text-purple-400', icon: '👑' }  // Fixed emoji
   }
   if (percentile >= 95) {
-    return { title: 'Top 5%', color: 'text-yellow-400', icon: '🏆' }
+    return { title: 'Top 5%', color: 'text-yellow-400', icon: '🏆' }  // Fixed emoji
   }
   if (percentile >= 90) {
-    return { title: 'Top 10%', color: 'text-blue-400', icon: '🥇' }
+    return { title: 'Top 10%', color: 'text-blue-400', icon: '🥇' }  // Fixed emoji
   }
   if (percentile >= 75) {
-    return { title: 'Top 25%', color: 'text-green-400', icon: '🥈' }
+    return { title: 'Top 25%', color: 'text-green-400', icon: '🥈' }  // Fixed emoji
   }
   if (percentile >= 50) {
-    return { title: 'Top 50%', color: 'text-gray-400', icon: '🥉' }
+    return { title: 'Top 50%', color: 'text-gray-400', icon: '🥉' }  // Fixed emoji
   }
-  return { title: 'In crescita', color: 'text-gray-500', icon: '💪' }
+  return { title: 'In crescita', color: 'text-gray-500', icon: '💪' }  // Fixed emoji
 }
 
 // ====================================
@@ -384,7 +391,7 @@ export function formatScore(score: number, exercise: string): string {
   const data = getExerciseData(exercise)
   if (!data) return score.toString()
   
-  if (data.measurement === 'duration') {
+  if (data.isTimeBased) {
     return formatDuration(score)
   }
   
