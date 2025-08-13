@@ -6,7 +6,8 @@ import {
   Camera, CameraOff, Volume2, VolumeX, Activity,
   CheckCircle, AlertCircle, TrendingUp, TrendingDown,
   Play, Pause, RotateCcw, X, Zap, Trophy, Target,
-  ChevronUp, ChevronDown, Loader2, Shield, Sparkles
+  ChevronUp, ChevronDown, Loader2, Shield, Sparkles,
+  Flame
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/Button'
