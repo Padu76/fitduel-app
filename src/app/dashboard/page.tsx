@@ -21,11 +21,11 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 interface User {
   id: string
   email: string
-  username?: string
-  level?: number
-  xp?: number
-  coins?: number
-  avatar?: string
+  username: string
+  level: number
+  xp: number
+  coins: number
+  avatar: string
 }
 
 interface Profile {
@@ -526,7 +526,7 @@ export default function DashboardPage() {
           setUser({
             id: userData.id,
             email: userData.email || 'demo@fitduel.com',
-            username: userData.username,
+            username: userData.username || 'User',
             level: userData.level || 1,
             xp: userData.xp || 0,
             coins: userData.coins || 0,
@@ -566,7 +566,7 @@ export default function DashboardPage() {
         setStats(statsData)
       }
       
-      // Set user data
+      // Set user data with proper defaults
       setUser({
         id: authUser.id,
         email: authUser.email || '',
@@ -591,7 +591,7 @@ export default function DashboardPage() {
         setUser({
           id: userData.id,
           email: userData.email || 'demo@fitduel.com',
-          username: userData.username,
+          username: userData.username || 'User',
           level: userData.level || 1,
           xp: userData.xp || 0,
           coins: userData.coins || 0,
@@ -656,10 +656,15 @@ export default function DashboardPage() {
     return null
   }
 
-  // Calculate stats
+  // Calculate stats with proper defaults
   const winRate = stats ? Math.round((stats.duels_won / Math.max(stats.total_duels, 1)) * 100) : 78
   const totalDuels = stats?.total_duels || 0
   const currentStreak = stats?.daily_streak || 0
+  
+  // Ensure user level and xp are always numbers
+  const userLevel = user.level || 1
+  const userXP = user.xp || 0
+  const userCoins = user.coins || 0
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-indigo-950 to-purple-950">
@@ -728,13 +733,13 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-3xl font-bold text-white">Level {user.level}</p>
-                    <p className="text-sm text-gray-400">{user.xp} XP totali</p>
+                    <p className="text-3xl font-bold text-white">Level {userLevel}</p>
+                    <p className="text-sm text-gray-400">{userXP} XP totali</p>
                   </div>
                 </div>
                 
                 <div className="mt-4">
-                  <XPBar currentXP={user.xp} level={user.level} />
+                  <XPBar currentXP={userXP} level={userLevel} />
                 </div>
               </Card>
             </motion.div>
@@ -766,7 +771,7 @@ export default function DashboardPage() {
 
               <Card variant="glass" className="p-4 text-center">
                 <Coins className="w-8 h-8 text-yellow-600 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-white">{user.coins}</p>
+                <p className="text-2xl font-bold text-white">{userCoins}</p>
                 <p className="text-sm text-gray-400">Coins</p>
               </Card>
             </motion.div>
