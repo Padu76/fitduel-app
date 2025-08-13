@@ -60,7 +60,7 @@ export function calculateXPForDuel(
   formScore: number = 70,
   streak: number = 0
 ): number {
-  let xp = isWinner ? XP_REWARDS.DUEL_WIN : XP_REWARDS.DUEL_LOSE
+  let xp = isWinner ? XP_REWARDS.DUEL_WIN : XP_REWARDS.DUEL_LOSS
   
   // Bonus per forma perfetta
   if (formScore >= FORM_SCORE_THRESHOLDS.PERFECT) {
