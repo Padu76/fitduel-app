@@ -216,14 +216,15 @@ export class AIValidator {
     let score = 100
     const violations: string[] = []
 
+    // Fix: Compare with strings instead of EXERCISES objects
     switch (this.exercise) {
-      case EXERCISES.PUSHUP:
+      case 'pushup':  // Changed from EXERCISES.PUSHUP
         score = this.validatePushupForm(angles, violations)
         break
-      case EXERCISES.SQUAT:
+      case 'squat':   // Changed from EXERCISES.SQUAT
         score = this.validateSquatForm(angles, violations)
         break
-      case EXERCISES.PLANK:
+      case 'plank':   // Changed from EXERCISES.PLANK
         score = this.validatePlankForm(angles, violations)
         break
       default:
@@ -400,14 +401,15 @@ export class AIValidator {
     const angles = this.calculateAngles(pose)
     let isRep = false
 
+    // Fix: Compare with strings instead of EXERCISES objects
     switch (this.exercise) {
-      case EXERCISES.PUSHUP:
+      case 'pushup':  // Changed from EXERCISES.PUSHUP
         isRep = this.checkPushupRep(angles, formScore)
         break
-      case EXERCISES.SQUAT:
+      case 'squat':   // Changed from EXERCISES.SQUAT
         isRep = this.checkSquatRep(angles, formScore)
         break
-      case EXERCISES.PLANK:
+      case 'plank':   // Changed from EXERCISES.PLANK
         // Plank doesn't have reps, just duration
         isRep = formScore > FORM_SCORE_THRESHOLDS.ACCEPTABLE
         break
@@ -469,11 +471,11 @@ export class AIValidator {
     const feedback: string[] = []
     const violations = Array.from(this.formViolations)
 
-    // Generate feedback
+    // Generate feedback with fixed emojis
     if (avgFormScore >= FORM_SCORE_THRESHOLDS.PERFECT) {
-      feedback.push('Esecuzione perfetta! 🔥')
+      feedback.push('Esecuzione perfetta! 🔥')  // Fixed emoji
     } else if (avgFormScore >= FORM_SCORE_THRESHOLDS.EXCELLENT) {
-      feedback.push('Ottima forma! Continua così 💪')
+      feedback.push('Ottima forma! Continua così 💪')  // Fixed emoji
     } else if (avgFormScore >= FORM_SCORE_THRESHOLDS.GOOD) {
       feedback.push('Buona esecuzione, puoi migliorare ancora')
     } else {
@@ -508,7 +510,8 @@ export class AIValidator {
     }
 
     // Check rep rate
-    if (this.exercise !== EXERCISES.PLANK) {
+    // Fix: Compare with string instead of EXERCISES object
+    if (this.exercise !== 'plank') {  // Changed from EXERCISES.PLANK
       const repsPerMinute = (this.repCount / duration) * 60
       const maxRate = config.MAX_REPS_PER_MINUTE[this.exercise as keyof typeof config.MAX_REPS_PER_MINUTE]
       
