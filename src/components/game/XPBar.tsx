@@ -10,6 +10,9 @@ import { LEVELS } from '@/utils/constants'
 // ====================================
 // TYPES & INTERFACES
 // ====================================
+// Create a type for any level data
+type LevelData = typeof LEVELS[keyof typeof LEVELS]
+
 export interface XPBarProps {
   currentXP: number
   previousXP?: number
@@ -25,7 +28,7 @@ export interface XPBarProps {
 interface LevelUpModalProps {
   isOpen: boolean
   newLevel: number
-  levelData: typeof LEVELS[0]
+  levelData: LevelData  // Changed from typeof LEVELS[0]
   onClose: () => void
 }
 
@@ -303,7 +306,7 @@ function CircularXPBar({
 }: {
   currentXP: number
   progress: ReturnType<typeof calculateProgress>
-  levelData: typeof LEVELS[0]
+  levelData: LevelData  // Changed from typeof LEVELS[0]
   size: keyof typeof sizes
   className?: string
 }) {
@@ -385,7 +388,7 @@ function SegmentedXPBar({
 }: {
   currentXP: number
   progress: ReturnType<typeof calculateProgress>
-  levelData: typeof LEVELS[0]
+  levelData: LevelData  // Changed from typeof LEVELS[0]
   size: keyof typeof sizes
   className?: string
 }) {
