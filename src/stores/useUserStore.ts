@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import { immer } from 'zustand/middleware/immer'
 
 // ====================================
 // TYPES
@@ -147,7 +146,7 @@ const calculateRank = (level: number): string => {
 // ====================================
 export const useUserStore = create<UserStore>()(
   persist(
-    immer((set, get) => ({
+    (set, get) => ({
       // Initial state
       user: null,
       stats: null,
@@ -162,110 +161,123 @@ export const useUserStore = create<UserStore>()(
       sessionExpiresAt: null,
 
       // Auth actions
-      setUser: (user) => set((state) => {
-        state.user = user
-        state.isAuthenticated = true
-        state.error = null
-      }),
+      setUser: (user) => set(() => ({
+        user,
+        isAuthenticated: true,
+        error: null
+      })),
 
-      updateUser: (updates) => set((state) => {
-        if (state.user) {
-          state.user = { ...state.user, ...updates, updatedAt: new Date().toISOString() }
-        }
-      }),
+      updateUser: (updates) => set((state) => ({
+        user: state.user ? { ...state.user, ...updates, updatedAt: new Date().toISOString() } : null
+      })),
 
-      clearUser: () => set((state) => {
-        state.user = null
-        state.stats = null
-        state.achievements = []
-        state.badges = []
-        state.isAuthenticated = false
-        state.accessToken = null
-        state.refreshToken = null
-        state.sessionExpiresAt = null
-      }),
+      clearUser: () => set(() => ({
+        user: null,
+        stats: null,
+        achievements: [],
+        badges: [],
+        isAuthenticated: false,
+        accessToken: null,
+        refreshToken: null,
+        sessionExpiresAt: null
+      })),
 
       // Stats actions
-      setStats: (stats) => set((state) => {
-        state.stats = stats
-      }),
+      setStats: (stats) => set(() => ({
+        stats
+      })),
 
-      updateStats: (updates) => set((state) => {
-        if (state.stats) {
-          state.stats = { ...state.stats, ...updates }
-        }
-      }),
+      updateStats: (updates) => set((state) => ({
+        stats: state.stats ? { ...state.stats, ...updates } : null
+      })),
 
       incrementStat: (stat, amount = 1) => set((state) => {
         if (state.stats && typeof state.stats[stat] === 'number') {
-          (state.stats[stat] as number) += amount
+          const newStats = { ...state.stats }
+          ;(newStats[stat] as number) += amount
           
           // Update win rate if wins or losses changed
           if (stat === 'wins' || stat === 'losses') {
-            const total = state.stats.wins + state.stats.losses
-            state.stats.winRate = total > 0 ? Math.round((state.stats.wins / total) * 100) : 0
+            const total = newStats.wins + newStats.losses
+            newStats.winRate = total > 0 ? Math.round((newStats.wins / total) * 100) : 0
           }
+          
+          return { stats: newStats }
         }
+        return state
       }),
 
       // Achievements & Badges
       addAchievement: (achievement) => set((state) => {
-        if (!state.achievements.find((a: UserAchievement) => a.id === achievement.id)) {
-          state.achievements.push(achievement)
+        if (!state.achievements.find((a) => a.id === achievement.id)) {
+          return { achievements: [...state.achievements, achievement] }
         }
+        return state
       }),
 
       updateAchievementProgress: (id, progress) => set((state) => {
-        const achievement = state.achievements.find((a: UserAchievement) => a.id === id)
-        if (achievement) {
-          achievement.progress = progress
-          if (achievement.maxProgress && progress >= achievement.maxProgress && !achievement.unlockedAt) {
-            achievement.unlockedAt = new Date().toISOString()
+        const achievements = state.achievements.map((a) => {
+          if (a.id === id) {
+            const updated = { ...a, progress }
+            if (a.maxProgress && progress >= a.maxProgress && !a.unlockedAt) {
+              updated.unlockedAt = new Date().toISOString()
+            }
+            return updated
           }
-        }
+          return a
+        })
+        return { achievements }
       }),
 
       addBadge: (badge) => set((state) => {
-        if (!state.badges.find((b: UserBadge) => b.id === badge.id)) {
-          state.badges.push(badge)
+        if (!state.badges.find((b) => b.id === badge.id)) {
+          return { badges: [...state.badges, badge] }
         }
+        return state
       }),
 
       // XP & Level
       addXP: (amount) => set((state) => {
         if (state.user) {
-          state.user.xp += amount
-          state.user.totalXp += amount
+          const user = { ...state.user }
+          user.xp += amount
+          user.totalXp += amount
           
-          const newLevel = calculateLevel(state.user.totalXp)
-          if (newLevel > state.user.level) {
-            state.user.level = newLevel
-            state.user.rank = calculateRank(newLevel)
+          const newLevel = calculateLevel(user.totalXp)
+          if (newLevel > user.level) {
+            user.level = newLevel
+            user.rank = calculateRank(newLevel)
           }
+          
+          return { user }
         }
+        return state
       }),
 
       levelUp: () => set((state) => {
         if (state.user) {
-          state.user.level += 1
-          state.user.rank = calculateRank(state.user.level)
+          const user = { ...state.user }
+          user.level += 1
+          user.rank = calculateRank(user.level)
+          return { user }
         }
+        return state
       }),
 
       // Session management
-      setSession: (accessToken, refreshToken, expiresIn) => set((state) => {
-        state.accessToken = accessToken
-        state.refreshToken = refreshToken
-        state.sessionExpiresAt = Date.now() + (expiresIn * 1000)
-        state.isAuthenticated = true
-      }),
+      setSession: (accessToken, refreshToken, expiresIn) => set(() => ({
+        accessToken,
+        refreshToken,
+        sessionExpiresAt: Date.now() + (expiresIn * 1000),
+        isAuthenticated: true
+      })),
 
-      clearSession: () => set((state) => {
-        state.accessToken = null
-        state.refreshToken = null
-        state.sessionExpiresAt = null
-        state.isAuthenticated = false
-      }),
+      clearSession: () => set(() => ({
+        accessToken: null,
+        refreshToken: null,
+        sessionExpiresAt: null,
+        isAuthenticated: false
+      })),
 
       isSessionValid: () => {
         const state = get()
@@ -274,26 +286,26 @@ export const useUserStore = create<UserStore>()(
       },
 
       // Notifications
-      setNotifications: (count) => set((state) => {
-        state.notifications = count
-      }),
+      setNotifications: (count) => set(() => ({
+        notifications: count
+      })),
 
-      incrementNotifications: () => set((state) => {
-        state.notifications += 1
-      }),
+      incrementNotifications: () => set((state) => ({
+        notifications: state.notifications + 1
+      })),
 
-      clearNotifications: () => set((state) => {
-        state.notifications = 0
-      }),
+      clearNotifications: () => set(() => ({
+        notifications: 0
+      })),
 
       // Loading & Error
-      setLoading: (loading) => set((state) => {
-        state.isLoading = loading
-      }),
+      setLoading: (loading) => set(() => ({
+        isLoading: loading
+      })),
 
-      setError: (error) => set((state) => {
-        state.error = error
-      }),
+      setError: (error) => set(() => ({
+        error
+      })),
 
       // API calls
       fetchUserData: async (userId) => {
@@ -405,7 +417,7 @@ export const useUserStore = create<UserStore>()(
           setLoading(false)
         }
       },
-    })),
+    }),
     {
       name: 'fitduel-user-storage',
       storage: createJSONStorage(() => localStorage),
