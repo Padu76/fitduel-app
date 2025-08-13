@@ -35,6 +35,9 @@ export interface SchedulerJob {
     missionsGenerated?: number
     missionsDeleted?: number
     retryCount?: number
+    eventType?: string
+    manual?: boolean
+    wasInterrupted?: boolean
   }
 }
 
