@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { z } from 'zod'
+import { EXERCISE_DATA, getExerciseData } from '@/utils/constants'
 
 // ====================================
 // TYPES & VALIDATION
@@ -8,11 +9,12 @@ import { z } from 'zod'
 const createDuelSchema = z.object({
   challengerId: z.string().min(1, 'Challenger ID richiesto'),
   challengedId: z.string().optional(), // Optional for open challenges
-  exerciseCode: z.enum(['push_up', 'squat', 'plank', 'burpee', 'jumping_jack', 'mountain_climber']),
+  exerciseCode: z.string().min(1, 'Exercise code richiesto'),
   duelType: z.enum(['1v1', 'open', 'tournament', 'mission']).default('1v1'),
   wagerXP: z.number().min(10).max(500).default(50),
-  duration: z.number().min(30).max(300).default(60), // seconds
   difficulty: z.enum(['easy', 'medium', 'hard', 'extreme']).default('medium'),
+  targetReps: z.number().min(1).max(1000).optional().nullable(),
+  targetTime: z.number().min(5).max(600).optional().nullable(), // 5 seconds to 10 minutes
   maxParticipants: z.number().min(2).max(100).default(2),
   timeLimit: z.number().min(1).max(168).default(24), // hours to accept/complete
   rules: z.object({
@@ -21,6 +23,13 @@ const createDuelSchema = z.object({
     formScoreRequired: z.number().min(0).max(100).optional(),
     allowRetry: z.boolean().default(false)
   }).optional()
+}).refine((data) => {
+  // Ensure either targetReps or targetTime is provided, but not both
+  const hasReps = data.targetReps !== null && data.targetReps !== undefined
+  const hasTime = data.targetTime !== null && data.targetTime !== undefined
+  return (hasReps && !hasTime) || (!hasReps && hasTime)
+}, {
+  message: "Devi specificare o targetReps o targetTime, non entrambi"
 })
 
 type CreateDuelRequest = z.infer<typeof createDuelSchema>
@@ -41,7 +50,8 @@ interface DuelResponse {
       status: string
       wagerXP: number
       rewardXP: number
-      duration: number
+      targetReps?: number | null
+      targetTime?: number | null
       difficulty: string
       maxParticipants: number
       currentParticipants: number
@@ -52,52 +62,6 @@ interface DuelResponse {
     }
   }
   error?: string
-}
-
-// Exercise data
-const EXERCISES = {
-  push_up: { 
-    name: 'Push-Up', 
-    nameIt: 'Flessioni',
-    category: 'strength',
-    muscleGroups: ['chest', 'triceps', 'shoulders'],
-    defaultReps: { easy: 10, medium: 20, hard: 30, extreme: 50 }
-  },
-  squat: { 
-    name: 'Squat', 
-    nameIt: 'Squat',
-    category: 'strength',
-    muscleGroups: ['quads', 'glutes', 'hamstrings'],
-    defaultReps: { easy: 15, medium: 30, hard: 45, extreme: 60 }
-  },
-  plank: { 
-    name: 'Plank', 
-    nameIt: 'Plank',
-    category: 'core',
-    muscleGroups: ['core', 'shoulders', 'back'],
-    defaultTime: { easy: 30, medium: 60, hard: 90, extreme: 120 }
-  },
-  burpee: { 
-    name: 'Burpee', 
-    nameIt: 'Burpee',
-    category: 'cardio',
-    muscleGroups: ['full body'],
-    defaultReps: { easy: 5, medium: 10, hard: 15, extreme: 25 }
-  },
-  jumping_jack: { 
-    name: 'Jumping Jack', 
-    nameIt: 'Jumping Jack',
-    category: 'cardio',
-    muscleGroups: ['full body'],
-    defaultReps: { easy: 20, medium: 40, hard: 60, extreme: 100 }
-  },
-  mountain_climber: { 
-    name: 'Mountain Climber', 
-    nameIt: 'Mountain Climber',
-    category: 'cardio',
-    muscleGroups: ['core', 'shoulders', 'legs'],
-    defaultReps: { easy: 10, medium: 20, hard: 30, extreme: 50 }
-  }
 }
 
 // ====================================
@@ -116,13 +80,90 @@ function getSupabaseClient() {
 }
 
 // ====================================
+// VALIDATE EXERCISE TARGET
+// ====================================
+function validateExerciseTarget(
+  exerciseCode: string, 
+  targetReps: number | null | undefined, 
+  targetTime: number | null | undefined,
+  difficulty: string
+): { isValid: boolean; error?: string; defaultValue?: number } {
+  const exerciseData = getExerciseData(exerciseCode)
+  
+  if (!exerciseData) {
+    return { isValid: false, error: 'Esercizio non valido' }
+  }
+
+  const isTimeBased = exerciseData.isTimeBased
+  const hasReps = targetReps !== null && targetReps !== undefined
+  const hasTime = targetTime !== null && targetTime !== undefined
+
+  // Check if the correct target type is provided
+  if (isTimeBased && !hasTime) {
+    // Provide default time for time-based exercises
+    const defaultTime = exerciseData.defaultTargets[difficulty as keyof typeof exerciseData.defaultTargets] || 60
+    return { isValid: true, defaultValue: defaultTime }
+  }
+
+  if (!isTimeBased && !hasReps) {
+    // Provide default reps for rep-based exercises
+    const defaultReps = exerciseData.defaultTargets[difficulty as keyof typeof exerciseData.defaultTargets] || 20
+    return { isValid: true, defaultValue: defaultReps }
+  }
+
+  if (isTimeBased && hasReps) {
+    return { isValid: false, error: `${exerciseData.nameIt} è un esercizio a tempo, non a ripetizioni` }
+  }
+
+  if (!isTimeBased && hasTime) {
+    return { isValid: false, error: `${exerciseData.nameIt} è un esercizio a ripetizioni, non a tempo` }
+  }
+
+  return { isValid: true }
+}
+
+// ====================================
 // TEST MODE HANDLER
 // ====================================
 const testDuels: any[] = [] // Store test duels in memory
 
 async function handleTestMode(data: CreateDuelRequest): Promise<DuelResponse> {
+  const exerciseData = getExerciseData(data.exerciseCode)
+  
+  if (!exerciseData) {
+    return {
+      success: false,
+      message: 'Esercizio non trovato',
+      error: 'EXERCISE_NOT_FOUND'
+    }
+  }
+
+  // Validate and set defaults for target values
+  const validation = validateExerciseTarget(
+    data.exerciseCode,
+    data.targetReps,
+    data.targetTime,
+    data.difficulty
+  )
+
+  if (!validation.isValid) {
+    return {
+      success: false,
+      message: validation.error || 'Target non valido per questo esercizio',
+      error: 'INVALID_TARGET'
+    }
+  }
+
+  // Apply defaults if needed
+  if (validation.defaultValue) {
+    if (exerciseData.isTimeBased) {
+      data.targetTime = validation.defaultValue
+    } else {
+      data.targetReps = validation.defaultValue
+    }
+  }
+
   // Create mock duel
-  const exercise = EXERCISES[data.exerciseCode]
   const duelId = `duel-${Date.now()}`
   const expiresAt = new Date(Date.now() + data.timeLimit * 60 * 60 * 1000)
   
@@ -133,12 +174,13 @@ async function handleTestMode(data: CreateDuelRequest): Promise<DuelResponse> {
     challenged_id: data.challengedId || null,
     challenged_username: data.challengedId ? 'TestOpponent' : null,
     exercise_code: data.exerciseCode,
-    exercise_name: exercise.nameIt,
+    exercise_name: exerciseData.nameIt,
     duel_type: data.duelType,
     status: data.duelType === 'open' ? 'OPEN' : 'PENDING',
     wager_xp: data.wagerXP,
     reward_xp: Math.floor(data.wagerXP * 1.5), // 1.5x multiplier for winner
-    duration: data.duration,
+    target_reps: data.targetReps || null,
+    target_time: data.targetTime || null,
     difficulty: data.difficulty,
     max_participants: data.maxParticipants,
     current_participants: 1,
@@ -169,7 +211,8 @@ async function handleTestMode(data: CreateDuelRequest): Promise<DuelResponse> {
         status: newDuel.status,
         wagerXP: newDuel.wager_xp,
         rewardXP: newDuel.reward_xp,
-        duration: newDuel.duration,
+        targetReps: newDuel.target_reps,
+        targetTime: newDuel.target_time,
         difficulty: newDuel.difficulty,
         maxParticipants: newDuel.max_participants,
         currentParticipants: newDuel.current_participants,
@@ -190,6 +233,41 @@ async function handleSupabaseCreateDuel(
   data: CreateDuelRequest
 ): Promise<DuelResponse> {
   try {
+    const exerciseData = getExerciseData(data.exerciseCode)
+    
+    if (!exerciseData) {
+      return {
+        success: false,
+        message: 'Esercizio non trovato',
+        error: 'EXERCISE_NOT_FOUND'
+      }
+    }
+
+    // Validate and set defaults for target values
+    const validation = validateExerciseTarget(
+      data.exerciseCode,
+      data.targetReps,
+      data.targetTime,
+      data.difficulty
+    )
+
+    if (!validation.isValid) {
+      return {
+        success: false,
+        message: validation.error || 'Target non valido per questo esercizio',
+        error: 'INVALID_TARGET'
+      }
+    }
+
+    // Apply defaults if needed
+    if (validation.defaultValue) {
+      if (exerciseData.isTimeBased) {
+        data.targetTime = validation.defaultValue
+      } else {
+        data.targetReps = validation.defaultValue
+      }
+    }
+
     // Get challenger profile
     const { data: challengerProfile, error: challengerError } = await supabase
       .from('profiles')
@@ -235,7 +313,6 @@ async function handleSupabaseCreateDuel(
 
     // Calculate expiration
     const expiresAt = new Date(Date.now() + data.timeLimit * 60 * 60 * 1000)
-    const exercise = EXERCISES[data.exerciseCode]
     
     // Create duel
     const { data: newDuel, error: duelError } = await supabase
@@ -244,13 +321,15 @@ async function handleSupabaseCreateDuel(
         challenger_id: data.challengerId,
         challenged_id: data.challengedId || null,
         exercise_code: data.exerciseCode,
-        exercise_name: exercise.nameIt,
+        exercise_name: exerciseData.nameIt,
         duel_type: data.duelType,
         status: data.duelType === 'open' ? 'OPEN' : 'PENDING',
         wager_xp: data.wagerXP,
         reward_xp: Math.floor(data.wagerXP * 1.5),
-        duration: data.duration,
+        target_reps: data.targetReps || null,
+        target_time: data.targetTime || null,
         difficulty: data.difficulty,
+        is_time_based: exerciseData.isTimeBased,
         max_participants: data.maxParticipants,
         current_participants: 1,
         time_limit: data.timeLimit,
@@ -295,20 +374,24 @@ async function handleSupabaseCreateDuel(
         user_id: data.challengerId,
         amount: -data.wagerXP,
         type: 'wager',
-        description: `Wager per sfida ${exercise.nameIt}`,
+        description: `Wager per sfida ${exerciseData.nameIt}`,
         duel_id: newDuel.id,
         created_at: new Date().toISOString()
       })
 
     // Send notification if 1v1
     if (data.challengedId) {
+      const targetDescription = exerciseData.isTimeBased 
+        ? `${data.targetTime} secondi` 
+        : `${data.targetReps} ripetizioni`
+      
       await supabase
         .from('notifications')
         .insert({
           user_id: data.challengedId,
           type: 'duel_challenge',
           title: 'Nuova Sfida!',
-          message: `${challengerProfile.username} ti ha sfidato a ${exercise.nameIt}!`,
+          message: `${challengerProfile.username} ti ha sfidato a ${exerciseData.nameIt} - ${targetDescription}!`,
           data: { duel_id: newDuel.id },
           read: false,
           created_at: new Date().toISOString()
@@ -342,7 +425,8 @@ async function handleSupabaseCreateDuel(
           status: newDuel.status,
           wagerXP: newDuel.wager_xp,
           rewardXP: newDuel.reward_xp,
-          duration: newDuel.duration,
+          targetReps: newDuel.target_reps,
+          targetTime: newDuel.target_time,
           difficulty: newDuel.difficulty,
           maxParticipants: newDuel.max_participants,
           currentParticipants: newDuel.current_participants,
