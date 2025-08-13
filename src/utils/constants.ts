@@ -238,6 +238,102 @@ export const DIFFICULTY_LEVELS = {
 export type DifficultyLevel = keyof typeof DIFFICULTY_LEVELS
 
 // ====================================
+// LEGACY ALIASES (for backwards compatibility)
+// ====================================
+export const EXERCISES = EXERCISE_DATA
+
+// ====================================
+// DUEL STATUS
+// ====================================
+export const DUEL_STATUS = {
+  PENDING: 'pending',
+  ACTIVE: 'active',
+  COMPLETED: 'completed',
+  EXPIRED: 'expired',
+  CANCELLED: 'cancelled'
+} as const
+
+export type DuelStatus = typeof DUEL_STATUS[keyof typeof DUEL_STATUS]
+
+// ====================================
+// LEVELS SYSTEM
+// ====================================
+export const LEVELS = {
+  1: { xpRequired: 0, title: 'Principiante', icon: '🥉' },
+  2: { xpRequired: 100, title: 'Novizio', icon: '🥉' },
+  3: { xpRequired: 250, title: 'Apprendista', icon: '🥉' },
+  4: { xpRequired: 450, title: 'Praticante', icon: '🥈' },
+  5: { xpRequired: 700, title: 'Esperto', icon: '🥈' },
+  6: { xpRequired: 1000, title: 'Veterano', icon: '🥈' },
+  7: { xpRequired: 1350, title: 'Maestro', icon: '🥇' },
+  8: { xpRequired: 1750, title: 'Campione', icon: '🥇' },
+  9: { xpRequired: 2200, title: 'Leggenda', icon: '🏆' },
+  10: { xpRequired: 2700, title: 'Immortale', icon: '👑' }
+} as const
+
+// ====================================
+// XP REWARDS
+// ====================================
+export const XP_REWARDS = {
+  DUEL_WIN: 100,
+  DUEL_LOSS: 25,
+  PERFECT_FORM: 50,
+  GOOD_FORM: 25,
+  DAILY_STREAK: 20,
+  WEEKLY_STREAK: 100,
+  ACHIEVEMENT: 150,
+  FIRST_DUEL: 200,
+  LEVEL_UP: 300
+} as const
+
+// ====================================
+// FORM SCORE THRESHOLDS
+// ====================================
+export const FORM_SCORE_THRESHOLDS = {
+  PERFECT: 95,
+  EXCELLENT: 85,
+  GOOD: 75,
+  DECENT: 65,
+  POOR: 50
+} as const
+
+// ====================================
+// FORM FEEDBACK
+// ====================================
+export const FORM_FEEDBACK = {
+  PERFECT: {
+    title: 'Forma Perfetta! 🏆',
+    message: 'Esecuzione impeccabile! Continua così!',
+    color: 'text-green-500',
+    xpBonus: 50
+  },
+  EXCELLENT: {
+    title: 'Ottima Forma! ⭐',
+    message: 'Quasi perfetto! Piccoli aggiustamenti.',
+    color: 'text-blue-500',
+    xpBonus: 30
+  },
+  GOOD: {
+    title: 'Buona Forma 👍',
+    message: 'Bene! Concentrati sui dettagli.',
+    color: 'text-yellow-500',
+    xpBonus: 15
+  },
+  DECENT: {
+    title: 'Forma Accettabile 📈',
+    message: 'Migliorabile. Mantieni la concentrazione.',
+    color: 'text-orange-500',
+    xpBonus: 5
+  },
+  POOR: {
+    title: 'Forma da Migliorare 🎯',
+    message: 'Rallenta e concentrati sulla tecnica.',
+    color: 'text-red-500',
+    xpBonus: 0
+  }
+} as const
+
+// ====================================
 // GAME CONSTANTS
 // ====================================
 export const GAME_CONFIG = {
