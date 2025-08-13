@@ -17,6 +17,9 @@ export const EXERCISES = {
   BURPEE: 'burpee',
   JUMPING_JACK: 'jumping_jack',
   MOUNTAIN_CLIMBER: 'mountain_climber',
+  WALL_SIT: 'wall_sit',
+  DEAD_HANG: 'dead_hang',
+  BRIDGE_HOLD: 'bridge_hold',
 } as const
 
 export const EXERCISE_DATA = {
@@ -28,6 +31,13 @@ export const EXERCISE_DATA = {
     unit: 'ripetizioni',
     color: 'indigo',
     difficulty: 2,
+    isTimeBased: false,
+    defaultTargets: {
+      easy: 10,
+      medium: 20,
+      hard: 30,
+      extreme: 50
+    }
   },
   [EXERCISES.SQUAT]: {
     name: 'Squat',
@@ -37,6 +47,13 @@ export const EXERCISE_DATA = {
     unit: 'ripetizioni',
     color: 'purple',
     difficulty: 1,
+    isTimeBased: false,
+    defaultTargets: {
+      easy: 15,
+      medium: 30,
+      hard: 45,
+      extreme: 60
+    }
   },
   [EXERCISES.PLANK]: {
     name: 'Plank',
@@ -46,6 +63,61 @@ export const EXERCISE_DATA = {
     unit: 'secondi',
     color: 'green',
     difficulty: 3,
+    isTimeBased: true,
+    defaultTargets: {
+      easy: 30,
+      medium: 60,
+      hard: 90,
+      extreme: 120
+    }
+  },
+  [EXERCISES.WALL_SIT]: {
+    name: 'Wall Sit',
+    nameIt: 'Seduta al Muro',
+    icon: '🪑',
+    measurement: 'duration',
+    unit: 'secondi',
+    color: 'orange',
+    difficulty: 2,
+    isTimeBased: true,
+    defaultTargets: {
+      easy: 20,
+      medium: 45,
+      hard: 60,
+      extreme: 90
+    }
+  },
+  [EXERCISES.DEAD_HANG]: {
+    name: 'Dead Hang',
+    nameIt: 'Appeso alla Sbarra',
+    icon: '🤸',
+    measurement: 'duration',
+    unit: 'secondi',
+    color: 'cyan',
+    difficulty: 3,
+    isTimeBased: true,
+    defaultTargets: {
+      easy: 15,
+      medium: 30,
+      hard: 45,
+      extreme: 60
+    }
+  },
+  [EXERCISES.BRIDGE_HOLD]: {
+    name: 'Bridge Hold',
+    nameIt: 'Ponte Isometrico',
+    icon: '🌉',
+    measurement: 'duration',
+    unit: 'secondi',
+    color: 'pink',
+    difficulty: 2,
+    isTimeBased: true,
+    defaultTargets: {
+      easy: 20,
+      medium: 40,
+      hard: 60,
+      extreme: 90
+    }
   },
   [EXERCISES.BURPEE]: {
     name: 'Burpee',
@@ -55,6 +127,13 @@ export const EXERCISE_DATA = {
     unit: 'ripetizioni',
     color: 'red',
     difficulty: 4,
+    isTimeBased: false,
+    defaultTargets: {
+      easy: 5,
+      medium: 10,
+      hard: 15,
+      extreme: 25
+    }
   },
   [EXERCISES.JUMPING_JACK]: {
     name: 'Jumping Jack',
@@ -64,6 +143,13 @@ export const EXERCISE_DATA = {
     unit: 'ripetizioni',
     color: 'yellow',
     difficulty: 1,
+    isTimeBased: false,
+    defaultTargets: {
+      easy: 20,
+      medium: 40,
+      hard: 60,
+      extreme: 100
+    }
   },
   [EXERCISES.MOUNTAIN_CLIMBER]: {
     name: 'Mountain Climber',
@@ -73,7 +159,52 @@ export const EXERCISE_DATA = {
     unit: 'ripetizioni',
     color: 'blue',
     difficulty: 3,
+    isTimeBased: false,
+    defaultTargets: {
+      easy: 10,
+      medium: 20,
+      hard: 30,
+      extreme: 50
+    }
   },
+}
+
+// Helper function to get exercise by any identifier
+export const getExerciseData = (exerciseKey: string) => {
+  // Try direct lookup
+  if (EXERCISE_DATA[exerciseKey]) {
+    return EXERCISE_DATA[exerciseKey]
+  }
+  
+  // Try to find by name or code variations
+  const normalizedKey = exerciseKey.toLowerCase().replace(/[_-]/g, '')
+  for (const [key, data] of Object.entries(EXERCISE_DATA)) {
+    const normalizedDataKey = key.toLowerCase().replace(/[_-]/g, '')
+    const normalizedName = data.name.toLowerCase().replace(/[_-\s]/g, '')
+    const normalizedNameIt = data.nameIt.toLowerCase().replace(/[_-\s]/g, '')
+    
+    if (normalizedDataKey === normalizedKey || 
+        normalizedName === normalizedKey || 
+        normalizedNameIt === normalizedKey) {
+      return data
+    }
+  }
+  
+  return null
+}
+
+// Get all time-based exercises
+export const getTimeBasedExercises = () => {
+  return Object.entries(EXERCISE_DATA)
+    .filter(([_, data]) => data.isTimeBased)
+    .map(([key, data]) => ({ key, ...data }))
+}
+
+// Get all rep-based exercises
+export const getRepBasedExercises = () => {
+  return Object.entries(EXERCISE_DATA)
+    .filter(([_, data]) => !data.isTimeBased)
+    .map(([key, data]) => ({ key, ...data }))
 }
 
 // ====================================
@@ -87,6 +218,7 @@ export const DUEL_STATUS = {
   CANCELLED: 'cancelled', // Annullato
   EXPIRED: 'expired',     // Scaduto
   REJECTED: 'rejected',   // Rifiutato
+  OPEN: 'open',          // Aperto a tutti
 } as const
 
 export const DUEL_TYPES = {
