@@ -72,15 +72,37 @@ export interface MissionReward {
 }
 
 // ====================================
+// MISSION TEMPLATE INTERFACE
+// ====================================
+interface MissionTemplate {
+  id: string
+  title: string
+  description: string
+  category: MissionCategory
+  difficulty: MissionDifficulty
+  target_value: number
+  reward_xp: number
+  reward_coins: number
+  reward_badges?: string[]
+  streak_bonus?: number
+  metadata?: {
+    icon?: string
+    color?: string
+    requirements?: string[]
+    bonus_conditions?: string[]
+  }
+}
+
+// ====================================
 // MISSION TEMPLATES
 // ====================================
-const DAILY_MISSIONS_TEMPLATES = [
+const DAILY_MISSIONS_TEMPLATES: MissionTemplate[] = [
   {
     id: 'daily_duels_3',
     title: 'Guerriero Quotidiano',
     description: 'Vinci 3 duelli oggi',
-    category: 'duels' as MissionCategory,
-    difficulty: 'easy' as MissionDifficulty,
+    category: 'duels',
+    difficulty: 'easy',
     target_value: 3,
     reward_xp: 100,
     reward_coins: 25,
@@ -90,8 +112,8 @@ const DAILY_MISSIONS_TEMPLATES = [
     id: 'daily_exercise_5',
     title: 'Atleta Costante',
     description: 'Completa 5 esercizi con form score >80%',
-    category: 'performance' as MissionCategory,
-    difficulty: 'medium' as MissionDifficulty,
+    category: 'performance',
+    difficulty: 'medium',
     target_value: 5,
     reward_xp: 150,
     reward_coins: 40,
@@ -101,8 +123,8 @@ const DAILY_MISSIONS_TEMPLATES = [
     id: 'daily_friends_2',
     title: 'Sociale',
     description: 'Sfida 2 amici diversi',
-    category: 'social' as MissionCategory,
-    difficulty: 'medium' as MissionDifficulty,
+    category: 'social',
+    difficulty: 'medium',
     target_value: 2,
     reward_xp: 200,
     reward_coins: 50,
@@ -112,8 +134,8 @@ const DAILY_MISSIONS_TEMPLATES = [
     id: 'daily_time_15',
     title: 'Endurance',
     description: 'Allenati per 15 minuti totali',
-    category: 'exercise' as MissionCategory,
-    difficulty: 'easy' as MissionDifficulty,
+    category: 'exercise',
+    difficulty: 'easy',
     target_value: 900, // seconds
     reward_xp: 75,
     reward_coins: 20,
@@ -123,8 +145,8 @@ const DAILY_MISSIONS_TEMPLATES = [
     id: 'daily_streak_1',
     title: 'Dedizione',
     description: 'Mantieni lo streak giornaliero',
-    category: 'streak' as MissionCategory,
-    difficulty: 'easy' as MissionDifficulty,
+    category: 'streak',
+    difficulty: 'easy',
     target_value: 1,
     reward_xp: 50,
     reward_coins: 15,
@@ -133,13 +155,13 @@ const DAILY_MISSIONS_TEMPLATES = [
   }
 ]
 
-const WEEKLY_MISSIONS_TEMPLATES = [
+const WEEKLY_MISSIONS_TEMPLATES: MissionTemplate[] = [
   {
     id: 'weekly_duels_20',
     title: 'Campione Settimanale',
     description: 'Vinci 20 duelli questa settimana',
-    category: 'duels' as MissionCategory,
-    difficulty: 'hard' as MissionDifficulty,
+    category: 'duels',
+    difficulty: 'hard',
     target_value: 20,
     reward_xp: 500,
     reward_coins: 150,
@@ -150,8 +172,8 @@ const WEEKLY_MISSIONS_TEMPLATES = [
     id: 'weekly_perfect_10',
     title: 'Perfezionista',
     description: 'Ottieni 10 form score perfetti (>95%)',
-    category: 'performance' as MissionCategory,
-    difficulty: 'extreme' as MissionDifficulty,
+    category: 'performance',
+    difficulty: 'extreme',
     target_value: 10,
     reward_xp: 800,
     reward_coins: 200,
@@ -162,11 +184,12 @@ const WEEKLY_MISSIONS_TEMPLATES = [
     id: 'weekly_social_10',
     title: 'Re Sociale',
     description: 'Aggiungi 5 nuovi amici e vinci 10 sfide con amici',
-    category: 'social' as MissionCategory,
-    difficulty: 'hard' as MissionDifficulty,
+    category: 'social',
+    difficulty: 'hard',
     target_value: 10,
     reward_xp: 600,
     reward_coins: 175,
+    reward_badges: ['social_king'],
     metadata: { icon: '🤝', color: 'indigo' }
   }
 ]
@@ -562,7 +585,7 @@ export const DailyMissionsSystem = ({
     const templates = selectedTab === 'daily' ? DAILY_MISSIONS_TEMPLATES : 
                      selectedTab === 'weekly' ? WEEKLY_MISSIONS_TEMPLATES : []
     
-    const mockMissions: Mission[] = templates.map((template, index) => ({
+    const mockMissions: Mission[] = templates.map((template) => ({
       id: template.id,
       title: template.title,
       description: template.description,
@@ -574,8 +597,8 @@ export const DailyMissionsSystem = ({
       current_progress: Math.floor(Math.random() * template.target_value * 0.8), // Random progress
       reward_xp: template.reward_xp,
       reward_coins: template.reward_coins,
-      reward_badges: template.reward_badges || [], // FIX: Fornisco array vuoto se undefined
-      streak_bonus: template.streak_bonus || 0, // FIX: Fornisco 0 se undefined
+      reward_badges: template.reward_badges || [],
+      streak_bonus: template.streak_bonus || 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       metadata: template.metadata
