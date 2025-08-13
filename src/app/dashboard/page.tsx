@@ -683,6 +683,14 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex items-center gap-3">
+              {/* Friends Button */}
+              <Link href="/friends">
+                <Button variant="ghost" size="sm">
+                  <Users className="w-5 h-5" />
+                  <span className="hidden md:inline ml-2">Amici</span>
+                </Button>
+              </Link>
+
               <div className="relative">
                 <Button 
                   variant="ghost" 
@@ -801,6 +809,13 @@ export default function DashboardPage() {
                   <Button variant="secondary">
                     <Activity className="w-5 h-5 mr-2" />
                     Allenamento Libero
+                  </Button>
+                </Link>
+
+                <Link href="/friends">
+                  <Button variant="secondary">
+                    <Users className="w-5 h-5 mr-2" />
+                    Gestisci Amici
                   </Button>
                 </Link>
 
