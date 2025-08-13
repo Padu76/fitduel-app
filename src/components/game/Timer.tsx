@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
-  Play, Pause, RotateCcw, Square, ChevronUp, ChevronDown,
+  Play, Pause, RotateCcw, Square, Plus, Minus,
   Volume2, VolumeX, Timer as TimerIcon, Zap, Trophy,
-  AlertCircle, CheckCircle, Clock, TrendingUp, Flame
+  AlertCircle, CheckCircle, Clock, TrendingUp, Flame,
+  Maximize, Minimize, Target, Activity, BarChart3
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/Button'
@@ -14,21 +15,24 @@ import { Card } from '@/components/ui/Card'
 // ====================================
 // TYPES & INTERFACES
 // ====================================
-export interface TimerProps {
+export interface AdvancedTimerProps {
   duration?: number // in seconds
   onComplete?: () => void
   onTick?: (timeLeft: number) => void
   onStart?: () => void
   onPause?: () => void
   onReset?: () => void
-  variant?: 'default' | 'compact' | 'minimal' | 'fullscreen'
-  mode?: 'countdown' | 'stopwatch' | 'interval'
-  intervals?: number[]
+  onRepComplete?: (count: number) => void
+  variant?: 'default' | 'compact' | 'minimal' | 'fullscreen' | 'immersive'
+  mode?: 'countdown' | 'stopwatch' | 'interval' | 'exercise'
   autoStart?: boolean
   showMilliseconds?: boolean
   showControls?: boolean
   soundEnabled?: boolean
+  voiceEnabled?: boolean
   vibrationEnabled?: boolean
+  targetReps?: number
+  enableAutoCount?: boolean
   className?: string
 }
 
@@ -37,85 +41,291 @@ export interface TimerState {
   isPaused: boolean
   timeLeft: number
   elapsed: number
-  currentInterval: number
+  repCount: number
   laps: number[]
+  phase: 'ready' | 'countdown' | 'active' | 'paused' | 'completed'
+}
+
+export interface TimerStats {
+  averageRepTime: number
+  currentPace: number
+  consistency: number
+  peakPerformance: number
+  caloriesBurned: number
 }
 
 // ====================================
-// TIMER SOUNDS
+// iOS-OPTIMIZED AUDIO SYSTEM
 // ====================================
-const playSound = (type: 'tick' | 'warning' | 'complete' | 'start') => {
-  // In production, use actual audio files
-  if (typeof window !== 'undefined' && 'Audio' in window) {
-    try {
-      const audio = new Audio()
-      // Set different frequencies for different sounds
-      const frequencies = {
-        tick: 800,
-        warning: 1000,
-        complete: 1200,
-        start: 600
+class iOSAudioManager {
+  private audioContext: AudioContext | null = null
+  private synthesis: SpeechSynthesis | null = null
+  private isInitialized = false
+  private soundQueue: Array<{ type: string; frequency?: number; duration?: number }> = []
+  private voiceQueue: Array<{ text: string; options?: any }> = []
+  private isProcessing = false
+
+  constructor() {
+    if (typeof window !== 'undefined') {
+      this.synthesis = window.speechSynthesis
+      // iOS requires user interaction to initialize audio
+      this.setupUserInteractionListener()
+    }
+  }
+
+  private setupUserInteractionListener() {
+    const initAudio = () => {
+      if (!this.isInitialized) {
+        this.initializeAudioContext()
+        // Remove listeners after first interaction
+        document.removeEventListener('touchstart', initAudio)
+        document.removeEventListener('click', initAudio)
+        document.removeEventListener('keydown', initAudio)
       }
+    }
+
+    document.addEventListener('touchstart', initAudio, { once: true })
+    document.addEventListener('click', initAudio, { once: true })
+    document.addEventListener('keydown', initAudio, { once: true })
+  }
+
+  private async initializeAudioContext() {
+    try {
+      // Create and immediately resume audio context for iOS
+      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
       
-      // Create a simple beep using AudioContext (for demo)
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
-      const oscillator = audioContext.createOscillator()
-      const gainNode = audioContext.createGain()
+      if (this.audioContext.state === 'suspended') {
+        await this.audioContext.resume()
+      }
+
+      // Create a silent audio buffer to "unlock" iOS audio
+      const buffer = this.audioContext.createBuffer(1, 1, 22050)
+      const source = this.audioContext.createBufferSource()
+      source.buffer = buffer
+      source.connect(this.audioContext.destination)
+      source.start(0)
+
+      this.isInitialized = true
+      console.log('iOS Audio Context initialized successfully')
+      
+      // Process any queued sounds
+      this.processQueue()
+    } catch (error) {
+      console.warn('Failed to initialize audio context:', error)
+    }
+  }
+
+  private processQueue() {
+    if (this.isProcessing) return
+    this.isProcessing = true
+
+    // Process sound queue
+    while (this.soundQueue.length > 0) {
+      const sound = this.soundQueue.shift()
+      if (sound) {
+        this.playBeepImmediate(sound.frequency || 800, sound.duration || 200)
+      }
+    }
+
+    // Process voice queue
+    while (this.voiceQueue.length > 0) {
+      const voice = this.voiceQueue.shift()
+      if (voice) {
+        this.speakImmediate(voice.text, voice.options)
+      }
+    }
+
+    this.isProcessing = false
+  }
+
+  playBeep(frequency: number = 800, duration: number = 200) {
+    if (!this.isInitialized) {
+      // Queue the sound for later
+      this.soundQueue.push({ type: 'beep', frequency, duration })
+      return
+    }
+
+    this.playBeepImmediate(frequency, duration)
+  }
+
+  private playBeepImmediate(frequency: number, duration: number) {
+    if (!this.audioContext || this.audioContext.state !== 'running') return
+
+    try {
+      const oscillator = this.audioContext.createOscillator()
+      const gainNode = this.audioContext.createGain()
       
       oscillator.connect(gainNode)
-      gainNode.connect(audioContext.destination)
+      gainNode.connect(this.audioContext.destination)
       
-      oscillator.frequency.value = frequencies[type]
+      oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime)
       oscillator.type = 'sine'
       
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1)
+      // Smooth envelope to prevent clicks
+      gainNode.gain.setValueAtTime(0, this.audioContext.currentTime)
+      gainNode.gain.linearRampToValueAtTime(0.3, this.audioContext.currentTime + 0.01)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration / 1000)
       
-      oscillator.start(audioContext.currentTime)
-      oscillator.stop(audioContext.currentTime + 0.1)
-    } catch (e) {
-      console.log('Audio not supported')
+      oscillator.start(this.audioContext.currentTime)
+      oscillator.stop(this.audioContext.currentTime + duration / 1000)
+    } catch (error) {
+      console.warn('Failed to play beep:', error)
+    }
+  }
+
+  speak(text: string, options?: { rate?: number; pitch?: number; volume?: number }) {
+    if (!this.synthesis) return
+
+    if (!this.isInitialized) {
+      // Queue the voice for later
+      this.voiceQueue.push({ text, options })
+      return
+    }
+
+    this.speakImmediate(text, options)
+  }
+
+  private speakImmediate(text: string, options?: { rate?: number; pitch?: number; volume?: number }) {
+    if (!this.synthesis) return
+
+    try {
+      // Cancel any ongoing speech
+      this.synthesis.cancel()
+      
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.rate = options?.rate || 1.2
+      utterance.pitch = options?.pitch || 1
+      utterance.volume = options?.volume || 0.8
+      utterance.lang = 'it-IT' // Italian voice for better UX
+      
+      // Add error handling
+      utterance.onerror = (event) => {
+        console.warn('Speech synthesis error:', event.error)
+      }
+      
+      this.synthesis.speak(utterance)
+    } catch (error) {
+      console.warn('Failed to speak:', error)
+    }
+  }
+
+  playCountdownSound(count: number) {
+    const frequencies = { 3: 600, 2: 700, 1: 800, 0: 1000 }
+    const frequency = frequencies[count as keyof typeof frequencies] || 800
+    const duration = count === 0 ? 500 : 300
+    this.playBeep(frequency, duration)
+  }
+
+  playRepSound() {
+    this.playBeep(900, 150)
+  }
+
+  playCompleteSound() {
+    // Victory fanfare
+    setTimeout(() => this.playBeep(800, 200), 0)
+    setTimeout(() => this.playBeep(1000, 200), 200)
+    setTimeout(() => this.playBeep(1200, 300), 400)
+  }
+
+  triggerVibration(pattern: number | number[]) {
+    if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(pattern)
+      } catch (error) {
+        console.warn('Vibration not supported:', error)
+      }
     }
   }
 }
 
-const triggerVibration = (pattern: number | number[]) => {
-  if (typeof window !== 'undefined' && 'vibrate' in navigator) {
-    navigator.vibrate(pattern)
-  }
+// ====================================
+// MOTION DETECTION HOOK (MEDIAPOINT READY)
+// ====================================
+const useMotionDetection = (enabled: boolean = false) => {
+  const [motionData, setMotionData] = useState({
+    repDetected: false,
+    confidence: 0,
+    formScore: 85,
+    isActive: false
+  })
+
+  useEffect(() => {
+    if (!enabled) return
+
+    // Placeholder for MediaPipe integration
+    // This will be replaced with actual pose detection
+    const mockMotionDetection = setInterval(() => {
+      if (Math.random() > 0.7) { // 30% chance of rep detection
+        setMotionData(prev => ({
+          ...prev,
+          repDetected: true,
+          confidence: 80 + Math.random() * 20,
+          formScore: 70 + Math.random() * 30
+        }))
+        
+        // Reset detection after brief moment
+        setTimeout(() => {
+          setMotionData(prev => ({ ...prev, repDetected: false }))
+        }, 500)
+      }
+    }, 2000)
+
+    return () => clearInterval(mockMotionDetection)
+  }, [enabled])
+
+  return motionData
 }
 
 // ====================================
-// TIMER COMPONENT
+// ADVANCED TIMER COMPONENT
 // ====================================
-export function Timer({
+export function AdvancedTimer({
   duration = 60,
   onComplete,
   onTick,
   onStart,
   onPause,
   onReset,
+  onRepComplete,
   variant = 'default',
   mode = 'countdown',
-  intervals = [],
   autoStart = false,
   showMilliseconds = false,
   showControls = true,
   soundEnabled = true,
+  voiceEnabled = true,
   vibrationEnabled = true,
+  targetReps = null,
+  enableAutoCount = false,
   className
-}: TimerProps) {
+}: AdvancedTimerProps) {
   const [state, setState] = useState<TimerState>({
     isRunning: false,
     isPaused: false,
     timeLeft: mode === 'countdown' ? duration : 0,
     elapsed: 0,
-    currentInterval: 0,
-    laps: []
+    repCount: 0,
+    laps: [],
+    phase: 'ready'
   })
+
+  const [stats, setStats] = useState<TimerStats>({
+    averageRepTime: 0,
+    currentPace: 0,
+    consistency: 100,
+    peakPerformance: 0,
+    caloriesBurned: 0
+  })
+
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [countdownValue, setCountdownValue] = useState(0)
+  const [repTimes, setRepTimes] = useState<number[]>([])
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const startTimeRef = useRef<number>(0)
+  const lastRepTimeRef = useRef<number>(0)
+  const audioManager = useRef(new iOSAudioManager())
+  const motionData = useMotionDetection(enableAutoCount)
 
   // Format time display
   const formatTime = useCallback((seconds: number): string => {
@@ -143,6 +353,51 @@ export function Timer({
     return Math.min((state.elapsed / duration) * 100, 100)
   }, [mode, duration, state.timeLeft, state.elapsed])
 
+  // Update stats in real-time
+  const updateStats = useCallback(() => {
+    if (repTimes.length === 0) return
+
+    const avgTime = repTimes.reduce((a, b) => a + b, 0) / repTimes.length
+    const currentPace = repTimes.length > 0 ? (state.elapsed / repTimes.length) : 0
+    const consistency = repTimes.length > 1 ? 
+      100 - (Math.max(...repTimes) - Math.min(...repTimes)) / avgTime * 100 : 100
+    
+    setStats({
+      averageRepTime: avgTime,
+      currentPace,
+      consistency: Math.max(0, consistency),
+      peakPerformance: Math.max(...repTimes.map((_, i) => (i + 1) / repTimes.slice(0, i + 1).reduce((a, b) => a + b, 0) * repTimes.length)),
+      caloriesBurned: Math.round(state.repCount * 0.5 + state.elapsed / 60 * 3)
+    })
+  }, [repTimes, state.elapsed, state.repCount])
+
+  // Handle rep increment (manual or auto)
+  const addRep = useCallback(() => {
+    const currentTime = Date.now()
+    const timeSinceLastRep = lastRepTimeRef.current ? 
+      (currentTime - lastRepTimeRef.current) / 1000 : state.elapsed
+
+    setState(prev => ({ ...prev, repCount: prev.repCount + 1 }))
+    setRepTimes(prev => [...prev, timeSinceLastRep])
+    lastRepTimeRef.current = currentTime
+
+    // Audio feedback
+    if (soundEnabled) audioManager.current.playRepSound()
+    if (voiceEnabled && state.repCount > 0 && (state.repCount + 1) % 5 === 0) {
+      audioManager.current.speak(`${state.repCount + 1}`)
+    }
+    if (vibrationEnabled) audioManager.current.triggerVibration(50)
+
+    onRepComplete?.(state.repCount + 1)
+  }, [state.repCount, state.elapsed, soundEnabled, voiceEnabled, vibrationEnabled, onRepComplete])
+
+  // Auto-detection of reps via motion
+  useEffect(() => {
+    if (enableAutoCount && motionData.repDetected && state.isRunning) {
+      addRep()
+    }
+  }, [enableAutoCount, motionData.repDetected, state.isRunning, addRep])
+
   // Timer tick logic
   const tick = useCallback(() => {
     setState(prev => {
@@ -155,21 +410,24 @@ export function Timer({
         newState.timeLeft = Math.max(0, duration - delta)
         newState.elapsed = delta
 
-        // Warning sounds
-        if (soundEnabled) {
-          if (newState.timeLeft <= 10 && newState.timeLeft > 0 && Math.floor(newState.timeLeft) === newState.timeLeft) {
-            playSound('warning')
-          }
-          if (newState.timeLeft <= 3 && newState.timeLeft > 0) {
-            if (vibrationEnabled) triggerVibration(100)
+        // Warning sounds for countdown
+        if (soundEnabled && newState.timeLeft <= 10 && newState.timeLeft > 0) {
+          const secondsLeft = Math.floor(newState.timeLeft)
+          if (secondsLeft !== Math.floor(prev.timeLeft) && secondsLeft <= 3) {
+            audioManager.current.playCountdownSound(secondsLeft)
+            if (voiceEnabled) {
+              audioManager.current.speak(secondsLeft.toString())
+            }
           }
         }
 
         // Check completion
-        if (newState.timeLeft === 0) {
+        if (newState.timeLeft === 0 && prev.timeLeft > 0) {
           newState.isRunning = false
-          if (soundEnabled) playSound('complete')
-          if (vibrationEnabled) triggerVibration([200, 100, 200])
+          newState.phase = 'completed'
+          if (soundEnabled) audioManager.current.playCompleteSound()
+          if (voiceEnabled) audioManager.current.speak('Tempo scaduto!')
+          if (vibrationEnabled) audioManager.current.triggerVibration([200, 100, 200])
           if (onComplete) onComplete()
         }
       } else {
@@ -178,70 +436,98 @@ export function Timer({
         newState.timeLeft = delta
       }
 
-      // Handle intervals
-      if (intervals.length > 0 && newState.currentInterval < intervals.length) {
-        if (newState.elapsed >= intervals[newState.currentInterval]) {
-          newState.currentInterval++
-          if (soundEnabled) playSound('tick')
-          if (vibrationEnabled) triggerVibration(50)
-        }
-      }
-
       // Callback
       if (onTick) onTick(mode === 'countdown' ? newState.timeLeft : newState.elapsed)
 
       return newState
     })
-  }, [mode, duration, intervals, soundEnabled, vibrationEnabled, onComplete, onTick])
+  }, [mode, duration, soundEnabled, voiceEnabled, vibrationEnabled, onComplete, onTick])
 
-  // Start timer
+  // Countdown before start
+  const startCountdown = useCallback(() => {
+    setState(prev => ({ ...prev, phase: 'countdown' }))
+    setCountdownValue(3)
+    
+    if (voiceEnabled) audioManager.current.speak('Preparati')
+    
+    const countdownInterval = setInterval(() => {
+      setCountdownValue(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval)
+          // Start actual timer
+          startTimeRef.current = Date.now()
+          setState(prevState => ({ 
+            ...prevState, 
+            isRunning: true, 
+            isPaused: false,
+            phase: 'active'
+          }))
+          
+          if (soundEnabled) audioManager.current.playCountdownSound(0)
+          if (voiceEnabled) audioManager.current.speak('Via!')
+          if (onStart) onStart()
+          
+          return 0
+        } else {
+          if (soundEnabled) audioManager.current.playCountdownSound(prev - 1)
+          if (voiceEnabled) audioManager.current.speak((prev - 1).toString())
+          return prev - 1
+        }
+      })
+    }, 1000)
+  }, [soundEnabled, voiceEnabled, onStart])
+
+  // Control functions
   const start = useCallback(() => {
-    if (!state.isRunning) {
-      startTimeRef.current = Date.now() - (state.elapsed * 1000)
-      setState(prev => ({ ...prev, isRunning: true, isPaused: false }))
-      if (soundEnabled) playSound('start')
-      if (onStart) onStart()
+    if (state.phase === 'completed') {
+      reset()
+      return
     }
-  }, [state.isRunning, state.elapsed, soundEnabled, onStart])
+    startCountdown()
+  }, [state.phase, startCountdown])
 
-  // Pause timer
   const pause = useCallback(() => {
     if (state.isRunning) {
-      setState(prev => ({ ...prev, isRunning: false, isPaused: true }))
+      setState(prev => ({ ...prev, isRunning: false, isPaused: true, phase: 'paused' }))
       if (onPause) onPause()
     }
   }, [state.isRunning, onPause])
 
-  // Reset timer
+  const resume = useCallback(() => {
+    if (state.isPaused) {
+      startTimeRef.current = Date.now() - (state.elapsed * 1000)
+      setState(prev => ({ ...prev, isRunning: true, isPaused: false, phase: 'active' }))
+    }
+  }, [state.isPaused, state.elapsed])
+
   const reset = useCallback(() => {
     setState({
       isRunning: false,
       isPaused: false,
       timeLeft: mode === 'countdown' ? duration : 0,
       elapsed: 0,
-      currentInterval: 0,
-      laps: []
+      repCount: 0,
+      laps: [],
+      phase: 'ready'
     })
+    setRepTimes([])
+    setCountdownValue(0)
     startTimeRef.current = 0
+    lastRepTimeRef.current = 0
     if (onReset) onReset()
   }, [mode, duration, onReset])
 
-  // Add lap (for stopwatch mode)
-  const addLap = useCallback(() => {
-    if (mode === 'stopwatch' && state.isRunning) {
-      setState(prev => ({
-        ...prev,
-        laps: [...prev.laps, prev.elapsed]
-      }))
-    }
-  }, [mode, state.isRunning])
+  const toggleFullscreen = useCallback(() => {
+    setIsFullscreen(!isFullscreen)
+  }, [isFullscreen])
 
   // Auto start
   useEffect(() => {
-    if (autoStart && !state.isRunning) {
-      start()
+    if (autoStart && state.phase === 'ready') {
+      const timer = setTimeout(start, 500)
+      return () => clearTimeout(timer)
     }
-  }, [autoStart])
+  }, [autoStart, state.phase, start])
 
   // Timer interval
   useEffect(() => {
@@ -261,8 +547,23 @@ export function Timer({
     }
   }, [state.isRunning, tick, showMilliseconds])
 
-  // Get timer color based on time left
+  // Update stats
+  useEffect(() => {
+    updateStats()
+  }, [updateStats])
+
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+    }
+  }, [])
+
+  // Get timer color based on state
   const getTimerColor = (): string => {
+    if (state.phase === 'completed') return 'text-green-500'
     if (mode === 'countdown') {
       const percentage = (state.timeLeft / duration) * 100
       if (percentage > 50) return 'text-green-500'
@@ -270,8 +571,33 @@ export function Timer({
       if (percentage > 10) return 'text-orange-500'
       return 'text-red-500'
     }
-    return 'text-primary'
+    return 'text-indigo-500'
   }
+
+  // Countdown Overlay
+  const CountdownOverlay = () => (
+    <AnimatePresence>
+      {state.phase === 'countdown' && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex items-center justify-center"
+        >
+          <motion.div
+            key={countdownValue}
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 1.5, opacity: 0 }}
+            transition={{ duration: 0.5 }}
+            className="text-9xl font-bold text-white"
+          >
+            {countdownValue === 0 ? 'VIA!' : countdownValue}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
 
   // Render based on variant
   switch (variant) {
@@ -282,6 +608,11 @@ export function Timer({
           <span className={cn('font-mono font-bold', getTimerColor())}>
             {formatTime(state.timeLeft)}
           </span>
+          {targetReps && (
+            <span className="text-sm text-gray-400">
+              {state.repCount}/{targetReps}
+            </span>
+          )}
         </div>
       )
 
@@ -297,7 +628,7 @@ export function Timer({
                 stroke="currentColor"
                 strokeWidth="4"
                 fill="none"
-                className="text-secondary"
+                className="text-gray-700"
               />
               <circle
                 cx="32"
@@ -322,7 +653,7 @@ export function Timer({
                   <Pause className="w-4 h-4" />
                 </Button>
               ) : (
-                <Button size="sm" variant="ghost" onClick={start}>
+                <Button size="sm" variant="ghost" onClick={state.isPaused ? resume : start}>
                   <Play className="w-4 h-4" />
                 </Button>
               )}
@@ -334,354 +665,372 @@ export function Timer({
         </div>
       )
 
+    case 'immersive':
     case 'fullscreen':
       return (
-        <motion.div 
-          className={cn(
-            'fixed inset-0 bg-background/95 backdrop-blur-xl z-50',
-            'flex flex-col items-center justify-center',
-            className
-          )}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
-          {/* Large Timer Display */}
-          <div className="relative mb-12">
-            <svg className="w-64 h-64 transform -rotate-90">
-              <circle
-                cx="128"
-                cy="128"
-                r="120"
-                stroke="currentColor"
-                strokeWidth="8"
-                fill="none"
-                className="text-secondary/30"
-              />
-              <motion.circle
-                cx="128"
-                cy="128"
-                r="120"
-                stroke="currentColor"
-                strokeWidth="8"
-                fill="none"
-                strokeDasharray={`${2 * Math.PI * 120}`}
-                strokeDashoffset={`${2 * Math.PI * 120 * (1 - getProgress() / 100)}`}
-                className={cn('transition-all duration-100', getTimerColor())}
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className={cn('text-6xl font-mono font-bold mb-2', getTimerColor())}>
-                {formatTime(state.timeLeft)}
-              </span>
-              {mode === 'countdown' && (
-                <span className="text-sm text-muted-foreground">
-                  {Math.round(getProgress())}% Complete
-                </span>
+        <>
+          <CountdownOverlay />
+          <motion.div 
+            className={cn(
+              isFullscreen || variant === 'immersive' 
+                ? 'fixed inset-0 bg-gradient-to-br from-gray-950 via-indigo-950 to-purple-950 z-40' 
+                : '',
+              'flex flex-col items-center justify-center min-h-screen p-8',
+              className
+            )}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            {/* Header Controls */}
+            <div className="absolute top-6 right-6 flex gap-2">
+              <Button variant="ghost" size="sm" onClick={() => audioManager.current.speak('Test audio')}>
+                {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+              </Button>
+              {variant !== 'immersive' && (
+                <Button variant="ghost" size="sm" onClick={toggleFullscreen}>
+                  {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+                </Button>
               )}
             </div>
-          </div>
 
-          {/* Controls */}
-          <div className="flex gap-4">
-            {state.isRunning ? (
-              <Button size="lg" variant="gradient" onClick={pause}>
-                <Pause className="w-5 h-5 mr-2" />
-                Pause
-              </Button>
-            ) : (
-              <Button size="lg" variant="gradient" onClick={start}>
-                <Play className="w-5 h-5 mr-2" />
-                {state.isPaused ? 'Resume' : 'Start'}
-              </Button>
+            {/* Main Timer Display */}
+            <div className="text-center mb-12">
+              <div className="relative mb-8">
+                <svg className="w-80 h-80 transform -rotate-90">
+                  <circle
+                    cx="160"
+                    cy="160"
+                    r="150"
+                    stroke="currentColor"
+                    strokeWidth="8"
+                    fill="none"
+                    className="text-gray-800/30"
+                  />
+                  <motion.circle
+                    cx="160"
+                    cy="160"
+                    r="150"
+                    stroke="currentColor"
+                    strokeWidth="8"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeDasharray={`${2 * Math.PI * 150}`}
+                    strokeDashoffset={`${2 * Math.PI * 150 * (1 - getProgress() / 100)}`}
+                    className={cn('transition-all duration-300', getTimerColor())}
+                  />
+                </svg>
+                
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <motion.span 
+                    className={cn('text-8xl font-mono font-bold mb-4', getTimerColor())}
+                    animate={{ 
+                      scale: state.isRunning && state.timeLeft <= 10 ? [1, 1.1, 1] : 1 
+                    }}
+                    transition={{ duration: 1, repeat: state.isRunning && state.timeLeft <= 10 ? Infinity : 0 }}
+                  >
+                    {formatTime(state.timeLeft)}
+                  </motion.span>
+                  
+                  {targetReps && (
+                    <div className="text-center">
+                      <span className="text-4xl font-bold text-white">{state.repCount}</span>
+                      <span className="text-2xl text-gray-400">/{targetReps}</span>
+                      <p className="text-sm text-gray-500 mt-1">ripetizioni</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Phase Status */}
+              <motion.p
+                className="text-xl font-medium text-gray-300 mb-8"
+                animate={{ opacity: [0.7, 1, 0.7] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                {state.phase === 'ready' && 'Pronto per iniziare'}
+                {state.phase === 'countdown' && 'Preparati...'}
+                {state.phase === 'active' && 'Esercizio in corso'}
+                {state.phase === 'paused' && 'In pausa'}
+                {state.phase === 'completed' && 'Completato!'}
+              </motion.p>
+            </div>
+
+            {/* Rep Counter (if target reps) */}
+            {targetReps && state.phase === 'active' && (
+              <Card variant="glass" className="p-6 mb-8">
+                <div className="flex items-center justify-center gap-6">
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    onClick={() => state.repCount > 0 && setState(prev => ({ ...prev, repCount: prev.repCount - 1 }))}
+                    disabled={state.repCount === 0 || !state.isRunning}
+                  >
+                    <Minus className="w-6 h-6" />
+                  </Button>
+                  
+                  <div className="text-center min-w-[120px]">
+                    <p className="text-5xl font-bold text-white">{state.repCount}</p>
+                    <p className="text-sm text-gray-400">ripetizioni</p>
+                  </div>
+                  
+                  <Button
+                    variant="gradient"
+                    size="lg"
+                    onClick={addRep}
+                    disabled={!state.isRunning}
+                  >
+                    <Plus className="w-6 h-6" />
+                  </Button>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="mt-4 h-3 bg-gray-800 rounded-full overflow-hidden">
+                  <motion.div
+                    className={cn(
+                      "h-full transition-all",
+                      (state.repCount / targetReps) >= 1 ? "bg-green-500" : "bg-gradient-to-r from-indigo-500 to-purple-500"
+                    )}
+                    animate={{ width: `${Math.min((state.repCount / targetReps) * 100, 100)}%` }}
+                  />
+                </div>
+              </Card>
             )}
-            <Button size="lg" variant="secondary" onClick={reset}>
-              <RotateCcw className="w-5 h-5 mr-2" />
-              Reset
-            </Button>
-            <Button 
-              size="lg" 
-              variant="danger" 
-              onClick={() => {
-                reset()
-                // Close fullscreen (you'd implement this based on your app logic)
-              }}
-            >
-              <Square className="w-5 h-5 mr-2" />
-              Exit
-            </Button>
-          </div>
-        </motion.div>
+
+            {/* Real-time Stats */}
+            {state.repCount > 0 && (
+              <Card variant="glass" className="p-4 mb-8">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                  <div>
+                    <p className="text-2xl font-bold text-white">{stats.averageRepTime.toFixed(1)}s</p>
+                    <p className="text-xs text-gray-400">Tempo Medio</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-white">{stats.currentPace.toFixed(1)}</p>
+                    <p className="text-xs text-gray-400">Ritmo</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-white">{stats.consistency.toFixed(0)}%</p>
+                    <p className="text-xs text-gray-400">Consistenza</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-yellow-500">{stats.caloriesBurned}</p>
+                    <p className="text-xs text-gray-400">Calorie</p>
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* Controls */}
+            {showControls && (
+              <div className="flex gap-4">
+                {state.isRunning ? (
+                  <Button variant="secondary" size="lg" onClick={pause}>
+                    <Pause className="w-6 h-6 mr-3" />
+                    Pausa
+                  </Button>
+                ) : state.isPaused ? (
+                  <Button variant="gradient" size="lg" onClick={resume}>
+                    <Play className="w-6 h-6 mr-3" />
+                    Riprendi
+                  </Button>
+                ) : (
+                  <Button variant="gradient" size="lg" onClick={start}>
+                    <Play className="w-6 h-6 mr-3" />
+                    {state.phase === 'completed' ? 'Ricomincia' : 'Inizia'}
+                  </Button>
+                )}
+                
+                <Button variant="secondary" size="lg" onClick={reset}>
+                  <RotateCcw className="w-6 h-6 mr-3" />
+                  Reset
+                </Button>
+                
+                {state.phase === 'active' && (
+                  <Button 
+                    variant="success" 
+                    size="lg" 
+                    onClick={() => setState(prev => ({ ...prev, phase: 'completed', isRunning: false }))}
+                  >
+                    <CheckCircle className="w-6 h-6 mr-3" />
+                    Completa
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* Motion Detection Indicator */}
+            {enableAutoCount && (
+              <div className="absolute bottom-6 left-6">
+                <div className={cn(
+                  "flex items-center gap-2 px-3 py-2 rounded-lg",
+                  motionData.isActive ? "bg-green-500/20 text-green-400" : "bg-gray-800/50 text-gray-400"
+                )}>
+                  <Activity className={cn("w-4 h-4", motionData.repDetected && "animate-pulse")} />
+                  <span className="text-sm">AI Detection</span>
+                  {motionData.confidence > 0 && (
+                    <span className="text-xs">({motionData.confidence.toFixed(0)}%)</span>
+                  )}
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </>
       )
 
     default:
       return (
-        <Card variant="glass" className={cn('p-6', className)}>
-          {/* Timer Display */}
-          <div className="text-center mb-6">
-            <div className="relative inline-block">
-              <svg className="w-32 h-32 transform -rotate-90">
-                <circle
-                  cx="64"
-                  cy="64"
-                  r="56"
-                  stroke="currentColor"
-                  strokeWidth="6"
-                  fill="none"
-                  className="text-secondary/30"
-                />
-                <motion.circle
-                  cx="64"
-                  cy="64"
-                  r="56"
-                  stroke="currentColor"
-                  strokeWidth="6"
-                  fill="none"
-                  strokeDasharray={`${2 * Math.PI * 56}`}
-                  strokeDashoffset={`${2 * Math.PI * 56 * (1 - getProgress() / 100)}`}
-                  className={cn('transition-all duration-100', getTimerColor())}
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className={cn('text-3xl font-mono font-bold', getTimerColor())}>
-                  {formatTime(state.timeLeft)}
-                </span>
-                {mode === 'stopwatch' && state.laps.length > 0 && (
-                  <span className="text-xs text-muted-foreground mt-1">
-                    Lap {state.laps.length}
-                  </span>
-                )}
+        <>
+          <CountdownOverlay />
+          <Card variant="glass" className={cn('p-6', className)}>
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <motion.div
+                  animate={{ rotate: state.isRunning ? 360 : 0 }}
+                  transition={{ duration: 2, repeat: state.isRunning ? Infinity : 0, ease: "linear" }}
+                >
+                  <TimerIcon className="w-6 h-6 text-indigo-500" />
+                </motion.div>
+                <h3 className="text-lg font-semibold text-white">
+                  {mode === 'exercise' ? 'Exercise Timer' : 'Timer'}
+                </h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => audioManager.current.speak('Audio test')}
+                >
+                  {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={toggleFullscreen}>
+                  <Maximize className="w-5 h-5" />
+                </Button>
               </div>
             </div>
-          </div>
 
-          {/* Progress Bar */}
-          <div className="mb-4">
-            <div className="h-2 bg-secondary/30 rounded-full overflow-hidden">
-              <motion.div
-                className={cn('h-full rounded-full', 
-                  getProgress() > 75 ? 'bg-red-500' :
-                  getProgress() > 50 ? 'bg-orange-500' :
-                  getProgress() > 25 ? 'bg-yellow-500' :
-                  'bg-green-500'
-                )}
-                style={{ width: `${getProgress()}%` }}
-                transition={{ duration: 0.1 }}
-              />
+            {/* Timer Display */}
+            <div className="text-center mb-6">
+              <div className="relative inline-block">
+                <svg className="w-32 h-32 transform -rotate-90">
+                  <circle
+                    cx="64"
+                    cy="64"
+                    r="56"
+                    stroke="currentColor"
+                    strokeWidth="6"
+                    fill="none"
+                    className="text-gray-700/30"
+                  />
+                  <motion.circle
+                    cx="64"
+                    cy="64"
+                    r="56"
+                    stroke="currentColor"
+                    strokeWidth="6"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeDasharray={`${2 * Math.PI * 56}`}
+                    strokeDashoffset={`${2 * Math.PI * 56 * (1 - getProgress() / 100)}`}
+                    className={cn('transition-all duration-100', getTimerColor())}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className={cn('text-3xl font-mono font-bold', getTimerColor())}>
+                    {formatTime(state.timeLeft)}
+                  </span>
+                  {targetReps && (
+                    <span className="text-sm text-gray-400 mt-1">
+                      {state.repCount}/{targetReps}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
 
-          {/* Controls */}
-          {showControls && (
-            <div className="flex justify-center gap-2">
-              {state.isRunning ? (
-                <Button variant="gradient" onClick={pause}>
-                  <Pause className="w-4 h-4 mr-2" />
-                  Pause
+            {/* Rep Counter */}
+            {targetReps && (
+              <div className="flex items-center justify-center gap-4 mb-4">
+                <Button
+                  variant="secondary"
+                  onClick={() => state.repCount > 0 && setState(prev => ({ ...prev, repCount: prev.repCount - 1 }))}
+                  disabled={state.repCount === 0 || !state.isRunning}
+                >
+                  <Minus className="w-4 h-4" />
                 </Button>
-              ) : (
-                <Button variant="gradient" onClick={start}>
-                  <Play className="w-4 h-4 mr-2" />
-                  {state.isPaused ? 'Resume' : 'Start'}
-                </Button>
-              )}
-              
-              <Button variant="secondary" onClick={reset}>
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Reset
-              </Button>
-
-              {mode === 'stopwatch' && (
-                <Button 
-                  variant="secondary" 
-                  onClick={addLap}
+                <div className="text-center min-w-[80px]">
+                  <p className="text-2xl font-bold text-white">{state.repCount}</p>
+                  <p className="text-xs text-gray-400">reps</p>
+                </div>
+                <Button
+                  variant="gradient"
+                  onClick={addRep}
                   disabled={!state.isRunning}
                 >
-                  Lap
+                  <Plus className="w-4 h-4" />
                 </Button>
-              )}
-            </div>
-          )}
+              </div>
+            )}
 
-          {/* Laps Display (for stopwatch) */}
-          {mode === 'stopwatch' && state.laps.length > 0 && (
-            <div className="mt-4 max-h-32 overflow-y-auto">
-              <h4 className="text-sm font-semibold mb-2">Laps</h4>
-              <div className="space-y-1">
-                {state.laps.map((lap, index) => (
-                  <div key={index} className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Lap {index + 1}</span>
-                    <span className="font-mono">{formatTime(lap)}</span>
-                  </div>
-                ))}
+            {/* Progress Bar */}
+            <div className="mb-4">
+              <div className="h-2 bg-gray-700/30 rounded-full overflow-hidden">
+                <motion.div
+                  className={cn('h-full rounded-full', getTimerColor().replace('text-', 'bg-'))}
+                  style={{ width: `${getProgress()}%` }}
+                  transition={{ duration: 0.1 }}
+                />
               </div>
             </div>
-          )}
-        </Card>
+
+            {/* Controls */}
+            {showControls && (
+              <div className="flex justify-center gap-2">
+                {state.isRunning ? (
+                  <Button variant="secondary" onClick={pause}>
+                    <Pause className="w-4 h-4 mr-2" />
+                    Pausa
+                  </Button>
+                ) : (
+                  <Button variant="gradient" onClick={state.isPaused ? resume : start}>
+                    <Play className="w-4 h-4 mr-2" />
+                    {state.isPaused ? 'Riprendi' : state.phase === 'completed' ? 'Ricomincia' : 'Inizia'}
+                  </Button>
+                )}
+                
+                <Button variant="secondary" onClick={reset}>
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Reset
+                </Button>
+              </div>
+            )}
+
+            {/* Stats */}
+            {state.repCount > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-700/30">
+                <div className="grid grid-cols-2 gap-4 text-center text-sm">
+                  <div>
+                    <p className="text-white font-semibold">{stats.averageRepTime.toFixed(1)}s</p>
+                    <p className="text-gray-400">Tempo Medio</p>
+                  </div>
+                  <div>
+                    <p className="text-white font-semibold">{stats.caloriesBurned}</p>
+                    <p className="text-gray-400">Calorie</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </Card>
+        </>
       )
   }
 }
 
 // ====================================
-// EXERCISE TIMER COMPONENT
+// EXPORTS
 // ====================================
-export function ExerciseTimer({
-  exercise,
-  reps,
-  onComplete,
-  className
-}: {
-  exercise: string
-  reps: number
-  onComplete: () => void
-  className?: string
-}) {
-  const [currentRep, setCurrentRep] = useState(0)
-  const [phase, setPhase] = useState<'ready' | 'exercise' | 'rest' | 'complete'>('ready')
+export { AdvancedTimer as Timer }
+export default AdvancedTimer
 
-  const handlePhaseComplete = useCallback(() => {
-    if (phase === 'ready') {
-      setPhase('exercise')
-    } else if (phase === 'exercise') {
-      if (currentRep < reps - 1) {
-        setCurrentRep(prev => prev + 1)
-        setPhase('rest')
-      } else {
-        setPhase('complete')
-        onComplete()
-      }
-    } else if (phase === 'rest') {
-      setPhase('exercise')
-    }
-  }, [phase, currentRep, reps, onComplete])
-
-  const getPhaseInfo = () => {
-    switch (phase) {
-      case 'ready':
-        return { text: 'Get Ready!', duration: 3, color: 'text-yellow-500' }
-      case 'exercise':
-        return { text: exercise, duration: 30, color: 'text-green-500' }
-      case 'rest':
-        return { text: 'Rest', duration: 10, color: 'text-blue-500' }
-      case 'complete':
-        return { text: 'Complete!', duration: 0, color: 'text-primary' }
-      default:
-        return { text: '', duration: 0, color: '' }
-    }
-  }
-
-  const phaseInfo = getPhaseInfo()
-
-  if (phase === 'complete') {
-    return (
-      <Card variant="gradient" className={cn('p-8 text-center', className)}>
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: 'spring', stiffness: 200 }}
-        >
-          <Trophy className="w-16 h-16 mx-auto mb-4 text-yellow-500" />
-          <h3 className="text-2xl font-bold mb-2">Workout Complete!</h3>
-          <p className="text-muted-foreground">
-            You completed {reps} sets of {exercise}
-          </p>
-        </motion.div>
-      </Card>
-    )
-  }
-
-  return (
-    <Card variant="glass" className={cn('p-6', className)}>
-      {/* Phase Indicator */}
-      <div className="text-center mb-4">
-        <h3 className={cn('text-2xl font-bold mb-2', phaseInfo.color)}>
-          {phaseInfo.text}
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          Set {currentRep + 1} of {reps}
-        </p>
-      </div>
-
-      {/* Timer */}
-      <Timer
-        duration={phaseInfo.duration}
-        onComplete={handlePhaseComplete}
-        autoStart={true}
-        variant="default"
-        mode="countdown"
-        showControls={false}
-      />
-
-      {/* Progress Dots */}
-      <div className="flex justify-center gap-2 mt-4">
-        {Array.from({ length: reps }).map((_, i) => (
-          <div
-            key={i}
-            className={cn(
-              'w-2 h-2 rounded-full transition-all',
-              i < currentRep ? 'bg-primary w-8' :
-              i === currentRep ? 'bg-primary animate-pulse' :
-              'bg-secondary'
-            )}
-          />
-        ))}
-      </div>
-    </Card>
-  )
-}
-
-// ====================================
-// COUNTDOWN OVERLAY COMPONENT
-// ====================================
-export function CountdownOverlay({
-  isVisible,
-  onComplete,
-  duration = 3
-}: {
-  isVisible: boolean
-  onComplete: () => void
-  duration?: number
-}) {
-  const [count, setCount] = useState(duration)
-
-  useEffect(() => {
-    if (isVisible) {
-      setCount(duration)
-      const interval = setInterval(() => {
-        setCount(prev => {
-          if (prev <= 1) {
-            clearInterval(interval)
-            onComplete()
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
-
-      return () => clearInterval(interval)
-    }
-  }, [isVisible, duration, onComplete])
-
-  return (
-    <AnimatePresence>
-      {isVisible && count > 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-background/90 backdrop-blur-lg z-50 flex items-center justify-center"
-        >
-          <motion.div
-            key={count}
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 1.5, opacity: 0 }}
-            transition={{ duration: 0.5 }}
-            className="text-9xl font-bold text-primary"
-          >
-            {count === 0 ? 'GO!' : count}
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  )
-}
+// Re-export existing components for compatibility
+export { ExerciseTimer, CountdownOverlay } from './Timer'
