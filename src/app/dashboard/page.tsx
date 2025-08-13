@@ -350,12 +350,12 @@ const NotificationModal = ({
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'challenge': return 'ðŸŽ¯'
-      case 'achievement': return 'ðŸ†'
-      case 'level_up': return 'âš¡'
-      case 'friend_request': return 'ðŸ'¥'
-      case 'system': return 'ðŸ"¢'
-      default: return 'ðŸ""'
+      case 'challenge': return 'T'
+      case 'achievement': return 'A'
+      case 'level_up': return '⚡'
+      case 'friend_request': return 'F'
+      case 'system': return 'S'
+      default: return 'N'
     }
   }
 
@@ -390,7 +390,7 @@ const NotificationModal = ({
             </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white">
-            âœ•
+            ✕
           </button>
         </div>
 
@@ -542,7 +542,7 @@ export default function DashboardPage() {
       }
       
       // We have a Supabase user
-      console.log('ðŸ'¤ User loggato:', authUser.email)
+      console.log('👤 User loggato:', authUser.email)
       
       // Get profile from database
       const { data: profileData } = await supabase
@@ -958,7 +958,7 @@ export default function DashboardPage() {
                   <div className="p-3 bg-gray-800/50 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-lg">âš"ï¸</span>
+                        <span className="text-lg">⚔️</span>
                         <div>
                           <p className="text-sm font-medium text-white">Guerriero Quotidiano</p>
                           <p className="text-xs text-gray-400">Vinci 3 duelli oggi</p>
@@ -978,7 +978,7 @@ export default function DashboardPage() {
                   <div className="p-3 bg-green-500/10 rounded-lg border border-green-500/30">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-lg">ðŸ"¥</span>
+                        <span className="text-lg">🔥</span>
                         <div>
                           <p className="text-sm font-medium text-white">Dedizione</p>
                           <p className="text-xs text-gray-400">Mantieni lo streak</p>
@@ -995,7 +995,7 @@ export default function DashboardPage() {
                   <div className="p-3 bg-gray-800/50 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-lg">ðŸ'ª</span>
+                        <span className="text-lg">💪</span>
                         <div>
                           <p className="text-sm font-medium text-white">Atleta Costante</p>
                           <p className="text-xs text-gray-400">5 esercizi con form score superiore 80%</p>
@@ -1030,7 +1030,7 @@ export default function DashboardPage() {
               <Card variant="glass" className="p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Activity className="w-5 h-5 text-green-500" />
-                  <h3 className="font-bold text-white">AttivitÃ  Recente</h3>
+                  <h3 className="font-bold text-white">Attività Recente</h3>
                 </div>
                 
                 <div className="space-y-3">
