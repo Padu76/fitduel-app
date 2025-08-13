@@ -64,20 +64,18 @@ export function calculateXPForDuel(
   
   // Bonus per forma perfetta
   if (formScore >= FORM_SCORE_THRESHOLDS.PERFECT) {
-    xp += XP_REWARDS.DUEL_PERFECT
+    xp += XP_REWARDS.PERFECT_FORM
   } else if (formScore >= FORM_SCORE_THRESHOLDS.EXCELLENT) {
-    xp += XP_REWARDS.FORM_EXCELLENT
+    xp += XP_REWARDS.GOOD_FORM  // Use GOOD_FORM as fallback for excellent
   } else if (formScore >= FORM_SCORE_THRESHOLDS.GOOD) {
-    xp += XP_REWARDS.FORM_GOOD
+    xp += Math.floor(XP_REWARDS.GOOD_FORM / 2)  // Half bonus for just good
   }
   
   // Bonus streak
-  if (streak >= 10) {
-    xp += XP_REWARDS.DUEL_STREAK_10
-  } else if (streak >= 5) {
-    xp += XP_REWARDS.DUEL_STREAK_5
-  } else if (streak >= 3) {
-    xp += XP_REWARDS.DUEL_STREAK_3
+  if (streak >= 7) {
+    xp += XP_REWARDS.WEEKLY_STREAK
+  } else if (streak >= 1) {
+    xp += XP_REWARDS.DAILY_STREAK
   }
   
   return xp
