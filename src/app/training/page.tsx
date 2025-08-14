@@ -2,821 +2,1197 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
-  Activity, Timer, Zap, Trophy, Target, Flame, BarChart3,
-  Play, Pause, RotateCcw, ChevronLeft, ChevronRight, Settings,
-  Volume2, VolumeX, Heart, TrendingUp, Award, Info, X
+  Activity, Trophy, Target, Flame, Timer, Calendar, TrendingUp,
+  Play, Users, Zap, Star, Award, ChevronRight, Lock, Check,
+  Brain, Dumbbell, Heart, Wind, BarChart3, Clock, Info,
+  Settings, Volume2, VolumeX, Camera, Sparkles, Crown,
+  ArrowLeft, RefreshCw, BookOpen, Medal, Shield, Swords,
+  X, AlertCircle, ChevronLeft, Coins
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { Modal } from '@/components/ui/Modal'
+import { AIExerciseTracker } from '@/components/game/AIExerciseTracker'
+import { XPBar } from '@/components/game/XPBar'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 // ====================================
-// TYPES
+// TYPES & INTERFACES
 // ====================================
+
+type TrainingMode = 'free' | 'guided' | 'challenge' | 'mission'
+type ExerciseCategory = 'all' | 'strength' | 'cardio' | 'flexibility' | 'balance' | 'core'
+type Difficulty = 'easy' | 'medium' | 'hard' | 'extreme'
+
 interface Exercise {
   id: string
+  code: string
   name: string
-  icon: string
   description: string
-  category: 'cardio' | 'strength' | 'flexibility' | 'balance'
-  difficulty: 'easy' | 'medium' | 'hard'
-  caloriesPerMinute: number
+  category: string
+  difficulty: Difficulty
   muscleGroups: string[]
-  defaultDuration: number // seconds
-  defaultReps?: number
+  caloriesPerRep: number
+  xpReward: number
+  coinsReward: number
+  unlockLevel: number
+  icon: string
+  videoUrl?: string
+  instructions: string[]
+  isLocked?: boolean
+  personalBest?: number
+  lastPerformed?: string
 }
 
-interface WorkoutSession {
-  exerciseId: string
-  duration: number
-  reps: number
-  calories: number
-  formScore: number
-  timestamp: string
-}
-
-interface WorkoutStats {
-  totalTime: number
+interface TrainingProgram {
+  id: string
+  name: string
+  description: string
+  difficulty: Difficulty
+  duration: number // minutes
+  exercises: {
+    exerciseId: string
+    targetReps?: number
+    targetTime?: number
+    restTime: number
+    order: number
+  }[]
+  totalXP: number
   totalCalories: number
-  totalReps: number
-  averageFormScore: number
-  exercisesCompleted: number
+  category: string
+  icon: string
+  unlockLevel: number
+  completionRate?: number
+}
+
+interface TrainingSession {
+  id: string
+  userId: string
+  mode: TrainingMode
+  programId?: string
+  exercises: {
+    exerciseId: string
+    reps: number
+    duration: number
+    formScore: number
+    calories: number
+    xpEarned: number
+  }[]
+  totalDuration: number
+  totalCalories: number
+  totalXP: number
+  completedAt: string
+}
+
+interface UserStats {
+  totalWorkouts: number
+  totalCalories: number
+  totalMinutes: number
+  currentStreak: number
+  bestStreak: number
+  favoriteExercise: string
+  lastWorkout: string
+}
+
+interface DailyChallenge {
+  id: string
+  name: string
+  description: string
+  exerciseId: string
+  targetReps?: number
+  targetTime?: number
+  targetFormScore?: number
+  reward: {
+    xp: number
+    coins: number
+    badge?: string
+  }
+  expiresAt: string
+  isCompleted: boolean
 }
 
 // ====================================
-// EXERCISES DATA
+// MOCK DATA
 // ====================================
-const EXERCISES: Exercise[] = [
+
+const EXERCISES_DATA: Exercise[] = [
   {
     id: 'push_up',
+    code: 'push_up',
     name: 'Push-Up',
-    icon: '💪',
-    description: 'Classico esercizio per petto, spalle e tricipiti',
+    description: 'Esercizio classico per petto, spalle e tricipiti',
     category: 'strength',
     difficulty: 'medium',
-    caloriesPerMinute: 8,
     muscleGroups: ['Petto', 'Spalle', 'Tricipiti', 'Core'],
-    defaultDuration: 60,
-    defaultReps: 20
+    caloriesPerRep: 0.32,
+    xpReward: 10,
+    coinsReward: 2,
+    unlockLevel: 1,
+    icon: '💪',
+    instructions: [
+      'Posiziona le mani a terra alla larghezza delle spalle',
+      'Mantieni il corpo dritto dalla testa ai piedi',
+      'Abbassa il corpo fino a sfiorare il pavimento',
+      'Spingi verso l\'alto tornando alla posizione iniziale'
+    ]
   },
   {
     id: 'squat',
+    code: 'squat',
     name: 'Squat',
-    icon: '🦵',
-    description: 'Esercizio fondamentale per gambe e glutei',
+    description: 'Esercizio fondamentale per le gambe',
     category: 'strength',
     difficulty: 'easy',
-    caloriesPerMinute: 7,
-    muscleGroups: ['Quadricipiti', 'Glutei', 'Polpacci', 'Core'],
-    defaultDuration: 60,
-    defaultReps: 25
+    muscleGroups: ['Quadricipiti', 'Glutei', 'Hamstring', 'Core'],
+    caloriesPerRep: 0.35,
+    xpReward: 8,
+    coinsReward: 2,
+    unlockLevel: 1,
+    icon: '🦵',
+    instructions: [
+      'Piedi alla larghezza delle spalle',
+      'Scendi come se ti stessi sedendo',
+      'Ginocchia in linea con i piedi',
+      'Risali spingendo sui talloni'
+    ]
   },
   {
     id: 'plank',
+    code: 'plank',
     name: 'Plank',
-    icon: '🧘',
-    description: 'Esercizio isometrico per il core',
-    category: 'strength',
+    description: 'Rafforza il core e migliora la stabilità',
+    category: 'core',
     difficulty: 'medium',
-    caloriesPerMinute: 4,
     muscleGroups: ['Core', 'Spalle', 'Schiena'],
-    defaultDuration: 45
+    caloriesPerRep: 0.05, // per secondo
+    xpReward: 15,
+    coinsReward: 3,
+    unlockLevel: 2,
+    icon: '🧘',
+    instructions: [
+      'Gomiti a terra sotto le spalle',
+      'Corpo dritto dalla testa ai piedi',
+      'Contrai addominali e glutei',
+      'Mantieni la posizione respirando regolarmente'
+    ]
   },
   {
     id: 'jumping_jack',
+    code: 'jumping_jack',
     name: 'Jumping Jack',
-    icon: '⭐',
-    description: 'Cardio total body ad alta intensità',
+    description: 'Cardio total body per riscaldamento',
     category: 'cardio',
     difficulty: 'easy',
-    caloriesPerMinute: 10,
     muscleGroups: ['Full Body'],
-    defaultDuration: 60,
-    defaultReps: 50
+    caloriesPerRep: 0.2,
+    xpReward: 5,
+    coinsReward: 1,
+    unlockLevel: 1,
+    icon: '⭐',
+    instructions: [
+      'Parti con piedi uniti e braccia lungo i fianchi',
+      'Salta aprendo le gambe e alzando le braccia',
+      'Torna alla posizione iniziale con un salto',
+      'Mantieni un ritmo costante'
+    ]
   },
   {
     id: 'burpee',
+    code: 'burpee',
     name: 'Burpee',
-    icon: '🔥',
     description: 'Esercizio completo ad alta intensità',
     category: 'cardio',
     difficulty: 'hard',
-    caloriesPerMinute: 12,
     muscleGroups: ['Full Body'],
-    defaultDuration: 60,
-    defaultReps: 15
+    caloriesPerRep: 0.5,
+    xpReward: 20,
+    coinsReward: 4,
+    unlockLevel: 5,
+    icon: '🔥',
+    instructions: [
+      'Parti in piedi',
+      'Scendi in posizione squat e appoggia le mani a terra',
+      'Porta i piedi indietro in posizione plank',
+      'Fai un push-up (opzionale)',
+      'Riporta i piedi vicino alle mani',
+      'Salta verso l\'alto con le braccia sopra la testa'
+    ]
   },
   {
     id: 'mountain_climber',
+    code: 'mountain_climber',
     name: 'Mountain Climber',
-    icon: '⛰️',
-    description: 'Cardio e core training dinamico',
+    description: 'Cardio intenso che coinvolge tutto il corpo',
     category: 'cardio',
     difficulty: 'medium',
-    caloriesPerMinute: 11,
     muscleGroups: ['Core', 'Spalle', 'Gambe'],
-    defaultDuration: 45,
-    defaultReps: 40
+    caloriesPerRep: 0.25,
+    xpReward: 12,
+    coinsReward: 3,
+    unlockLevel: 3,
+    icon: '⛰️',
+    instructions: [
+      'Posizione di plank con braccia tese',
+      'Porta un ginocchio verso il petto',
+      'Alterna rapidamente le gambe',
+      'Mantieni il core contratto'
+    ]
   },
   {
     id: 'lunges',
+    code: 'lunges',
     name: 'Affondi',
-    icon: '🚶',
-    description: 'Esercizio per gambe e equilibrio',
+    description: 'Rafforza gambe e glutei',
     category: 'strength',
     difficulty: 'medium',
-    caloriesPerMinute: 6,
-    muscleGroups: ['Quadricipiti', 'Glutei', 'Polpacci'],
-    defaultDuration: 60,
-    defaultReps: 20
+    muscleGroups: ['Quadricipiti', 'Glutei', 'Hamstring'],
+    caloriesPerRep: 0.3,
+    xpReward: 10,
+    coinsReward: 2,
+    unlockLevel: 2,
+    icon: '🏃',
+    instructions: [
+      'Fai un passo avanti',
+      'Scendi piegando entrambe le ginocchia a 90°',
+      'Spingi sul tallone anteriore per tornare su',
+      'Alterna le gambe'
+    ]
   },
   {
     id: 'sit_up',
+    code: 'sit_up',
     name: 'Sit-Up',
-    icon: '🏋️',
-    description: 'Classico esercizio per addominali',
-    category: 'strength',
+    description: 'Classico esercizio per gli addominali',
+    category: 'core',
     difficulty: 'easy',
-    caloriesPerMinute: 5,
-    muscleGroups: ['Addominali', 'Core'],
-    defaultDuration: 60,
-    defaultReps: 30
+    muscleGroups: ['Addominali'],
+    caloriesPerRep: 0.15,
+    xpReward: 6,
+    coinsReward: 1,
+    unlockLevel: 1,
+    icon: '🎯',
+    instructions: [
+      'Sdraiati sulla schiena con ginocchia piegate',
+      'Mani dietro la testa o incrociate sul petto',
+      'Solleva il busto verso le ginocchia',
+      'Scendi controllando il movimento'
+    ]
+  }
+]
+
+const TRAINING_PROGRAMS: TrainingProgram[] = [
+  {
+    id: 'beginner_start',
+    name: 'Principiante - Inizia Qui',
+    description: 'Programma perfetto per iniziare il tuo percorso fitness',
+    difficulty: 'easy',
+    duration: 15,
+    exercises: [
+      { exerciseId: 'jumping_jack', targetReps: 20, restTime: 30, order: 1 },
+      { exerciseId: 'squat', targetReps: 15, restTime: 30, order: 2 },
+      { exerciseId: 'push_up', targetReps: 10, restTime: 30, order: 3 },
+      { exerciseId: 'sit_up', targetReps: 15, restTime: 30, order: 4 },
+      { exerciseId: 'plank', targetTime: 20, restTime: 30, order: 5 }
+    ],
+    totalXP: 100,
+    totalCalories: 80,
+    category: 'full_body',
+    icon: '🌟',
+    unlockLevel: 1
+  },
+  {
+    id: 'cardio_blast',
+    name: 'Cardio Blast',
+    description: 'Brucia calorie e migliora la resistenza',
+    difficulty: 'medium',
+    duration: 20,
+    exercises: [
+      { exerciseId: 'jumping_jack', targetReps: 30, restTime: 20, order: 1 },
+      { exerciseId: 'burpee', targetReps: 10, restTime: 30, order: 2 },
+      { exerciseId: 'mountain_climber', targetReps: 20, restTime: 30, order: 3 },
+      { exerciseId: 'squat', targetReps: 20, restTime: 20, order: 4 },
+      { exerciseId: 'jumping_jack', targetReps: 30, restTime: 20, order: 5 }
+    ],
+    totalXP: 150,
+    totalCalories: 120,
+    category: 'cardio',
+    icon: '💨',
+    unlockLevel: 3
+  },
+  {
+    id: 'strength_builder',
+    name: 'Costruttore di Forza',
+    description: 'Sviluppa forza e massa muscolare',
+    difficulty: 'hard',
+    duration: 25,
+    exercises: [
+      { exerciseId: 'push_up', targetReps: 20, restTime: 45, order: 1 },
+      { exerciseId: 'squat', targetReps: 25, restTime: 45, order: 2 },
+      { exerciseId: 'lunges', targetReps: 20, restTime: 45, order: 3 },
+      { exerciseId: 'push_up', targetReps: 15, restTime: 45, order: 4 },
+      { exerciseId: 'plank', targetTime: 45, restTime: 45, order: 5 }
+    ],
+    totalXP: 200,
+    totalCalories: 150,
+    category: 'strength',
+    icon: '💪',
+    unlockLevel: 5
+  },
+  {
+    id: 'core_focus',
+    name: 'Core Power',
+    description: 'Rafforza il core per una migliore stabilità',
+    difficulty: 'medium',
+    duration: 18,
+    exercises: [
+      { exerciseId: 'plank', targetTime: 30, restTime: 30, order: 1 },
+      { exerciseId: 'sit_up', targetReps: 20, restTime: 30, order: 2 },
+      { exerciseId: 'mountain_climber', targetReps: 20, restTime: 30, order: 3 },
+      { exerciseId: 'plank', targetTime: 45, restTime: 30, order: 4 },
+      { exerciseId: 'sit_up', targetReps: 25, restTime: 30, order: 5 }
+    ],
+    totalXP: 130,
+    totalCalories: 90,
+    category: 'core',
+    icon: '🎯',
+    unlockLevel: 2
+  },
+  {
+    id: 'hiit_extreme',
+    name: 'HIIT Estremo',
+    description: 'Alta intensità per risultati rapidi',
+    difficulty: 'extreme',
+    duration: 30,
+    exercises: [
+      { exerciseId: 'burpee', targetReps: 15, restTime: 20, order: 1 },
+      { exerciseId: 'mountain_climber', targetReps: 30, restTime: 20, order: 2 },
+      { exerciseId: 'push_up', targetReps: 20, restTime: 20, order: 3 },
+      { exerciseId: 'squat', targetReps: 30, restTime: 20, order: 4 },
+      { exerciseId: 'burpee', targetReps: 15, restTime: 20, order: 5 },
+      { exerciseId: 'plank', targetTime: 60, restTime: 30, order: 6 }
+    ],
+    totalXP: 300,
+    totalCalories: 250,
+    category: 'hiit',
+    icon: '🔥',
+    unlockLevel: 10
   }
 ]
 
 // ====================================
 // COMPONENTS
 // ====================================
+
+// Exercise Card Component
 const ExerciseCard = ({ 
   exercise, 
-  isSelected, 
-  onClick 
+  isLocked, 
+  onSelect,
+  userLevel 
 }: { 
   exercise: Exercise
-  isSelected: boolean
-  onClick: () => void 
+  isLocked: boolean
+  onSelect: (exercise: Exercise) => void
+  userLevel: number
 }) => {
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'easy': return 'text-green-500 bg-green-500/10'
-      case 'medium': return 'text-yellow-500 bg-yellow-500/10'
-      case 'hard': return 'text-red-500 bg-red-500/10'
-      default: return 'text-gray-500 bg-gray-500/10'
-    }
-  }
-
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'cardio': return 'from-red-500 to-orange-500'
-      case 'strength': return 'from-blue-500 to-purple-500'
-      case 'flexibility': return 'from-green-500 to-teal-500'
-      case 'balance': return 'from-yellow-500 to-amber-500'
-      default: return 'from-gray-500 to-gray-600'
-    }
-  }
+  const canUnlock = userLevel >= exercise.unlockLevel
 
   return (
-    <motion.button
-      onClick={onClick}
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      className={cn(
-        'w-full text-left transition-all',
-        isSelected && 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-gray-950'
-      )}
+    <motion.div
+      whileHover={{ scale: isLocked ? 1 : 1.02 }}
+      whileTap={{ scale: isLocked ? 1 : 0.98 }}
     >
-      <Card variant="glass" className={cn(
-        'p-4',
-        isSelected ? 'bg-indigo-500/10' : 'hover:bg-gray-800/30'
-      )}>
-        <div className="flex items-start gap-4">
-          <div className={cn(
-            'w-12 h-12 rounded-xl flex items-center justify-center text-2xl',
-            `bg-gradient-to-br ${getCategoryColor(exercise.category)}`
-          )}>
-            {exercise.icon}
-          </div>
-          
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="font-bold text-white">{exercise.name}</h3>
-              <span className={cn(
-                'text-xs px-2 py-1 rounded-full',
-                getDifficultyColor(exercise.difficulty)
-              )}>
-                {exercise.difficulty === 'easy' ? 'Facile' :
-                 exercise.difficulty === 'medium' ? 'Medio' : 'Difficile'}
-              </span>
+      <Card 
+        className={cn(
+          "relative p-4 cursor-pointer transition-all",
+          isLocked ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-800/50",
+          "border-2 border-transparent",
+          !isLocked && "hover:border-indigo-500/50"
+        )}
+        onClick={() => !isLocked && onSelect(exercise)}
+      >
+        {/* Lock Overlay */}
+        {isLocked && (
+          <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center z-10">
+            <div className="text-center">
+              <Lock className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+              <p className="text-sm text-gray-400">Livello {exercise.unlockLevel}</p>
             </div>
-            
-            <p className="text-sm text-gray-400 mb-2">{exercise.description}</p>
-            
-            <div className="flex flex-wrap gap-2">
-              <span className="text-xs bg-gray-800 px-2 py-1 rounded-full">
-                🔥 {exercise.caloriesPerMinute} cal/min
-              </span>
-              {exercise.defaultReps && (
-                <span className="text-xs bg-gray-800 px-2 py-1 rounded-full">
-                  🔢 {exercise.defaultReps} reps
+          </div>
+        )}
+
+        {/* Personal Best Badge */}
+        {exercise.personalBest && (
+          <div className="absolute top-2 right-2 bg-yellow-500/20 px-2 py-1 rounded-full">
+            <div className="flex items-center gap-1">
+              <Trophy className="w-3 h-3 text-yellow-500" />
+              <span className="text-xs text-yellow-400">{exercise.personalBest}</span>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-start gap-3">
+          {/* Icon */}
+          <div className="text-3xl">{exercise.icon}</div>
+
+          {/* Content */}
+          <div className="flex-1">
+            <h3 className="font-semibold text-white mb-1">{exercise.name}</h3>
+            <p className="text-xs text-gray-400 mb-2">{exercise.description}</p>
+
+            {/* Stats */}
+            <div className="flex items-center gap-3 text-xs">
+              <div className="flex items-center gap-1">
+                <Flame className="w-3 h-3 text-orange-500" />
+                <span className="text-gray-300">{exercise.caloriesPerRep} cal</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Zap className="w-3 h-3 text-yellow-500" />
+                <span className="text-gray-300">{exercise.xpReward} XP</span>
+              </div>
+              <div className={cn(
+                "px-2 py-0.5 rounded-full",
+                exercise.difficulty === 'easy' && "bg-green-500/20 text-green-400",
+                exercise.difficulty === 'medium' && "bg-yellow-500/20 text-yellow-400",
+                exercise.difficulty === 'hard' && "bg-orange-500/20 text-orange-400",
+                exercise.difficulty === 'extreme' && "bg-red-500/20 text-red-400"
+              )}>
+                {exercise.difficulty}
+              </div>
+            </div>
+
+            {/* Muscle Groups */}
+            <div className="flex flex-wrap gap-1 mt-2">
+              {exercise.muscleGroups.slice(0, 3).map((muscle, i) => (
+                <span key={i} className="text-xs px-2 py-0.5 bg-gray-800 rounded-full text-gray-400">
+                  {muscle}
                 </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Card>
+    </motion.div>
+  )
+}
+
+// Program Card Component
+const ProgramCard = ({ 
+  program, 
+  isLocked,
+  onSelect,
+  userLevel 
+}: { 
+  program: TrainingProgram
+  isLocked: boolean
+  onSelect: (program: TrainingProgram) => void
+  userLevel: number
+}) => {
+  return (
+    <motion.div
+      whileHover={{ scale: isLocked ? 1 : 1.02 }}
+      whileTap={{ scale: isLocked ? 1 : 0.98 }}
+    >
+      <Card 
+        className={cn(
+          "relative p-4 cursor-pointer transition-all",
+          isLocked ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-800/50",
+          "border-2 border-transparent",
+          !isLocked && "hover:border-purple-500/50"
+        )}
+        onClick={() => !isLocked && onSelect(program)}
+      >
+        {/* Lock Overlay */}
+        {isLocked && (
+          <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center z-10">
+            <div className="text-center">
+              <Lock className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+              <p className="text-sm text-gray-400">Livello {program.unlockLevel}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Completion Rate */}
+        {program.completionRate !== undefined && (
+          <div className="absolute top-2 right-2">
+            <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
+              <span className="text-xs font-bold text-green-400">{program.completionRate}%</span>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-start gap-3">
+          {/* Icon */}
+          <div className="text-3xl">{program.icon}</div>
+
+          {/* Content */}
+          <div className="flex-1">
+            <h3 className="font-semibold text-white mb-1">{program.name}</h3>
+            <p className="text-xs text-gray-400 mb-3">{program.description}</p>
+
+            {/* Exercises Preview */}
+            <div className="flex items-center gap-2 mb-3">
+              {program.exercises.slice(0, 3).map((ex, i) => {
+                const exercise = EXERCISES_DATA.find(e => e.id === ex.exerciseId)
+                return (
+                  <span key={i} className="text-lg">{exercise?.icon}</span>
+                )
+              })}
+              {program.exercises.length > 3 && (
+                <span className="text-xs text-gray-500">+{program.exercises.length - 3}</span>
               )}
-              <span className="text-xs bg-gray-800 px-2 py-1 rounded-full">
-                ⏱️ {exercise.defaultDuration}s
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="text-center">
+                <p className="text-gray-400">Durata</p>
+                <p className="text-white font-semibold">{program.duration} min</p>
+              </div>
+              <div className="text-center">
+                <p className="text-gray-400">XP</p>
+                <p className="text-yellow-400 font-semibold">{program.totalXP}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-gray-400">Calorie</p>
+                <p className="text-orange-400 font-semibold">{program.totalCalories}</p>
+              </div>
+            </div>
+
+            {/* Difficulty Badge */}
+            <div className="mt-3 flex justify-center">
+              <span className={cn(
+                "px-3 py-1 rounded-full text-xs font-medium",
+                program.difficulty === 'easy' && "bg-green-500/20 text-green-400",
+                program.difficulty === 'medium' && "bg-yellow-500/20 text-yellow-400",
+                program.difficulty === 'hard' && "bg-orange-500/20 text-orange-400",
+                program.difficulty === 'extreme' && "bg-red-500/20 text-red-400"
+              )}>
+                {program.difficulty.toUpperCase()}
               </span>
             </div>
           </div>
         </div>
       </Card>
-    </motion.button>
+    </motion.div>
   )
 }
 
-const WorkoutTimer = ({ 
-  exercise,
-  onComplete,
-  onCancel
-}: {
-  exercise: Exercise
-  onComplete: (session: WorkoutSession) => void
-  onCancel: () => void
-}) => {
-  const [timeLeft, setTimeLeft] = useState(exercise.defaultDuration)
-  const [reps, setReps] = useState(0)
-  const [isPaused, setIsPaused] = useState(false)
-  const [isMuted, setIsMuted] = useState(false)
-
-  useEffect(() => {
-    if (isPaused || timeLeft <= 0) return
-
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          handleComplete()
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [timeLeft, isPaused])
-
-  const handleComplete = () => {
-    const calories = Math.round((exercise.defaultDuration - timeLeft) / 60 * exercise.caloriesPerMinute)
-    const formScore = Math.random() * 20 + 80 // Mock form score 80-100
-    
-    onComplete({
-      exerciseId: exercise.id,
-      duration: exercise.defaultDuration - timeLeft,
-      reps: reps || exercise.defaultReps || 0,
-      calories,
-      formScore,
-      timestamp: new Date().toISOString()
-    })
-  }
-
-  const progress = ((exercise.defaultDuration - timeLeft) / exercise.defaultDuration) * 100
-
+// Training Stats Widget
+const TrainingStatsWidget = ({ stats }: { stats: UserStats }) => {
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-gray-900 rounded-2xl p-8 max-w-md w-full border border-gray-800"
-      >
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="text-6xl mb-4">{exercise.icon}</div>
-          <h2 className="text-3xl font-bold text-white mb-2">{exercise.name}</h2>
-          <p className="text-gray-400">{exercise.description}</p>
-        </div>
+    <Card className="p-4">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-white">Le Tue Statistiche</h3>
+        <BarChart3 className="w-5 h-5 text-indigo-400" />
+      </div>
 
-        {/* Timer */}
-        <div className="relative mb-8">
-          <svg className="w-48 h-48 mx-auto transform -rotate-90">
-            <circle
-              cx="96"
-              cy="96"
-              r="88"
-              stroke="currentColor"
-              strokeWidth="8"
-              fill="none"
-              className="text-gray-800"
-            />
-            <circle
-              cx="96"
-              cy="96"
-              r="88"
-              stroke="currentColor"
-              strokeWidth="8"
-              fill="none"
-              strokeDasharray={`${2 * Math.PI * 88}`}
-              strokeDashoffset={`${2 * Math.PI * 88 * (1 - progress / 100)}`}
-              className="text-indigo-500 transition-all duration-1000"
-            />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <div className="text-5xl font-bold text-white">
-              {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
-            </div>
-            <div className="text-sm text-gray-400 mt-2">Tempo rimanente</div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <p className="text-gray-400 text-xs">Allenamenti Totali</p>
+          <p className="text-2xl font-bold text-white">{stats.totalWorkouts}</p>
+        </div>
+        <div>
+          <p className="text-gray-400 text-xs">Calorie Bruciate</p>
+          <p className="text-2xl font-bold text-orange-400">{stats.totalCalories}</p>
+        </div>
+        <div>
+          <p className="text-gray-400 text-xs">Tempo Totale</p>
+          <p className="text-2xl font-bold text-blue-400">{stats.totalMinutes} min</p>
+        </div>
+        <div>
+          <p className="text-gray-400 text-xs">Streak Attuale</p>
+          <div className="flex items-center gap-1">
+            <p className="text-2xl font-bold text-red-400">{stats.currentStreak}</p>
+            <Flame className="w-5 h-5 text-red-400" />
           </div>
         </div>
+      </div>
 
-        {/* Reps Counter */}
-        {exercise.defaultReps && (
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-400">Ripetizioni completate</span>
-              <span className="text-sm text-gray-400">Target: {exercise.defaultReps}</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setReps(Math.max(0, reps - 1))}
-              >
-                -
-              </Button>
-              <div className="flex-1 text-center">
-                <div className="text-3xl font-bold text-white">{reps}</div>
-              </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setReps(reps + 1)}
-              >
-                +
-              </Button>
-            </div>
+      {stats.favoriteExercise && (
+        <div className="mt-4 pt-4 border-t border-gray-800">
+          <p className="text-gray-400 text-xs mb-1">Esercizio Preferito</p>
+          <p className="text-white font-medium">{stats.favoriteExercise}</p>
+        </div>
+      )}
+    </Card>
+  )
+}
+
+// Daily Challenge Card
+const DailyChallengeCard = ({ 
+  challenge,
+  onStart 
+}: { 
+  challenge: DailyChallenge
+  onStart: (challenge: DailyChallenge) => void
+}) => {
+  const exercise = EXERCISES_DATA.find(e => e.id === challenge.exerciseId)
+  
+  return (
+    <Card className="p-4 border-2 border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 to-orange-500/10">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Star className="w-5 h-5 text-yellow-500" />
+          <h3 className="font-semibold text-white">Sfida del Giorno</h3>
+        </div>
+        {challenge.isCompleted && (
+          <div className="flex items-center gap-1 px-2 py-1 bg-green-500/20 rounded-full">
+            <Check className="w-3 h-3 text-green-400" />
+            <span className="text-xs text-green-400">Completata</span>
           </div>
         )}
+      </div>
 
-        {/* Controls */}
-        <div className="flex gap-3">
-          <Button
-            variant="secondary"
-            className="flex-1"
-            onClick={onCancel}
-          >
-            <X className="w-5 h-5 mr-2" />
-            Annulla
-          </Button>
-          
-          <Button
-            variant={isPaused ? 'gradient' : 'secondary'}
-            className="flex-1"
-            onClick={() => setIsPaused(!isPaused)}
-          >
-            {isPaused ? (
-              <>
-                <Play className="w-5 h-5 mr-2" />
-                Riprendi
-              </>
-            ) : (
-              <>
-                <Pause className="w-5 h-5 mr-2" />
-                Pausa
-              </>
-            )}
-          </Button>
-
-          <Button
-            variant="gradient"
-            onClick={handleComplete}
-          >
-            Completa
-          </Button>
-        </div>
-
-        {/* Sound Toggle */}
-        <button
-          onClick={() => setIsMuted(!isMuted)}
-          className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors"
-        >
-          {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-        </button>
-      </motion.div>
-    </div>
-  )
-}
-
-const SessionSummary = ({ 
-  session,
-  exercise,
-  onClose
-}: {
-  session: WorkoutSession
-  exercise: Exercise
-  onClose: () => void
-}) => {
-  return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-gray-900 rounded-2xl p-8 max-w-md w-full border border-gray-800"
-      >
-        <div className="text-center">
-          <div className="text-6xl mb-4">🎉</div>
-          <h2 className="text-2xl font-bold text-white mb-2">Ottimo lavoro!</h2>
-          <p className="text-gray-400 mb-6">Hai completato {exercise.name}</p>
-
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <Card variant="glass" className="p-4">
-              <Timer className="w-6 h-6 text-indigo-500 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-white">{session.duration}s</p>
-              <p className="text-xs text-gray-400">Durata</p>
-            </Card>
-
-            <Card variant="glass" className="p-4">
-              <Flame className="w-6 h-6 text-orange-500 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-white">{session.calories}</p>
-              <p className="text-xs text-gray-400">Calorie</p>
-            </Card>
-
-            {session.reps > 0 && (
-              <Card variant="glass" className="p-4">
-                <Target className="w-6 h-6 text-green-500 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-white">{session.reps}</p>
-                <p className="text-xs text-gray-400">Ripetizioni</p>
-              </Card>
-            )}
-
-            <Card variant="glass" className="p-4">
-              <Trophy className="w-6 h-6 text-yellow-500 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-white">{session.formScore.toFixed(0)}%</p>
-              <p className="text-xs text-gray-400">Form Score</p>
-            </Card>
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">{exercise?.icon}</span>
+          <div>
+            <p className="font-semibold text-white">{challenge.name}</p>
+            <p className="text-sm text-gray-400">{challenge.description}</p>
           </div>
-
-          <Button variant="gradient" className="w-full" onClick={onClose}>
-            Continua Allenamento
-          </Button>
         </div>
-      </motion.div>
-    </div>
+
+        {/* Target */}
+        <div className="flex items-center gap-4 p-3 bg-black/30 rounded-lg">
+          <Target className="w-4 h-4 text-indigo-400" />
+          <span className="text-white">
+            {challenge.targetReps && `${challenge.targetReps} ripetizioni`}
+            {challenge.targetTime && `${challenge.targetTime} secondi`}
+            {challenge.targetFormScore && `Form score >${challenge.targetFormScore}%`}
+          </span>
+        </div>
+
+        {/* Rewards */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1">
+            <Zap className="w-4 h-4 text-yellow-500" />
+            <span className="text-white font-medium">{challenge.reward.xp} XP</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Coins className="w-4 h-4 text-yellow-600" />
+            <span className="text-white font-medium">{challenge.reward.coins}</span>
+          </div>
+          {challenge.reward.badge && (
+            <div className="flex items-center gap-1">
+              <Medal className="w-4 h-4 text-purple-500" />
+              <span className="text-purple-400 text-sm">Badge Speciale</span>
+            </div>
+          )}
+        </div>
+
+        {/* Action Button */}
+        <Button 
+          variant="gradient" 
+          className="w-full"
+          onClick={() => onStart(challenge)}
+          disabled={challenge.isCompleted}
+        >
+          {challenge.isCompleted ? 'Completata' : 'Inizia Sfida'}
+        </Button>
+      </div>
+    </Card>
   )
 }
 
 // ====================================
-// MAIN COMPONENT
+// MAIN TRAINING PAGE COMPONENT
 // ====================================
-export default function TrainingPage() {
-  const router = useRouter()
-  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null)
-  const [isWorkingOut, setIsWorkingOut] = useState(false)
-  const [currentSession, setCurrentSession] = useState<WorkoutSession | null>(null)
-  const [todaySessions, setTodaySessions] = useState<WorkoutSession[]>([])
-  const [selectedCategory, setSelectedCategory] = useState<string>('all')
-  const [showInfo, setShowInfo] = useState(false)
 
-  // Calculate today's stats
-  const todayStats: WorkoutStats = todaySessions.reduce((acc, session) => ({
-    totalTime: acc.totalTime + session.duration,
-    totalCalories: acc.totalCalories + session.calories,
-    totalReps: acc.totalReps + session.reps,
-    averageFormScore: (acc.averageFormScore * acc.exercisesCompleted + session.formScore) / (acc.exercisesCompleted + 1),
-    exercisesCompleted: acc.exercisesCompleted + 1
-  }), {
-    totalTime: 0,
-    totalCalories: 0,
-    totalReps: 0,
-    averageFormScore: 0,
-    exercisesCompleted: 0
+export default function TrainingPage() {
+  // State
+  const [selectedMode, setSelectedMode] = useState<TrainingMode>('free')
+  const [selectedCategory, setSelectedCategory] = useState<ExerciseCategory>('all')
+  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null)
+  const [selectedProgram, setSelectedProgram] = useState<TrainingProgram | null>(null)
+  const [isTracking, setIsTracking] = useState(false)
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0)
+  const [showInstructions, setShowInstructions] = useState(false)
+  const [userLevel, setUserLevel] = useState(5) // Mock user level
+  const [userStats, setUserStats] = useState<UserStats>({
+    totalWorkouts: 42,
+    totalCalories: 3250,
+    totalMinutes: 485,
+    currentStreak: 7,
+    bestStreak: 14,
+    favoriteExercise: 'Push-Up',
+    lastWorkout: new Date().toISOString()
   })
 
-  const handleStartWorkout = () => {
-    if (!selectedExercise) return
-    setIsWorkingOut(true)
+  // Mock daily challenge
+  const [dailyChallenge] = useState<DailyChallenge>({
+    id: 'daily_1',
+    name: 'Push-Up Master',
+    description: 'Completa 50 push-up con form score >80%',
+    exerciseId: 'push_up',
+    targetReps: 50,
+    targetFormScore: 80,
+    reward: {
+      xp: 200,
+      coins: 50,
+      badge: 'push_up_master'
+    },
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    isCompleted: false
+  })
+
+  const router = useRouter()
+  const supabase = createClientComponentClient()
+
+  // Load user data
+  useEffect(() => {
+    loadUserData()
+  }, [])
+
+  const loadUserData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (user) {
+        // Load user stats from database
+        const { data: stats } = await supabase
+          .from('user_stats')
+          .select('*')
+          .eq('user_id', user.id)
+          .single()
+
+        if (stats) {
+          setUserLevel(stats.level || 1)
+        }
+
+        // Load training history
+        const { data: sessions } = await supabase
+          .from('training_sessions')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('completed_at', { ascending: false })
+          .limit(10)
+
+        // Calculate stats from sessions
+        if (sessions && sessions.length > 0) {
+          const totalCalories = sessions.reduce((sum, s) => sum + (s.total_calories || 0), 0)
+          const totalMinutes = sessions.reduce((sum, s) => sum + (s.total_duration || 0), 0) / 60
+          
+          setUserStats(prev => ({
+            ...prev,
+            totalWorkouts: sessions.length,
+            totalCalories,
+            totalMinutes: Math.round(totalMinutes)
+          }))
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error)
+    }
   }
 
-  const handleCompleteWorkout = (session: WorkoutSession) => {
-    setCurrentSession(session)
-    setTodaySessions([...todaySessions, session])
-    setIsWorkingOut(false)
+  // Filter exercises
+  const filteredExercises = EXERCISES_DATA.filter(exercise => {
+    if (selectedCategory === 'all') return true
+    return exercise.category === selectedCategory
+  })
+
+  // Mode selection handler
+  const handleModeSelect = (mode: TrainingMode) => {
+    setSelectedMode(mode)
+    setSelectedExercise(null)
+    setSelectedProgram(null)
+  }
+
+  // Exercise selection handler
+  const handleExerciseSelect = (exercise: Exercise) => {
+    setSelectedExercise(exercise)
+    setShowInstructions(true)
+  }
+
+  // Program selection handler
+  const handleProgramSelect = (program: TrainingProgram) => {
+    setSelectedProgram(program)
+    setCurrentExerciseIndex(0)
+    setShowInstructions(true)
+  }
+
+  // Start training
+  const handleStartTraining = () => {
+    setShowInstructions(false)
+    setIsTracking(true)
+  }
+
+  // Handle exercise completion
+  const handleExerciseComplete = async (performanceData: any) => {
+    console.log('Exercise completed:', performanceData)
     
-    // Save XP (mock)
-    const xpGained = Math.round(session.calories * 2 + session.formScore / 10)
-    console.log(`Gained ${xpGained} XP!`)
+    // If in program mode, move to next exercise
+    if (selectedProgram && currentExerciseIndex < selectedProgram.exercises.length - 1) {
+      setCurrentExerciseIndex(prev => prev + 1)
+      const nextExercise = EXERCISES_DATA.find(
+        e => e.id === selectedProgram.exercises[currentExerciseIndex + 1].exerciseId
+      )
+      setSelectedExercise(nextExercise || null)
+    } else {
+      // Training complete
+      setIsTracking(false)
+      // Show completion modal or redirect
+      router.push('/dashboard')
+    }
   }
 
-  const handleCancelWorkout = () => {
-    setIsWorkingOut(false)
+  // Handle daily challenge start
+  const handleChallengeStart = (challenge: DailyChallenge) => {
+    const exercise = EXERCISES_DATA.find(e => e.id === challenge.exerciseId)
+    if (exercise) {
+      setSelectedMode('challenge')
+      setSelectedExercise(exercise)
+      setShowInstructions(true)
+    }
   }
 
-  const filteredExercises = selectedCategory === 'all' 
-    ? EXERCISES 
-    : EXERCISES.filter(e => e.category === selectedCategory)
+  // Get current exercise for program mode
+  const getCurrentProgramExercise = () => {
+    if (!selectedProgram) return null
+    const exerciseConfig = selectedProgram.exercises[currentExerciseIndex]
+    return EXERCISES_DATA.find(e => e.id === exerciseConfig.exerciseId)
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-indigo-950 to-purple-950">
-      {/* Header */}
-      <header className="border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/dashboard">
-                <Button variant="ghost" size="sm">
-                  <ChevronLeft className="w-5 h-5" />
-                </Button>
-              </Link>
-              <div>
-                <h1 className="text-xl font-bold text-white">Allenamento Libero</h1>
-                <p className="text-sm text-gray-400">Allenati al tuo ritmo</p>
-              </div>
-            </div>
-
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-900/20 to-gray-900 p-4">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
             <Button
               variant="ghost"
-              size="sm"
-              onClick={() => setShowInfo(!showInfo)}
+              onClick={() => router.back()}
             >
-              <Info className="w-5 h-5" />
+              <ArrowLeft className="w-5 h-5" />
             </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-white">Training Center</h1>
+              <p className="text-gray-400">Allenati e migliora le tue performance</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-2 bg-black/30 rounded-lg">
+              <Trophy className="w-4 h-4 text-yellow-500" />
+              <span className="text-white font-medium">Livello {userLevel}</span>
+            </div>
           </div>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-12 gap-6">
-          {/* Left Column - Exercise List */}
-          <div className="lg:col-span-8">
-            {/* Today's Stats */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-6"
-            >
-              <Card variant="glass" className="p-6 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border-indigo-500/20">
-                <h2 className="text-lg font-bold text-white mb-4">Statistiche di Oggi</h2>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <div className="text-center">
-                    <Timer className="w-6 h-6 text-indigo-500 mx-auto mb-2" />
-                    <p className="text-xl font-bold text-white">
-                      {Math.floor(todayStats.totalTime / 60)}:{(todayStats.totalTime % 60).toString().padStart(2, '0')}
-                    </p>
-                    <p className="text-xs text-gray-400">Tempo Totale</p>
-                  </div>
-                  <div className="text-center">
-                    <Flame className="w-6 h-6 text-orange-500 mx-auto mb-2" />
-                    <p className="text-xl font-bold text-white">{todayStats.totalCalories}</p>
-                    <p className="text-xs text-gray-400">Calorie</p>
-                  </div>
-                  <div className="text-center">
-                    <Activity className="w-6 h-6 text-green-500 mx-auto mb-2" />
-                    <p className="text-xl font-bold text-white">{todayStats.exercisesCompleted}</p>
-                    <p className="text-xs text-gray-400">Esercizi</p>
-                  </div>
-                  <div className="text-center">
-                    <Target className="w-6 h-6 text-purple-500 mx-auto mb-2" />
-                    <p className="text-xl font-bold text-white">{todayStats.totalReps}</p>
-                    <p className="text-xs text-gray-400">Ripetizioni</p>
-                  </div>
-                  <div className="text-center">
-                    <Trophy className="w-6 h-6 text-yellow-500 mx-auto mb-2" />
-                    <p className="text-xl font-bold text-white">
-                      {todayStats.averageFormScore.toFixed(0)}%
-                    </p>
-                    <p className="text-xs text-gray-400">Form Media</p>
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
-
-            {/* Category Filter */}
-            <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-              <Button
-                variant={selectedCategory === 'all' ? 'gradient' : 'secondary'}
-                size="sm"
-                onClick={() => setSelectedCategory('all')}
-              >
-                Tutti
-              </Button>
-              <Button
-                variant={selectedCategory === 'cardio' ? 'gradient' : 'secondary'}
-                size="sm"
-                onClick={() => setSelectedCategory('cardio')}
-              >
-                🏃 Cardio
-              </Button>
-              <Button
-                variant={selectedCategory === 'strength' ? 'gradient' : 'secondary'}
-                size="sm"
-                onClick={() => setSelectedCategory('strength')}
-              >
-                💪 Forza
-              </Button>
-              <Button
-                variant={selectedCategory === 'flexibility' ? 'gradient' : 'secondary'}
-                size="sm"
-                onClick={() => setSelectedCategory('flexibility')}
-              >
-                🧘 Flessibilità
-              </Button>
-              <Button
-                variant={selectedCategory === 'balance' ? 'gradient' : 'secondary'}
-                size="sm"
-                onClick={() => setSelectedCategory('balance')}
-              >
-                ⚖️ Equilibrio
-              </Button>
-            </div>
-
-            {/* Exercise List */}
-            <div className="space-y-3">
-              {filteredExercises.map((exercise, index) => (
-                <motion.div
-                  key={exercise.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
+        {/* AI Tracker Active */}
+        {isTracking && selectedExercise && (
+          <div className="fixed inset-0 z-50 bg-black/90 p-4 overflow-y-auto">
+            <div className="max-w-4xl mx-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-white">{selectedExercise.name}</h2>
+                <Button
+                  variant="ghost"
+                  onClick={() => setIsTracking(false)}
                 >
-                  <ExerciseCard
-                    exercise={exercise}
-                    isSelected={selectedExercise?.id === exercise.id}
-                    onClick={() => setSelectedExercise(exercise)}
-                  />
-                </motion.div>
-              ))}
-            </div>
-          </div>
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
 
-          {/* Right Column - Exercise Details */}
-          <div className="lg:col-span-4">
-            <div className="sticky top-20">
-              {selectedExercise ? (
-                <motion.div
-                  key={selectedExercise.id}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                >
-                  <Card variant="glass" className="p-6">
-                    <div className="text-center mb-6">
-                      <div className="text-6xl mb-4">{selectedExercise.icon}</div>
-                      <h2 className="text-2xl font-bold text-white mb-2">{selectedExercise.name}</h2>
-                      <p className="text-gray-400">{selectedExercise.description}</p>
+              <AIExerciseTracker
+                exerciseId={selectedExercise.id}
+                userId="demo_user" // In produzione usa l'ID reale
+                targetReps={
+                  selectedMode === 'challenge' && dailyChallenge.targetReps 
+                    ? dailyChallenge.targetReps 
+                    : selectedProgram?.exercises[currentExerciseIndex]?.targetReps
+                }
+                targetTime={
+                  selectedProgram?.exercises[currentExerciseIndex]?.targetTime
+                }
+                onComplete={handleExerciseComplete}
+                onProgress={(progress) => console.log('Progress:', progress)}
+              />
+
+              {/* Program Progress */}
+              {selectedProgram && (
+                <Card className="mt-4 p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">
+                      Esercizio {currentExerciseIndex + 1} di {selectedProgram.exercises.length}
+                    </span>
+                    <div className="flex gap-1">
+                      {selectedProgram.exercises.map((_, i) => (
+                        <div
+                          key={i}
+                          className={cn(
+                            "w-2 h-2 rounded-full",
+                            i < currentExerciseIndex ? "bg-green-500" :
+                            i === currentExerciseIndex ? "bg-indigo-500" : "bg-gray-600"
+                          )}
+                        />
+                      ))}
                     </div>
-
-                    <div className="space-y-4 mb-6">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-400">Difficoltà</span>
-                        <span className={cn(
-                          'text-sm px-3 py-1 rounded-full',
-                          selectedExercise.difficulty === 'easy' ? 'bg-green-500/20 text-green-400' :
-                          selectedExercise.difficulty === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
-                          'bg-red-500/20 text-red-400'
-                        )}>
-                          {selectedExercise.difficulty === 'easy' ? 'Facile' :
-                           selectedExercise.difficulty === 'medium' ? 'Medio' : 'Difficile'}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-400">Calorie/min</span>
-                        <span className="text-sm text-white">🔥 {selectedExercise.caloriesPerMinute}</span>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-400">Durata</span>
-                        <span className="text-sm text-white">⏱️ {selectedExercise.defaultDuration}s</span>
-                      </div>
-
-                      {selectedExercise.defaultReps && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-400">Ripetizioni</span>
-                          <span className="text-sm text-white">🔢 {selectedExercise.defaultReps}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mb-6">
-                      <p className="text-sm text-gray-400 mb-2">Muscoli coinvolti</p>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedExercise.muscleGroups.map(muscle => (
-                          <span
-                            key={muscle}
-                            className="text-xs bg-gray-800 px-2 py-1 rounded-full text-gray-300"
-                          >
-                            {muscle}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <Button
-                      variant="gradient"
-                      size="lg"
-                      className="w-full"
-                      onClick={handleStartWorkout}
-                    >
-                      <Play className="w-5 h-5 mr-2" />
-                      Inizia Allenamento
-                    </Button>
-                  </Card>
-                </motion.div>
-              ) : (
-                <Card variant="glass" className="p-8 text-center">
-                  <Activity className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                  <p className="text-gray-400">Seleziona un esercizio per iniziare</p>
+                  </div>
                 </Card>
               )}
-
-              {/* Recent Sessions */}
-              {todaySessions.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-6"
-                >
-                  <Card variant="glass" className="p-6">
-                    <h3 className="font-bold text-white mb-4">Sessioni di Oggi</h3>
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {todaySessions.slice().reverse().map((session, index) => {
-                        const exercise = EXERCISES.find(e => e.id === session.exerciseId)
-                        if (!exercise) return null
-                        
-                        return (
-                          <div key={index} className="flex items-center justify-between p-2 bg-gray-800 rounded-lg">
-                            <div className="flex items-center gap-2">
-                              <span className="text-lg">{exercise.icon}</span>
-                              <div>
-                                <p className="text-sm text-white">{exercise.name}</p>
-                                <p className="text-xs text-gray-400">
-                                  {new Date(session.timestamp).toLocaleTimeString('it-IT', { 
-                                    hour: '2-digit', 
-                                    minute: '2-digit' 
-                                  })}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-sm text-yellow-500">{session.calories} cal</p>
-                              <p className="text-xs text-gray-400">{session.duration}s</p>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </Card>
-                </motion.div>
-              )}
             </div>
           </div>
-        </div>
-      </main>
-
-      {/* Info Modal */}
-      <AnimatePresence>
-        {showInfo && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="bg-gray-900 rounded-xl p-6 max-w-md w-full border border-gray-800"
-            >
-              <h3 className="text-lg font-bold text-white mb-4">Come funziona</h3>
-              <div className="space-y-3 text-sm text-gray-300">
-                <p>🎯 Seleziona un esercizio dalla lista</p>
-                <p>⏱️ Segui il timer e conta le ripetizioni</p>
-                <p>📊 Monitora i tuoi progressi in tempo reale</p>
-                <p>🏆 Guadagna XP per ogni sessione completata</p>
-                <p>💪 Nessuna competizione, solo tu e i tuoi obiettivi!</p>
-              </div>
-              <Button
-                variant="gradient"
-                className="w-full mt-6"
-                onClick={() => setShowInfo(false)}
-              >
-                Ho capito!
-              </Button>
-            </motion.div>
-          </div>
         )}
-      </AnimatePresence>
 
-      {/* Workout Timer Modal */}
-      {isWorkingOut && selectedExercise && (
-        <WorkoutTimer
-          exercise={selectedExercise}
-          onComplete={handleCompleteWorkout}
-          onCancel={handleCancelWorkout}
-        />
-      )}
+        {/* Instructions Modal */}
+        <Modal
+          isOpen={showInstructions}
+          onClose={() => setShowInstructions(false)}
+          title={selectedExercise?.name || selectedProgram?.name || ''}
+          size="md"
+        >
+          <div className="space-y-4">
+            {selectedExercise && (
+              <>
+                <div className="text-center text-4xl mb-4">{selectedExercise.icon}</div>
+                
+                <div>
+                  <h3 className="font-semibold text-white mb-2">Istruzioni:</h3>
+                  <ol className="space-y-2">
+                    {selectedExercise.instructions.map((instruction, i) => (
+                      <li key={i} className="flex gap-2 text-gray-300">
+                        <span className="text-indigo-400">{i + 1}.</span>
+                        <span>{instruction}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
 
-      {/* Session Summary Modal */}
-      {currentSession && selectedExercise && (
-        <SessionSummary
-          session={currentSession}
-          exercise={EXERCISES.find(e => e.id === currentSession.exerciseId)!}
-          onClose={() => setCurrentSession(null)}
-        />
-      )}
+                <div>
+                  <h3 className="font-semibold text-white mb-2">Muscoli Coinvolti:</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedExercise.muscleGroups.map((muscle, i) => (
+                      <span key={i} className="px-3 py-1 bg-indigo-500/20 rounded-full text-indigo-400 text-sm">
+                        {muscle}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {selectedProgram && (
+              <div>
+                <h3 className="font-semibold text-white mb-2">Esercizi del Programma:</h3>
+                <div className="space-y-2">
+                  {selectedProgram.exercises.map((ex, i) => {
+                    const exercise = EXERCISES_DATA.find(e => e.id === ex.exerciseId)
+                    return (
+                      <div key={i} className="flex items-center gap-3 p-2 bg-gray-800/50 rounded-lg">
+                        <span className="text-xl">{exercise?.icon}</span>
+                        <span className="text-white flex-1">{exercise?.name}</span>
+                        <span className="text-gray-400 text-sm">
+                          {ex.targetReps && `${ex.targetReps} reps`}
+                          {ex.targetTime && `${ex.targetTime}s`}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            <Button 
+              variant="gradient" 
+              className="w-full"
+              onClick={handleStartTraining}
+            >
+              <Play className="w-4 h-4 mr-2" />
+              Inizia Allenamento
+            </Button>
+          </div>
+        </Modal>
+
+        {/* Main Content */}
+        {!isTracking && (
+          <>
+            {/* Daily Challenge */}
+            <DailyChallengeCard 
+              challenge={dailyChallenge}
+              onStart={handleChallengeStart}
+            />
+
+            {/* Training Modes */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { id: 'free', name: 'Allenamento Libero', icon: Dumbbell, color: 'indigo' },
+                { id: 'guided', name: 'Programmi Guidati', icon: BookOpen, color: 'purple' },
+                { id: 'challenge', name: 'Sfide', icon: Trophy, color: 'yellow' },
+                { id: 'mission', name: 'Missioni', icon: Target, color: 'green' }
+              ].map((mode) => {
+                const Icon = mode.icon
+                const isActive = selectedMode === mode.id
+                
+                return (
+                  <Card
+                    key={mode.id}
+                    className={cn(
+                      "p-4 cursor-pointer transition-all",
+                      isActive ? `border-${mode.color}-500 bg-${mode.color}-500/10` : "hover:bg-gray-800/50"
+                    )}
+                    onClick={() => handleModeSelect(mode.id as TrainingMode)}
+                  >
+                    <div className="text-center">
+                      <Icon className={cn(
+                        "w-8 h-8 mx-auto mb-2",
+                        isActive ? `text-${mode.color}-400` : "text-gray-400"
+                      )} />
+                      <p className={cn(
+                        "text-sm font-medium",
+                        isActive ? "text-white" : "text-gray-300"
+                      )}>
+                        {mode.name}
+                      </p>
+                    </div>
+                  </Card>
+                )
+              })}
+            </div>
+
+            {/* Content based on selected mode */}
+            <div className="grid lg:grid-cols-3 gap-6">
+              {/* Main Content Area */}
+              <div className="lg:col-span-2 space-y-4">
+                {selectedMode === 'free' && (
+                  <>
+                    {/* Category Filter */}
+                    <div className="flex gap-2 overflow-x-auto pb-2">
+                      {['all', 'strength', 'cardio', 'core', 'flexibility', 'balance'].map((cat) => (
+                        <Button
+                          key={cat}
+                          variant={selectedCategory === cat ? 'gradient' : 'ghost'}
+                          size="sm"
+                          onClick={() => setSelectedCategory(cat as ExerciseCategory)}
+                          className="whitespace-nowrap"
+                        >
+                          {cat === 'all' ? 'Tutti' : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                        </Button>
+                      ))}
+                    </div>
+
+                    {/* Exercises Grid */}
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {filteredExercises.map((exercise) => (
+                        <ExerciseCard
+                          key={exercise.id}
+                          exercise={exercise}
+                          isLocked={exercise.unlockLevel > userLevel}
+                          onSelect={handleExerciseSelect}
+                          userLevel={userLevel}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {selectedMode === 'guided' && (
+                  <div className="space-y-4">
+                    <h2 className="text-xl font-bold text-white">Programmi di Allenamento</h2>
+                    <div className="grid gap-4">
+                      {TRAINING_PROGRAMS.map((program) => (
+                        <ProgramCard
+                          key={program.id}
+                          program={program}
+                          isLocked={program.unlockLevel > userLevel}
+                          onSelect={handleProgramSelect}
+                          userLevel={userLevel}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedMode === 'challenge' && (
+                  <div className="text-center py-12">
+                    <Trophy className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold text-white mb-2">Modalità Sfide</h2>
+                    <p className="text-gray-400 mb-6">
+                      Completa la sfida giornaliera sopra o attendi le nuove sfide!
+                    </p>
+                  </div>
+                )}
+
+                {selectedMode === 'mission' && (
+                  <div className="text-center py-12">
+                    <Target className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold text-white mb-2">Allenamento Missioni</h2>
+                    <p className="text-gray-400 mb-6">
+                      Vai alla pagina Missioni per vedere gli obiettivi da completare
+                    </p>
+                    <Button 
+                      variant="gradient"
+                      onClick={() => router.push('/missions')}
+                    >
+                      Vai alle Missioni
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Sidebar */}
+              <div className="space-y-4">
+                {/* User Stats */}
+                <TrainingStatsWidget stats={userStats} />
+
+                {/* Quick Actions */}
+                <Card className="p-4">
+                  <h3 className="font-semibold text-white mb-3">Azioni Rapide</h3>
+                  <div className="space-y-2">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => router.push('/profile')}
+                    >
+                      <User className="w-4 h-4 mr-2" />
+                      Profilo & Statistiche
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => router.push('/achievements')}
+                    >
+                      <Award className="w-4 h-4 mr-2" />
+                      Achievements
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => router.push('/leaderboard')}
+                    >
+                      <Crown className="w-4 h-4 mr-2" />
+                      Classifica
+                    </Button>
+                  </div>
+                </Card>
+
+                {/* Recent Achievements */}
+                <Card className="p-4">
+                  <h3 className="font-semibold text-white mb-3">Achievement Recenti</h3>
+                  <div className="space-y-3">
+                    {[
+                      { icon: '🔥', name: '7 Giorni di Fila', date: 'Oggi' },
+                      { icon: '💪', name: '100 Push-up', date: 'Ieri' },
+                      { icon: '⚡', name: 'Velocista', date: '2 giorni fa' }
+                    ].map((achievement, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <span className="text-2xl">{achievement.icon}</span>
+                        <div className="flex-1">
+                          <p className="text-sm text-white">{achievement.name}</p>
+                          <p className="text-xs text-gray-500">{achievement.date}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   )
 }
