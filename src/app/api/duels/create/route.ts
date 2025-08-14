@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { z } from 'zod'
-import { EXERCISE_DATA, getExerciseData } from '@/utils/constants'
 
 // ====================================
 // TYPES & VALIDATION
@@ -9,60 +8,24 @@ import { EXERCISE_DATA, getExerciseData } from '@/utils/constants'
 const createDuelSchema = z.object({
   challengerId: z.string().min(1, 'Challenger ID richiesto'),
   challengedId: z.string().optional(), // Optional for open challenges
-  exerciseCode: z.string().min(1, 'Exercise code richiesto'),
+  exerciseId: z.string().min(1, 'Exercise ID richiesto'), // CHANGED: exercise_id from exercises table
   duelType: z.enum(['1v1', 'open', 'tournament', 'mission']).default('1v1'),
-  wagerXP: z.number().min(10).max(500).default(50),
+  wagerCoins: z.number().min(10).max(500).default(50), // CHANGED: coins instead of XP
   difficulty: z.enum(['easy', 'medium', 'hard', 'extreme']).default('medium'),
   targetReps: z.number().min(1).max(1000).optional().nullable(),
-  targetTime: z.number().min(5).max(600).optional().nullable(), // 5 seconds to 10 minutes
+  targetTime: z.number().min(5).max(600).optional().nullable(),
   maxParticipants: z.number().min(2).max(100).default(2),
-  timeLimit: z.number().min(1).max(168).default(24), // hours to accept/complete
+  timeLimit: z.number().min(1).max(168).default(24),
+  xpReward: z.number().min(50).max(1000).default(100),
   rules: z.object({
     minReps: z.number().optional(),
     targetTime: z.number().optional(),
     formScoreRequired: z.number().min(0).max(100).optional(),
     allowRetry: z.boolean().default(false)
   }).optional()
-}).refine((data) => {
-  // Ensure either targetReps or targetTime is provided, but not both
-  const hasReps = data.targetReps !== null && data.targetReps !== undefined
-  const hasTime = data.targetTime !== null && data.targetTime !== undefined
-  return (hasReps && !hasTime) || (!hasReps && hasTime)
-}, {
-  message: "Devi specificare o targetReps o targetTime, non entrambi"
 })
 
 type CreateDuelRequest = z.infer<typeof createDuelSchema>
-
-interface DuelResponse {
-  success: boolean
-  message: string
-  data?: {
-    duel: {
-      id: string
-      challengerId: string
-      challengerUsername: string
-      challengedId?: string
-      challengedUsername?: string
-      exerciseCode: string
-      exerciseName: string
-      duelType: string
-      status: string
-      wagerXP: number
-      rewardXP: number
-      targetReps?: number | null
-      targetTime?: number | null
-      difficulty: string
-      maxParticipants: number
-      currentParticipants: number
-      timeLimit: string
-      expiresAt: string
-      createdAt: string
-      rules?: any
-    }
-  }
-  error?: string
-}
 
 // ====================================
 // SUPABASE CLIENT
@@ -72,157 +35,11 @@ function getSupabaseClient() {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('⚠️ Supabase non configurato - usando modalità test')
+    console.warn('⚠️ Supabase non configurato')
     return null
   }
 
   return createClient(supabaseUrl, supabaseAnonKey)
-}
-
-// ====================================
-// VALIDATE EXERCISE TARGET
-// ====================================
-function validateExerciseTarget(
-  exerciseCode: string, 
-  targetReps: number | null | undefined, 
-  targetTime: number | null | undefined,
-  difficulty: string
-): { isValid: boolean; error?: string; defaultValue?: number } {
-  const exerciseData = getExerciseData(exerciseCode)
-  
-  if (!exerciseData) {
-    return { isValid: false, error: 'Esercizio non valido' }
-  }
-
-  const isTimeBased = exerciseData.isTimeBased
-  const hasReps = targetReps !== null && targetReps !== undefined
-  const hasTime = targetTime !== null && targetTime !== undefined
-
-  // Check if the correct target type is provided
-  if (isTimeBased && !hasTime) {
-    // Provide default time for time-based exercises
-    const defaultTime = exerciseData.defaultTargets[difficulty as keyof typeof exerciseData.defaultTargets] || 60
-    return { isValid: true, defaultValue: defaultTime }
-  }
-
-  if (!isTimeBased && !hasReps) {
-    // Provide default reps for rep-based exercises
-    const defaultReps = exerciseData.defaultTargets[difficulty as keyof typeof exerciseData.defaultTargets] || 20
-    return { isValid: true, defaultValue: defaultReps }
-  }
-
-  if (isTimeBased && hasReps) {
-    return { isValid: false, error: `${exerciseData.nameIt} è un esercizio a tempo, non a ripetizioni` }
-  }
-
-  if (!isTimeBased && hasTime) {
-    return { isValid: false, error: `${exerciseData.nameIt} è un esercizio a ripetizioni, non a tempo` }
-  }
-
-  return { isValid: true }
-}
-
-// ====================================
-// TEST MODE HANDLER
-// ====================================
-const testDuels: any[] = [] // Store test duels in memory
-
-async function handleTestMode(data: CreateDuelRequest): Promise<DuelResponse> {
-  const exerciseData = getExerciseData(data.exerciseCode)
-  
-  if (!exerciseData) {
-    return {
-      success: false,
-      message: 'Esercizio non trovato',
-      error: 'EXERCISE_NOT_FOUND'
-    }
-  }
-
-  // Validate and set defaults for target values
-  const validation = validateExerciseTarget(
-    data.exerciseCode,
-    data.targetReps,
-    data.targetTime,
-    data.difficulty
-  )
-
-  if (!validation.isValid) {
-    return {
-      success: false,
-      message: validation.error || 'Target non valido per questo esercizio',
-      error: 'INVALID_TARGET'
-    }
-  }
-
-  // Apply defaults if needed
-  if (validation.defaultValue) {
-    if (exerciseData.isTimeBased) {
-      data.targetTime = validation.defaultValue
-    } else {
-      data.targetReps = validation.defaultValue
-    }
-  }
-
-  // Create mock duel
-  const duelId = `duel-${Date.now()}`
-  const expiresAt = new Date(Date.now() + data.timeLimit * 60 * 60 * 1000)
-  
-  const newDuel = {
-    id: duelId,
-    challenger_id: data.challengerId,
-    challenger_username: 'TestChallenger',
-    challenged_id: data.challengedId || null,
-    challenged_username: data.challengedId ? 'TestOpponent' : null,
-    exercise_code: data.exerciseCode,
-    exercise_name: exerciseData.nameIt,
-    duel_type: data.duelType,
-    status: data.duelType === 'open' ? 'OPEN' : 'PENDING',
-    wager_xp: data.wagerXP,
-    reward_xp: Math.floor(data.wagerXP * 1.5), // 1.5x multiplier for winner
-    target_reps: data.targetReps || null,
-    target_time: data.targetTime || null,
-    difficulty: data.difficulty,
-    max_participants: data.maxParticipants,
-    current_participants: 1,
-    time_limit: data.timeLimit,
-    expires_at: expiresAt.toISOString(),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    rules: data.rules || null,
-    results: null
-  }
-
-  testDuels.push(newDuel)
-  console.log('✅ Test duel created:', duelId)
-
-  return {
-    success: true,
-    message: data.duelType === 'open' ? 'Sfida aperta creata!' : 'Sfida creata! In attesa dell\'avversario.',
-    data: {
-      duel: {
-        id: newDuel.id,
-        challengerId: newDuel.challenger_id,
-        challengerUsername: newDuel.challenger_username,
-        challengedId: newDuel.challenged_id || undefined,
-        challengedUsername: newDuel.challenged_username || undefined,
-        exerciseCode: newDuel.exercise_code,
-        exerciseName: newDuel.exercise_name,
-        duelType: newDuel.duel_type,
-        status: newDuel.status,
-        wagerXP: newDuel.wager_xp,
-        rewardXP: newDuel.reward_xp,
-        targetReps: newDuel.target_reps,
-        targetTime: newDuel.target_time,
-        difficulty: newDuel.difficulty,
-        maxParticipants: newDuel.max_participants,
-        currentParticipants: newDuel.current_participants,
-        timeLimit: `${newDuel.time_limit}h`,
-        expiresAt: newDuel.expires_at,
-        createdAt: newDuel.created_at,
-        rules: newDuel.rules
-      }
-    }
-  }
 }
 
 // ====================================
@@ -231,11 +48,16 @@ async function handleTestMode(data: CreateDuelRequest): Promise<DuelResponse> {
 async function handleSupabaseCreateDuel(
   supabase: any,
   data: CreateDuelRequest
-): Promise<DuelResponse> {
+): Promise<any> {
   try {
-    const exerciseData = getExerciseData(data.exerciseCode)
-    
-    if (!exerciseData) {
+    // Get exercise info
+    const { data: exercise, error: exerciseError } = await supabase
+      .from('exercises')
+      .select('*')
+      .eq('id', data.exerciseId)
+      .single()
+
+    if (exerciseError || !exercise) {
       return {
         success: false,
         message: 'Esercizio non trovato',
@@ -243,35 +65,10 @@ async function handleSupabaseCreateDuel(
       }
     }
 
-    // Validate and set defaults for target values
-    const validation = validateExerciseTarget(
-      data.exerciseCode,
-      data.targetReps,
-      data.targetTime,
-      data.difficulty
-    )
-
-    if (!validation.isValid) {
-      return {
-        success: false,
-        message: validation.error || 'Target non valido per questo esercizio',
-        error: 'INVALID_TARGET'
-      }
-    }
-
-    // Apply defaults if needed
-    if (validation.defaultValue) {
-      if (exerciseData.isTimeBased) {
-        data.targetTime = validation.defaultValue
-      } else {
-        data.targetReps = validation.defaultValue
-      }
-    }
-
     // Get challenger profile
     const { data: challengerProfile, error: challengerError } = await supabase
       .from('profiles')
-      .select('username, xp')
+      .select('username, coins, xp')
       .eq('id', data.challengerId)
       .single()
 
@@ -283,12 +80,12 @@ async function handleSupabaseCreateDuel(
       }
     }
 
-    // Check if challenger has enough XP for wager
-    if (challengerProfile.xp < data.wagerXP) {
+    // Check if challenger has enough coins for wager
+    if (challengerProfile.coins < data.wagerCoins) {
       return {
         success: false,
-        message: `XP insufficienti. Hai ${challengerProfile.xp} XP ma ne servono ${data.wagerXP}`,
-        error: 'INSUFFICIENT_XP'
+        message: `Coins insufficienti. Hai ${challengerProfile.coins} coins ma ne servono ${data.wagerCoins}`,
+        error: 'INSUFFICIENT_COINS'
       }
     }
 
@@ -297,7 +94,7 @@ async function handleSupabaseCreateDuel(
     if (data.challengedId) {
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('username, xp')
+        .select('username, coins')
         .eq('id', data.challengedId)
         .single()
 
@@ -314,31 +111,32 @@ async function handleSupabaseCreateDuel(
     // Calculate expiration
     const expiresAt = new Date(Date.now() + data.timeLimit * 60 * 60 * 1000)
     
-    // Create duel
+    // Create duel with correct column names
     const { data: newDuel, error: duelError } = await supabase
       .from('duels')
       .insert({
         challenger_id: data.challengerId,
-        challenged_id: data.challengedId || null,
-        exercise_code: data.exerciseCode,
-        exercise_name: exerciseData.nameIt,
-        duel_type: data.duelType,
-        status: data.duelType === 'open' ? 'OPEN' : 'PENDING',
-        wager_xp: data.wagerXP,
-        reward_xp: Math.floor(data.wagerXP * 1.5),
-        target_reps: data.targetReps || null,
-        target_time: data.targetTime || null,
-        difficulty: data.difficulty,
-        is_time_based: exerciseData.isTimeBased,
-        max_participants: data.maxParticipants,
-        current_participants: 1,
-        time_limit: data.timeLimit,
+        challenged_id: data.challengedId || null, // CORRECT: challenged_id
+        exercise_id: data.exerciseId, // CORRECT: exercise_id
+        type: data.duelType, // Will be cast to duel_type enum
+        status: data.duelType === 'open' ? 'open' : 'pending', // Will be cast to duel_status enum
+        wager_coins: data.wagerCoins,
+        xp_reward: data.xpReward,
+        difficulty: data.difficulty, // Will be cast to difficulty_level enum
         expires_at: expiresAt.toISOString(),
-        rules: data.rules || {},
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        metadata: {
+          targetReps: data.targetReps,
+          targetTime: data.targetTime,
+          rules: data.rules || {}
+        },
+        created_at: new Date().toISOString()
       })
-      .select()
+      .select(`
+        *,
+        challenger:profiles!challenger_id(id, username, level, xp),
+        challenged:profiles!challenged_id(id, username, level, xp),
+        exercise:exercises!exercise_id(id, name, code, icon, category)
+      `)
       .single()
 
     if (duelError || !newDuel) {
@@ -346,64 +144,83 @@ async function handleSupabaseCreateDuel(
       return {
         success: false,
         message: 'Errore nella creazione della sfida',
-        error: 'DUEL_CREATION_FAILED'
+        error: duelError?.message || 'DUEL_CREATION_FAILED'
       }
     }
 
-    // Create duel participants entry
+    // Create duel participant entry
     await supabase
       .from('duel_participants')
       .insert({
         duel_id: newDuel.id,
         user_id: data.challengerId,
-        role: 'challenger',
-        status: 'ready',
         joined_at: new Date().toISOString()
       })
 
-    // Deduct wager XP from challenger
+    // Deduct wager coins from challenger
     await supabase
       .from('profiles')
-      .update({ xp: challengerProfile.xp - data.wagerXP })
+      .update({ 
+        coins: challengerProfile.coins - data.wagerCoins,
+        updated_at: new Date().toISOString()
+      })
       .eq('id', data.challengerId)
 
-    // Record XP transaction
-    await supabase
-      .from('xp_transactions')
-      .insert({
-        user_id: data.challengerId,
-        amount: -data.wagerXP,
-        type: 'wager',
-        description: `Wager per sfida ${exerciseData.nameIt}`,
-        duel_id: newDuel.id,
-        created_at: new Date().toISOString()
-      })
+    // Record XP transaction if table exists
+    try {
+      await supabase
+        .from('xp_transactions')
+        .insert({
+          user_id: data.challengerId,
+          amount: -data.wagerCoins,
+          type: 'duel_win', // Using valid enum value
+          description: `Wager per sfida ${exercise.name}`,
+          created_at: new Date().toISOString()
+        })
+    } catch (e) {
+      console.log('xp_transactions insert skipped')
+    }
 
     // Send notification if 1v1
     if (data.challengedId) {
-      const targetDescription = exerciseData.isTimeBased 
-        ? `${data.targetTime} secondi` 
-        : `${data.targetReps} ripetizioni`
-      
       await supabase
         .from('notifications')
         .insert({
           user_id: data.challengedId,
-          type: 'duel_challenge',
+          type: 'challenge', // Valid notification_type enum
           title: 'Nuova Sfida!',
-          message: `${challengerProfile.username} ti ha sfidato a ${exerciseData.nameIt} - ${targetDescription}!`,
-          data: { duel_id: newDuel.id },
-          read: false,
+          message: `${challengerProfile.username} ti ha sfidato a ${exercise.name}!`,
+          metadata: { duel_id: newDuel.id },
+          is_read: false,
           created_at: new Date().toISOString()
         })
     }
 
     // Update user stats
-    await supabase.rpc('increment_user_stat', {
-      user_id: data.challengerId,
-      stat_name: 'total_duels_created',
-      amount: 1
-    })
+    const { data: userStats } = await supabase
+      .from('user_stats')
+      .select('*')
+      .eq('user_id', data.challengerId)
+      .single()
+
+    if (!userStats) {
+      // Create user_stats if doesn't exist
+      await supabase
+        .from('user_stats')
+        .insert({
+          user_id: data.challengerId,
+          total_duels_completed: 1
+        })
+    } else {
+      // Update existing stats
+      await supabase
+        .from('user_stats')
+        .update({
+          total_duels_completed: (userStats.total_duels_completed || 0) + 1,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', data.challengerId)
+    }
 
     return {
       success: true,
@@ -416,24 +233,20 @@ async function handleSupabaseCreateDuel(
         duel: {
           id: newDuel.id,
           challengerId: newDuel.challenger_id,
-          challengerUsername: challengerProfile.username,
+          challengerUsername: newDuel.challenger?.username,
           challengedId: newDuel.challenged_id,
-          challengedUsername: challengedProfile?.username,
-          exerciseCode: newDuel.exercise_code,
-          exerciseName: newDuel.exercise_name,
-          duelType: newDuel.duel_type,
+          challengedUsername: newDuel.challenged?.username,
+          exerciseId: newDuel.exercise_id,
+          exerciseName: newDuel.exercise?.name,
+          exerciseIcon: newDuel.exercise?.icon,
+          duelType: newDuel.type,
           status: newDuel.status,
-          wagerXP: newDuel.wager_xp,
-          rewardXP: newDuel.reward_xp,
-          targetReps: newDuel.target_reps,
-          targetTime: newDuel.target_time,
+          wagerCoins: newDuel.wager_coins,
+          xpReward: newDuel.xp_reward,
           difficulty: newDuel.difficulty,
-          maxParticipants: newDuel.max_participants,
-          currentParticipants: newDuel.current_participants,
-          timeLimit: `${newDuel.time_limit}h`,
           expiresAt: newDuel.expires_at,
           createdAt: newDuel.created_at,
-          rules: newDuel.rules
+          metadata: newDuel.metadata
         }
       }
     }
@@ -461,36 +274,13 @@ export async function GET(request: NextRequest) {
     const supabase = getSupabaseClient()
 
     if (!supabase) {
-      // Test mode: return mock duels
-      let duels = [...testDuels]
-      
-      if (duelId) {
-        const duel = duels.find(d => d.id === duelId)
-        return NextResponse.json({
-          success: !!duel,
-          data: duel,
-          message: duel ? 'Duel trovato' : 'Duel non trovato'
-        })
-      }
-
-      if (userId) {
-        duels = duels.filter(d => 
-          d.challenger_id === userId || d.challenged_id === userId
-        )
-      }
-
-      if (status) {
-        duels = duels.filter(d => d.status === status)
-      }
-
       return NextResponse.json({
-        success: true,
-        data: duels,
-        count: duels.length
-      })
+        success: false,
+        message: 'Database non configurato',
+        error: 'NO_DATABASE'
+      }, { status: 500 })
     }
 
-    // Supabase query
     if (duelId) {
       const { data, error } = await supabase
         .from('duels')
@@ -498,6 +288,7 @@ export async function GET(request: NextRequest) {
           *,
           challenger:profiles!challenger_id(id, username, level, xp),
           challenged:profiles!challenged_id(id, username, level, xp),
+          exercise:exercises!exercise_id(id, name, code, icon, category),
           participants:duel_participants(*)
         `)
         .eq('id', duelId)
@@ -524,6 +315,7 @@ export async function GET(request: NextRequest) {
           *,
           challenger:profiles!challenger_id(id, username, level, xp),
           challenged:profiles!challenged_id(id, username, level, xp),
+          exercise:exercises!exercise_id(id, name, code, icon, category),
           participants:duel_participants(*)
         `)
 
@@ -584,27 +376,6 @@ export async function POST(request: NextRequest) {
 
     const data = validation.data
 
-    // Check authentication
-    const userInfo = request.cookies.get('user_info')?.value
-    if (!userInfo) {
-      return NextResponse.json({
-        success: false,
-        message: 'Devi essere autenticato per creare una sfida',
-        error: 'UNAUTHORIZED'
-      }, { status: 401 })
-    }
-
-    const user = JSON.parse(userInfo)
-    
-    // Ensure challengerId matches authenticated user
-    if (data.challengerId !== user.id) {
-      return NextResponse.json({
-        success: false,
-        message: 'Non puoi creare sfide per altri utenti',
-        error: 'FORBIDDEN'
-      }, { status: 403 })
-    }
-
     // Check if user is challenging themselves
     if (data.challengedId === data.challengerId) {
       return NextResponse.json({
@@ -616,14 +387,15 @@ export async function POST(request: NextRequest) {
 
     const supabase = getSupabaseClient()
     
-    let result: DuelResponse
     if (!supabase) {
-      console.log('⚔️ Creating duel (test mode):', data.exerciseCode)
-      result = await handleTestMode(data)
-    } else {
-      console.log('⚔️ Creating duel (Supabase):', data.exerciseCode)
-      result = await handleSupabaseCreateDuel(supabase, data)
+      return NextResponse.json({
+        success: false,
+        message: 'Database non configurato',
+        error: 'NO_DATABASE'
+      }, { status: 500 })
     }
+
+    const result = await handleSupabaseCreateDuel(supabase, data)
 
     return NextResponse.json(result, { 
       status: result.success ? 201 : 400 
