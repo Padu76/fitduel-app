@@ -1147,7 +1147,7 @@ export default function TrainingPage() {
                       className="w-full justify-start"
                       onClick={() => router.push('/profile')}
                     >
-                      <User className="w-4 h-4 mr-2" />
+                      <Users className="w-4 h-4 mr-2" />
                       Profilo & Statistiche
                     </Button>
                     <Button
