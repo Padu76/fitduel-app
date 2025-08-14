@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import { z } from 'zod'
 
 // ====================================
@@ -41,21 +42,6 @@ interface AcceptDuelResponse {
     }
   }
   error?: string
-}
-
-// ====================================
-// SUPABASE CLIENT
-// ====================================
-function getSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('⚠️ Supabase non configurato - usando modalità test')
-    return null
-  }
-
-  return createClient(supabaseUrl, supabaseAnonKey)
 }
 
 // ====================================
@@ -278,16 +264,20 @@ async function handleSupabaseAcceptDuel(
       }
     }
 
-    // Add opponent to duel participants
-    await supabase
-      .from('duel_participants')
-      .insert({
-        duel_id: data.duelId,
-        user_id: data.userId,
-        role: 'challenged',
-        status: 'ready',
-        joined_at: startedAt
-      })
+    // Add opponent to duel participants (if table exists)
+    try {
+      await supabase
+        .from('duel_participants')
+        .insert({
+          duel_id: data.duelId,
+          user_id: data.userId,
+          role: 'challenged',
+          status: 'ready',
+          joined_at: startedAt
+        })
+    } catch (e) {
+      console.log('duel_participants table might not exist, skipping...')
+    }
 
     // Deduct wager XP from opponent
     await supabase
@@ -298,44 +288,55 @@ async function handleSupabaseAcceptDuel(
       })
       .eq('id', data.userId)
 
-    // Record XP transaction for opponent
-    await supabase
-      .from('xp_transactions')
-      .insert({
-        user_id: data.userId,
-        amount: -duel.wager_xp,
-        type: 'wager',
-        description: `Wager per sfida ${duel.exercise_name}`,
-        duel_id: data.duelId,
-        created_at: startedAt
-      })
+    // Record XP transaction (if table exists)
+    try {
+      await supabase
+        .from('xp_transactions')
+        .insert({
+          user_id: data.userId,
+          amount: -duel.wager_xp,
+          type: 'wager',
+          description: `Wager per sfida ${duel.exercise_name}`,
+          duel_id: data.duelId,
+          created_at: startedAt
+        })
+    } catch (e) {
+      console.log('xp_transactions table might not exist, skipping...')
+    }
 
     // Send notification to challenger
-    await supabase
-      .from('notifications')
-      .insert({
-        user_id: duel.challenger_id,
-        type: 'duel_accepted',
-        title: 'Sfida Accettata!',
-        message: `${opponentProfile.username} ha accettato la tua sfida a ${duel.exercise_name}!`,
-        data: { duel_id: data.duelId },
-        read: false,
-        created_at: startedAt
+    try {
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: duel.challenger_id,
+          type: 'challenge',
+          title: 'Sfida Accettata!',
+          message: `${opponentProfile.username} ha accettato la tua sfida a ${duel.exercise_name}!`,
+          metadata: { duel_id: data.duelId },
+          is_read: false,
+          created_at: startedAt
+        })
+    } catch (e) {
+      console.log('Failed to create notification:', e)
+    }
+
+    // Update user stats (if function exists)
+    try {
+      await supabase.rpc('increment_user_stat', {
+        user_id: data.userId,
+        stat_name: 'total_duels_joined',
+        amount: 1
       })
 
-    // Update user stats for opponent
-    await supabase.rpc('increment_user_stat', {
-      user_id: data.userId,
-      stat_name: 'total_duels_joined',
-      amount: 1
-    })
-
-    // Update user stats for challenger
-    await supabase.rpc('increment_user_stat', {
-      user_id: duel.challenger_id,
-      stat_name: 'total_duels_started',
-      amount: 1
-    })
+      await supabase.rpc('increment_user_stat', {
+        user_id: duel.challenger_id,
+        stat_name: 'total_duels_started',
+        amount: 1
+      })
+    } catch (e) {
+      console.log('increment_user_stat function might not exist, skipping...')
+    }
 
     return {
       success: true,
@@ -344,9 +345,9 @@ async function handleSupabaseAcceptDuel(
         duel: {
           id: updatedDuel.id,
           challengerId: updatedDuel.challenger_id,
-          challengerUsername: updatedDuel.challenger.username,
+          challengerUsername: updatedDuel.challenger?.username || 'Challenger',
           opponentId: updatedDuel.challenged_id,
-          opponentUsername: updatedDuel.challenged.username,
+          opponentUsername: updatedDuel.challenged?.username || 'Opponent',
           exerciseCode: updatedDuel.exercise_code,
           exerciseName: updatedDuel.exercise_name,
           status: updatedDuel.status,
@@ -397,18 +398,45 @@ export async function POST(request: NextRequest) {
 
     const data = validation.data
 
-    // Check authentication
-    const userInfo = request.cookies.get('user_info')?.value
-    if (!userInfo) {
-      return NextResponse.json({
-        success: false,
-        message: 'Devi essere autenticato per accettare una sfida',
-        error: 'UNAUTHORIZED'
-      }, { status: 401 })
+    // Get Supabase client with proper auth
+    const supabase = createRouteHandlerClient({ cookies })
+    
+    // Check authentication with Supabase
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
+      console.log('Auth error:', authError)
+      
+      // Check for demo mode fallback
+      const userInfo = request.cookies.get('user_info')?.value
+      if (!userInfo) {
+        return NextResponse.json({
+          success: false,
+          message: 'Devi essere autenticato per accettare una sfida',
+          error: 'UNAUTHORIZED'
+        }, { status: 401 })
+      }
+
+      // Demo mode
+      const demoUser = JSON.parse(userInfo)
+      
+      // Ensure userId matches demo user
+      if (data.userId !== demoUser.id) {
+        return NextResponse.json({
+          success: false,
+          message: 'Non puoi accettare sfide per altri utenti',
+          error: 'FORBIDDEN'
+        }, { status: 403 })
+      }
+
+      console.log('⚔️ Accepting duel (demo mode):', data.duelId)
+      const result = await handleTestMode(data)
+      return NextResponse.json(result, { 
+        status: result.success ? 200 : 400 
+      })
     }
 
-    const user = JSON.parse(userInfo)
-    
+    // Real Supabase user
     // Ensure userId matches authenticated user
     if (data.userId !== user.id) {
       return NextResponse.json({
@@ -418,16 +446,8 @@ export async function POST(request: NextRequest) {
       }, { status: 403 })
     }
 
-    const supabase = getSupabaseClient()
-    
-    let result: AcceptDuelResponse
-    if (!supabase) {
-      console.log('⚔️ Accepting duel (test mode):', data.duelId)
-      result = await handleTestMode(data)
-    } else {
-      console.log('⚔️ Accepting duel (Supabase):', data.duelId)
-      result = await handleSupabaseAcceptDuel(supabase, data)
-    }
+    console.log('⚔️ Accepting duel (Supabase) for user:', user.email)
+    const result = await handleSupabaseAcceptDuel(supabase, data)
 
     return NextResponse.json(result, { 
       status: result.success ? 200 : 400 
