@@ -370,32 +370,6 @@ export default function DuelPage() {
     return Math.round(baseScore + timeBonus)
   }
 
-  const isMyTurn = () => {
-    if (!duel || !currentUser) return false
-    const userId = currentUser.id || currentUser.email
-    return (duel.challenger_id === userId && !myPerformance) ||
-           (duel.challenged_id === userId && !myPerformance)
-  }
-
-  const getWinner = () => {
-    if (!duel || !myPerformance) return null
-    
-    if (duel.winner_id) {
-      const userId = currentUser.id || currentUser.email
-      if (duel.winner_id === userId) return 'user'
-      if (duel.is_draw) return 'tie'
-      return 'opponent'
-    }
-    
-    // Calculate based on scores
-    const myScore = calculateScore(myPerformance)
-    const oppScore = opponentPerformance ? calculateScore(opponentPerformance) : 0
-    
-    if (myScore > oppScore) return 'user'
-    if (oppScore > myScore) return 'opponent'
-    return 'tie'
-  }
-
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
@@ -426,6 +400,25 @@ export default function DuelPage() {
     return mapping[exerciseCode?.toLowerCase()] || 'pushup'
   }
 
+  const getWinner = () => {
+    if (!duel || !myPerformance) return null
+    
+    if (duel.winner_id) {
+      const userId = currentUser.id || currentUser.email
+      if (duel.winner_id === userId) return 'user'
+      if (duel.is_draw) return 'tie'
+      return 'opponent'
+    }
+    
+    // Calculate based on scores
+    const myScore = calculateScore(myPerformance)
+    const oppScore = opponentPerformance ? calculateScore(opponentPerformance) : 0
+    
+    if (myScore > oppScore) return 'user'
+    if (oppScore > myScore) return 'opponent'
+    return 'tie'
+  }
+
   // Loading state
   if (loading) {
     return (
@@ -442,7 +435,7 @@ export default function DuelPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-950 via-indigo-950 to-purple-950 flex items-center justify-center">
         <Card variant="glass" className="p-8 text-center">
-          <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <XCircle className="w-16 h-16 text-red-500 mx-auto mb-3" />
           <h2 className="text-2xl font-bold text-white mb-2">Duello non trovato</h2>
           <p className="text-gray-400 mb-6">Il duello richiesto non esiste o è stato cancellato.</p>
           <Button variant="gradient" onClick={() => router.push('/challenges')}>
@@ -659,27 +652,30 @@ export default function DuelPage() {
                 </ul>
               </Card>
 
-              {/* Start Button */}
+              {/* Start Button - SEMPRE VISIBILE */}
               <div className="text-center">
-                {isMyTurn() ? (
-                  <Button
-                    variant="gradient"
-                    size="lg"
-                    onClick={startExercise}
-                    className="px-12 py-4 text-lg gap-3"
-                  >
-                    <Activity className="w-6 h-6" />
-                    Inizia con AI
-                  </Button>
-                ) : myPerformance ? (
+                {myPerformance ? (
                   <div className="text-center">
                     <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                    <p className="text-gray-400">Hai già completato questo duello</p>
+                    <p className="text-gray-400 mb-4">Hai già completato questo duello</p>
+                    <Button variant="secondary" onClick={() => setDuelPhase('results')}>
+                      Vedi Risultati
+                    </Button>
                   </div>
                 ) : (
-                  <div className="text-center">
-                    <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-3" />
-                    <p className="text-gray-400">Non è il tuo turno</p>
+                  <div className="space-y-4">
+                    <Button
+                      variant="gradient"
+                      size="lg"
+                      onClick={startExercise}
+                      className="px-12 py-4 text-lg gap-3"
+                    >
+                      <Activity className="w-6 h-6" />
+                      Inizia con AI
+                    </Button>
+                    <p className="text-sm text-gray-400">
+                      Completa l'esercizio per registrare il tuo punteggio
+                    </p>
                   </div>
                 )}
               </div>
