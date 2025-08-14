@@ -13,6 +13,7 @@ export interface User {
   level: number
   xp: number
   totalXp: number
+  coins: number
   rank: string
   birthDate?: string
   fitnessLevel: 'beginner' | 'intermediate' | 'advanced'
@@ -97,6 +98,8 @@ interface UserActions {
   // XP & Level
   addXP: (amount: number) => void
   levelUp: () => void
+  addCoins: (amount: number) => void
+  spendCoins: (amount: number) => boolean
   
   // Session management
   setSession: (accessToken: string, refreshToken: string, expiresIn: number) => void
@@ -162,7 +165,7 @@ export const useUserStore = create<UserStore>()(
 
       // Auth actions
       setUser: (user) => set(() => ({
-        user,
+        user: { ...user, coins: user.coins || 0 },
         isAuthenticated: true,
         error: null
       })),
@@ -263,6 +266,24 @@ export const useUserStore = create<UserStore>()(
         }
         return state
       }),
+
+      addCoins: (amount) => set((state) => {
+        if (state.user) {
+          const user = { ...state.user }
+          user.coins = (user.coins || 0) + amount
+          return { user }
+        }
+        return state
+      }),
+
+      spendCoins: (amount) => {
+        const state = get()
+        if (state.user && state.user.coins >= amount) {
+          set({ user: { ...state.user, coins: state.user.coins - amount } })
+          return true
+        }
+        return false
+      },
 
       // Session management
       setSession: (accessToken, refreshToken, expiresIn) => set(() => ({
@@ -370,7 +391,7 @@ export const useUserStore = create<UserStore>()(
         setLoading(true)
 
         try {
-          await fetch('/api/auth/login', { method: 'DELETE' })
+          await fetch('/api/auth/logout', { method: 'POST' })
         } catch (error) {
           console.error('Logout error:', error)
         } finally {
