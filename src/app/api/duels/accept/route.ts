@@ -13,149 +13,22 @@ const acceptDuelSchema = z.object({
 
 type AcceptDuelRequest = z.infer<typeof acceptDuelSchema>
 
-interface AcceptDuelResponse {
-  success: boolean
-  message: string
-  data?: {
-    duel: {
-      id: string
-      challengerId: string
-      challengerUsername: string
-      opponentId: string
-      opponentUsername: string
-      exerciseCode: string
-      exerciseName: string
-      status: string
-      wagerXP: number
-      rewardXP: number
-      duration: number
-      difficulty: string
-      timeLimit: string
-      expiresAt: string
-      startedAt: string
-    }
-    opponent: {
-      id: string
-      username: string
-      level: number
-      xp: number
-    }
-  }
-  error?: string
-}
-
-// ====================================
-// TEST MODE HANDLER
-// ====================================
-const testDuels: any[] = [] // Should match the array from create route
-
-async function handleTestMode(data: AcceptDuelRequest): Promise<AcceptDuelResponse> {
-  // Find the duel
-  const duel = testDuels.find(d => d.id === data.duelId)
-  
-  if (!duel) {
-    return {
-      success: false,
-      message: 'Sfida non trovata',
-      error: 'DUEL_NOT_FOUND'
-    }
-  }
-
-  // Check if duel is available for acceptance
-  if (duel.status !== 'PENDING' && duel.status !== 'OPEN') {
-    return {
-      success: false,
-      message: 'Questa sfida non è più disponibile',
-      error: 'DUEL_NOT_AVAILABLE'
-    }
-  }
-
-  // Check if duel is expired
-  const now = new Date()
-  const expiresAt = new Date(duel.expires_at)
-  if (now > expiresAt) {
-    duel.status = 'EXPIRED'
-    return {
-      success: false,
-      message: 'Questa sfida è scaduta',
-      error: 'DUEL_EXPIRED'
-    }
-  }
-
-  // Check if user is trying to accept their own duel
-  if (duel.challenger_id === data.userId) {
-    return {
-      success: false,
-      message: 'Non puoi accettare la tua stessa sfida',
-      error: 'SELF_ACCEPT'
-    }
-  }
-
-  // Check if duel is full (for open duels)
-  if (duel.current_participants >= duel.max_participants) {
-    return {
-      success: false,
-      message: 'Questa sfida è al completo',
-      error: 'DUEL_FULL'
-    }
-  }
-
-  // Update duel
-  duel.challenged_id = data.userId
-  duel.challenged_username = 'TestOpponent'
-  duel.status = 'ACTIVE'
-  duel.current_participants += 1
-  duel.started_at = new Date().toISOString()
-  duel.updated_at = new Date().toISOString()
-
-  console.log('✅ Test duel accepted:', data.duelId)
-
-  return {
-    success: true,
-    message: 'Sfida accettata! Inizia a giocare.',
-    data: {
-      duel: {
-        id: duel.id,
-        challengerId: duel.challenger_id,
-        challengerUsername: duel.challenger_username,
-        opponentId: duel.challenged_id,
-        opponentUsername: duel.challenged_username,
-        exerciseCode: duel.exercise_code,
-        exerciseName: duel.exercise_name,
-        status: duel.status,
-        wagerXP: duel.wager_xp,
-        rewardXP: duel.reward_xp,
-        duration: duel.duration,
-        difficulty: duel.difficulty,
-        timeLimit: `${duel.time_limit}h`,
-        expiresAt: duel.expires_at,
-        startedAt: duel.started_at
-      },
-      opponent: {
-        id: data.userId,
-        username: 'TestOpponent',
-        level: 5,
-        xp: 250
-      }
-    }
-  }
-}
-
 // ====================================
 // SUPABASE ACCEPT DUEL HANDLER
 // ====================================
 async function handleSupabaseAcceptDuel(
   supabase: any,
   data: AcceptDuelRequest
-): Promise<AcceptDuelResponse> {
+): Promise<any> {
   try {
-    // Get the duel with challenger info
+    // Get the duel with challenger info - USING CORRECT COLUMN NAMES
     const { data: duel, error: duelError } = await supabase
       .from('duels')
       .select(`
         *,
-        challenger:profiles!challenger_id(id, username, level, xp),
-        challenged:profiles!challenged_id(id, username, level, xp)
+        challenger:profiles!challenger_id(id, username, level, xp, coins),
+        challenged:profiles!challenged_id(id, username, level, xp, coins),
+        exercise:exercises!exercise_id(id, name, code, icon, category)
       `)
       .eq('id', data.duelId)
       .single()
@@ -169,7 +42,7 @@ async function handleSupabaseAcceptDuel(
     }
 
     // Check if duel is available for acceptance
-    if (duel.status !== 'PENDING' && duel.status !== 'OPEN') {
+    if (duel.status !== 'pending' && duel.status !== 'open') {
       return {
         success: false,
         message: 'Questa sfida non è più disponibile',
@@ -184,7 +57,10 @@ async function handleSupabaseAcceptDuel(
       // Mark as expired
       await supabase
         .from('duels')
-        .update({ status: 'EXPIRED', updated_at: new Date().toISOString() })
+        .update({ 
+          status: 'expired', // Using correct enum value
+          updated_at: new Date().toISOString() 
+        })
         .eq('id', data.duelId)
 
       return {
@@ -203,19 +79,10 @@ async function handleSupabaseAcceptDuel(
       }
     }
 
-    // Check if duel is full (for open duels)
-    if (duel.current_participants >= duel.max_participants) {
-      return {
-        success: false,
-        message: 'Questa sfida è al completo',
-        error: 'DUEL_FULL'
-      }
-    }
-
-    // Get opponent profile
+    // Get opponent profile (person accepting the duel)
     const { data: opponentProfile, error: opponentError } = await supabase
       .from('profiles')
-      .select('id, username, level, xp')
+      .select('id, username, level, xp, coins')
       .eq('id', data.userId)
       .single()
 
@@ -227,23 +94,22 @@ async function handleSupabaseAcceptDuel(
       }
     }
 
-    // Check if opponent has enough XP for wager
-    if (opponentProfile.xp < duel.wager_xp) {
+    // Check if opponent has enough coins for wager
+    if (opponentProfile.coins < duel.wager_coins) {
       return {
         success: false,
-        message: `XP insufficienti. Hai ${opponentProfile.xp} XP ma ne servono ${duel.wager_xp}`,
-        error: 'INSUFFICIENT_XP'
+        message: `Coins insufficienti. Hai ${opponentProfile.coins} coins ma ne servono ${duel.wager_coins}`,
+        error: 'INSUFFICIENT_COINS'
       }
     }
 
-    // Update duel to ACTIVE status
+    // Update duel to ACTIVE status - USING CORRECT COLUMN NAME
     const startedAt = new Date().toISOString()
     const { data: updatedDuel, error: updateError } = await supabase
       .from('duels')
       .update({
-        challenged_id: data.userId,
-        status: 'ACTIVE',
-        current_participants: duel.current_participants + 1,
+        challenged_id: data.userId, // CORRECT: challenged_id, not opponent_id
+        status: 'active', // Using correct enum value
         started_at: startedAt,
         updated_at: startedAt
       })
@@ -251,7 +117,8 @@ async function handleSupabaseAcceptDuel(
       .select(`
         *,
         challenger:profiles!challenger_id(id, username, level, xp),
-        challenged:profiles!challenged_id(id, username, level, xp)
+        challenged:profiles!challenged_id(id, username, level, xp),
+        exercise:exercises!exercise_id(id, name, code, icon)
       `)
       .single()
 
@@ -264,78 +131,67 @@ async function handleSupabaseAcceptDuel(
       }
     }
 
-    // Add opponent to duel participants (if table exists)
-    try {
-      await supabase
-        .from('duel_participants')
-        .insert({
-          duel_id: data.duelId,
-          user_id: data.userId,
-          role: 'challenged',
-          status: 'ready',
-          joined_at: startedAt
-        })
-    } catch (e) {
-      console.log('duel_participants table might not exist, skipping...')
-    }
+    // Add opponent to duel participants
+    await supabase
+      .from('duel_participants')
+      .insert({
+        duel_id: data.duelId,
+        user_id: data.userId,
+        joined_at: startedAt
+      })
 
-    // Deduct wager XP from opponent
+    // Deduct wager coins from opponent
     await supabase
       .from('profiles')
       .update({ 
-        xp: opponentProfile.xp - duel.wager_xp,
+        coins: opponentProfile.coins - duel.wager_coins,
         updated_at: startedAt
       })
       .eq('id', data.userId)
 
-    // Record XP transaction (if table exists)
+    // Record transaction
     try {
       await supabase
         .from('xp_transactions')
         .insert({
           user_id: data.userId,
-          amount: -duel.wager_xp,
-          type: 'wager',
-          description: `Wager per sfida ${duel.exercise_name}`,
-          duel_id: data.duelId,
+          amount: -duel.wager_coins,
+          type: 'duel_win', // Using valid enum
+          description: `Wager per sfida ${updatedDuel.exercise?.name}`,
           created_at: startedAt
         })
     } catch (e) {
-      console.log('xp_transactions table might not exist, skipping...')
+      console.log('xp_transactions insert skipped')
     }
 
     // Send notification to challenger
-    try {
-      await supabase
-        .from('notifications')
-        .insert({
-          user_id: duel.challenger_id,
-          type: 'challenge',
-          title: 'Sfida Accettata!',
-          message: `${opponentProfile.username} ha accettato la tua sfida a ${duel.exercise_name}!`,
-          metadata: { duel_id: data.duelId },
-          is_read: false,
-          created_at: startedAt
-        })
-    } catch (e) {
-      console.log('Failed to create notification:', e)
-    }
-
-    // Update user stats (if function exists)
-    try {
-      await supabase.rpc('increment_user_stat', {
-        user_id: data.userId,
-        stat_name: 'total_duels_joined',
-        amount: 1
-      })
-
-      await supabase.rpc('increment_user_stat', {
+    await supabase
+      .from('notifications')
+      .insert({
         user_id: duel.challenger_id,
-        stat_name: 'total_duels_started',
-        amount: 1
+        type: 'challenge', // Using valid notification_type enum
+        title: 'Sfida Accettata!',
+        message: `${opponentProfile.username} ha accettato la tua sfida a ${updatedDuel.exercise?.name}!`,
+        metadata: { duel_id: data.duelId },
+        is_read: false,
+        created_at: startedAt
       })
-    } catch (e) {
-      console.log('increment_user_stat function might not exist, skipping...')
+
+    // Update user stats
+    const { data: challengedStats } = await supabase
+      .from('user_stats')
+      .select('*')
+      .eq('user_id', data.userId)
+      .single()
+
+    if (!challengedStats) {
+      // Create user_stats if doesn't exist
+      await supabase
+        .from('user_stats')
+        .insert({
+          user_id: data.userId,
+          total_duels_completed: 0
+        })
     }
 
     return {
@@ -346,16 +202,15 @@ async function handleSupabaseAcceptDuel(
           id: updatedDuel.id,
           challengerId: updatedDuel.challenger_id,
           challengerUsername: updatedDuel.challenger?.username || 'Challenger',
-          opponentId: updatedDuel.challenged_id,
-          opponentUsername: updatedDuel.challenged?.username || 'Opponent',
-          exerciseCode: updatedDuel.exercise_code,
-          exerciseName: updatedDuel.exercise_name,
+          challengedId: updatedDuel.challenged_id, // CORRECT: challenged_id
+          challengedUsername: updatedDuel.challenged?.username || 'Opponent',
+          exerciseId: updatedDuel.exercise_id,
+          exerciseName: updatedDuel.exercise?.name,
+          exerciseIcon: updatedDuel.exercise?.icon,
           status: updatedDuel.status,
-          wagerXP: updatedDuel.wager_xp,
-          rewardXP: updatedDuel.reward_xp,
-          duration: updatedDuel.duration,
+          wagerCoins: updatedDuel.wager_coins,
+          xpReward: updatedDuel.xp_reward,
           difficulty: updatedDuel.difficulty,
-          timeLimit: `${updatedDuel.time_limit}h`,
           expiresAt: updatedDuel.expires_at,
           startedAt: updatedDuel.started_at
         },
@@ -363,7 +218,8 @@ async function handleSupabaseAcceptDuel(
           id: opponentProfile.id,
           username: opponentProfile.username,
           level: opponentProfile.level,
-          xp: opponentProfile.xp - duel.wager_xp // Updated XP after wager
+          xp: opponentProfile.xp,
+          coins: opponentProfile.coins - duel.wager_coins // Updated coins after wager
         }
       }
     }
@@ -407,36 +263,13 @@ export async function POST(request: NextRequest) {
     if (authError || !user) {
       console.log('Auth error:', authError)
       
-      // Check for demo mode fallback
-      const userInfo = request.cookies.get('user_info')?.value
-      if (!userInfo) {
-        return NextResponse.json({
-          success: false,
-          message: 'Devi essere autenticato per accettare una sfida',
-          error: 'UNAUTHORIZED'
-        }, { status: 401 })
-      }
-
-      // Demo mode
-      const demoUser = JSON.parse(userInfo)
-      
-      // Ensure userId matches demo user
-      if (data.userId !== demoUser.id) {
-        return NextResponse.json({
-          success: false,
-          message: 'Non puoi accettare sfide per altri utenti',
-          error: 'FORBIDDEN'
-        }, { status: 403 })
-      }
-
-      console.log('⚔️ Accepting duel (demo mode):', data.duelId)
-      const result = await handleTestMode(data)
-      return NextResponse.json(result, { 
-        status: result.success ? 200 : 400 
-      })
+      return NextResponse.json({
+        success: false,
+        message: 'Devi essere autenticato per accettare una sfida',
+        error: 'UNAUTHORIZED'
+      }, { status: 401 })
     }
 
-    // Real Supabase user
     // Ensure userId matches authenticated user
     if (data.userId !== user.id) {
       return NextResponse.json({
@@ -446,7 +279,7 @@ export async function POST(request: NextRequest) {
       }, { status: 403 })
     }
 
-    console.log('⚔️ Accepting duel (Supabase) for user:', user.email)
+    console.log('⚔️ Accepting duel for user:', user.email)
     const result = await handleSupabaseAcceptDuel(supabase, data)
 
     return NextResponse.json(result, { 
