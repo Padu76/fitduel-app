@@ -24,7 +24,7 @@ export interface ExerciseConfig {
   targetReps?: number
   targetTime?: number // seconds
   difficulty: 'easy' | 'medium' | 'hard' | 'extreme'
-  category: 'strength' | 'cardio' | 'flexibility' | 'balance'
+  category: 'strength' | 'cardio' | 'flexibility' | 'balance' | 'core'
   muscleGroups: string[]
   caloriesPerRep?: number
   perfectFormThreshold: number // 0-100
@@ -1162,6 +1162,7 @@ export const AIExerciseTracker = ({
         duration: timeElapsed,
         caloriesBurned: calories,
         videoUrl,
+        videoBlob,
         feedback: {
           formScore: analyzerRef.current?.getAverageFormScore() || 0,
           repsCount: currentReps,
