@@ -18,24 +18,29 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useUserStore } from '@/stores/useUserStore'
 
 // ====================================
-// TYPES
+// TYPES - UPDATED TO MATCH DATABASE
 // ====================================
 interface DuelCardData {
   id: string
-  opponent: string
-  exercise: string
-  status: 'active' | 'pending' | 'completed'
-  myScore: number
-  opponentScore: number
+  challengerName: string
+  challengedName: string | null
+  exerciseName: string
+  exerciseIcon?: string
+  status: 'pending' | 'open' | 'active' | 'completed' | 'expired' | 'cancelled'
+  challengerScore: number | null
+  challengedScore: number | null
   timeLeft: string
   xpReward: number
+  wagerCoins: number
+  type: '1v1' | 'open' | 'tournament' | 'mission'
 }
 
 interface DailyChallenge {
   id: string
   exercise: string
+  exerciseIcon?: string
   difficulty: 'easy' | 'medium' | 'hard' | 'extreme'
-  targetReps: number
+  targetReps?: number
   targetTime?: number
   xpReward: number
   coinReward: number
@@ -62,28 +67,36 @@ interface Notification {
 }
 
 // ====================================
-// MOCK DATA
+// MOCK DATA - UPDATED TO MATCH DATABASE
 // ====================================
 const MOCK_ACTIVE_DUELS: DuelCardData[] = [
   {
     id: '1',
-    opponent: 'SpeedRunner',
-    exercise: 'Push-Up',
+    challengerName: 'Tu',
+    challengedName: 'SpeedRunner',
+    exerciseName: 'Push-Up',
+    exerciseIcon: '💪',
     status: 'active',
-    myScore: 45,
-    opponentScore: 38,
+    challengerScore: 45,
+    challengedScore: 38,
     timeLeft: '2h 15m',
-    xpReward: 150
+    xpReward: 150,
+    wagerCoins: 50,
+    type: '1v1'
   },
   {
     id: '2',
-    opponent: 'FitGuru',
-    exercise: 'Plank',
+    challengerName: 'FitGuru',
+    challengedName: 'Tu',
+    exerciseName: 'Plank',
+    exerciseIcon: '🏋️',
     status: 'pending',
-    myScore: 0,
-    opponentScore: 0,
+    challengerScore: null,
+    challengedScore: null,
     timeLeft: '5h 30m',
-    xpReward: 200
+    xpReward: 200,
+    wagerCoins: 75,
+    type: '1v1'
   }
 ]
 
@@ -91,6 +104,7 @@ const MOCK_DAILY_CHALLENGES: DailyChallenge[] = [
   {
     id: 'dc1',
     exercise: 'Squat',
+    exerciseIcon: '🦵',
     difficulty: 'medium',
     targetReps: 50,
     xpReward: 200,
@@ -104,8 +118,8 @@ const MOCK_DAILY_CHALLENGES: DailyChallenge[] = [
   {
     id: 'dc2',
     exercise: 'Plank',
+    exerciseIcon: '🏋️',
     difficulty: 'hard',
-    targetReps: 0,
     targetTime: 120,
     xpReward: 300,
     coinReward: 75,
@@ -129,7 +143,7 @@ const MOCK_LEADERBOARD = [
 // COMPONENTS
 // ====================================
 const XPBar = ({ currentXP, level }: { currentXP: number; level: number }) => {
-  const xpForCurrentLevel = Math.pow(level - 1, 2) * 100
+  const xpForCurrentLevel = level > 1 ? Math.pow(level - 1, 2) * 100 : 0
   const xpForNextLevel = Math.pow(level, 2) * 100
   const xpInCurrentLevel = currentXP - xpForCurrentLevel
   const xpNeededForCurrentLevel = xpForNextLevel - xpForCurrentLevel
@@ -160,7 +174,10 @@ const DuelCard = ({ duel }: { duel: DuelCardData }) => {
     switch (status) {
       case 'active': return 'text-green-400 bg-green-500/10'
       case 'pending': return 'text-yellow-400 bg-yellow-500/10'
-      case 'completed': return 'text-blue-400 bg-blue-500/10'
+      case 'open': return 'text-blue-400 bg-blue-500/10'
+      case 'completed': return 'text-purple-400 bg-purple-500/10'
+      case 'expired': return 'text-red-400 bg-red-500/10'
+      case 'cancelled': return 'text-gray-400 bg-gray-500/10'
       default: return 'text-gray-400 bg-gray-500/10'
     }
   }
@@ -169,7 +186,10 @@ const DuelCard = ({ duel }: { duel: DuelCardData }) => {
     switch (status) {
       case 'active': return 'In corso'
       case 'pending': return 'In attesa'
+      case 'open': return 'Aperta'
       case 'completed': return 'Completata'
+      case 'expired': return 'Scaduta'
+      case 'cancelled': return 'Annullata'
       default: return status
     }
   }
@@ -183,11 +203,19 @@ const DuelCard = ({ duel }: { duel: DuelCardData }) => {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
-            <Swords className="w-5 h-5 text-white" />
+            {duel.exerciseIcon ? (
+              <span className="text-xl">{duel.exerciseIcon}</span>
+            ) : (
+              <Swords className="w-5 h-5 text-white" />
+            )}
           </div>
           <div>
-            <p className="font-medium text-white">{duel.exercise}</p>
-            <p className="text-sm text-gray-400">vs {duel.opponent}</p>
+            <p className="font-medium text-white">{duel.exerciseName}</p>
+            <p className="text-sm text-gray-400">
+              {duel.type === 'open' ? 'Sfida aperta' : 
+               duel.challengedName ? `vs ${duel.challengedName}` : 
+               `da ${duel.challengerName}`}
+            </p>
           </div>
         </div>
         <span className={cn('text-xs px-2 py-1 rounded-full', getStatusColor(duel.status))}>
@@ -197,19 +225,26 @@ const DuelCard = ({ duel }: { duel: DuelCardData }) => {
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="text-center">
-            <p className="text-lg font-bold text-white">{duel.myScore}</p>
-            <p className="text-xs text-gray-400">Tu</p>
-          </div>
-          <span className="text-gray-600">VS</span>
-          <div className="text-center">
-            <p className="text-lg font-bold text-white">{duel.opponentScore}</p>
-            <p className="text-xs text-gray-400">Avversario</p>
-          </div>
+          {duel.challengerScore !== null || duel.challengedScore !== null ? (
+            <>
+              <div className="text-center">
+                <p className="text-lg font-bold text-white">{duel.challengerScore || 0}</p>
+                <p className="text-xs text-gray-400">{duel.challengerName}</p>
+              </div>
+              <span className="text-gray-600">VS</span>
+              <div className="text-center">
+                <p className="text-lg font-bold text-white">{duel.challengedScore || 0}</p>
+                <p className="text-xs text-gray-400">{duel.challengedName || '---'}</p>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-gray-400">Non ancora iniziata</p>
+          )}
         </div>
         <div className="text-right">
           <p className="text-sm font-medium text-yellow-500">+{duel.xpReward} XP</p>
-          <p className="text-xs text-gray-400">{duel.timeLeft}</p>
+          <p className="text-xs text-gray-400">🪙 {duel.wagerCoins}</p>
+          <p className="text-xs text-gray-500">{duel.timeLeft}</p>
         </div>
       </div>
     </Card>
@@ -239,6 +274,7 @@ const DailyChallengeCard = ({ challenge }: { challenge: DailyChallenge }) => {
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
+            {challenge.exerciseIcon && <span className="text-xl">{challenge.exerciseIcon}</span>}
             <h4 className="font-bold text-white">{challenge.exercise}</h4>
             <span className={cn('text-xs px-2 py-0.5 rounded-full border', getDifficultyColor(challenge.difficulty))}>
               {challenge.difficulty === 'easy' ? 'Facile' :
@@ -289,7 +325,7 @@ const DailyChallengeCard = ({ challenge }: { challenge: DailyChallenge }) => {
         className="w-full"
         onClick={() => router.push(`/duel/daily-${challenge.id}`)}
       >
-        {challenge.isCompleted ? 'Completato ✓' : 'Inizia Sfida'}
+        {challenge.isCompleted ? 'Completato ✔' : 'Inizia Sfida'}
       </Button>
     </Card>
   )
@@ -302,81 +338,102 @@ const NotificationSystem = () => {
   const [showToast, setShowToast] = useState(false)
   const [currentToast, setCurrentToast] = useState<Notification | null>(null)
   const { user, incrementNotifications, clearNotifications } = useUserStore()
+  const supabase = createClientComponentClient()
 
-  // Mock notifications for demo
+  // Load notifications
   useEffect(() => {
-    const mockNotifications: Notification[] = [
-      {
-        id: '1',
-        userId: user?.id || '',
-        type: 'tournament',
-        title: '🏆 Torneo in corso!',
-        message: 'Sei al 12° posto. Continua così per entrare nella top 10!',
-        isRead: false,
-        priority: 'high',
-        actionUrl: '/tournament',
-        createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-        icon: '🏆'
-      },
-      {
-        id: '2',
-        userId: user?.id || '',
-        type: 'daily_reset',
-        title: '🌅 Nuove Sfide Giornaliere!',
-        message: '3 nuove sfide ti aspettano. Completale entro mezzanotte!',
-        isRead: false,
-        priority: 'normal',
-        actionUrl: '#daily-challenges',
-        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        icon: '🎯'
-      },
-      {
-        id: '3',
-        userId: user?.id || '',
-        type: 'challenge',
-        title: 'Nuova sfida da Luigi!',
-        message: 'Luigi ti ha sfidato a Push-Up. Accetta la sfida!',
-        isRead: false,
-        priority: 'normal',
-        actionUrl: '/challenges',
-        createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-        icon: '⚔️'
-      }
-    ]
-    
-    setNotifications(mockNotifications)
-    
-    // Simulate new notification after 5 seconds
-    const timer = setTimeout(() => {
-      const newNotif: Notification = {
-        id: '4',
-        userId: user?.id || '',
-        type: 'achievement',
-        title: '🎉 Achievement Sbloccato!',
-        message: 'Hai completato "Streak di 7 giorni"! +500 XP',
-        isRead: false,
-        priority: 'high',
-        createdAt: new Date().toISOString(),
-        icon: '🏅'
-      }
-      setNotifications(prev => [newNotif, ...prev])
-      setCurrentToast(newNotif)
-      setShowToast(true)
-      incrementNotifications()
-    }, 5000)
+    loadNotifications()
+  }, [user])
 
-    return () => clearTimeout(timer)
-  }, [])
+  const loadNotifications = async () => {
+    if (!user?.id) {
+      // Mock notifications for demo
+      const mockNotifications: Notification[] = [
+        {
+          id: '1',
+          userId: 'demo',
+          type: 'tournament',
+          title: '🏆 Torneo in corso!',
+          message: 'Sei al 12° posto. Continua così per entrare nella top 10!',
+          isRead: false,
+          priority: 'high',
+          actionUrl: '/tournament',
+          createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+          icon: '🏆'
+        },
+        {
+          id: '2',
+          userId: 'demo',
+          type: 'daily_reset',
+          title: '🌅 Nuove Sfide Giornaliere!',
+          message: '3 nuove sfide ti aspettano. Completale entro mezzanotte!',
+          isRead: false,
+          priority: 'normal',
+          actionUrl: '#daily-challenges',
+          createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+          icon: '🎯'
+        }
+      ]
+      setNotifications(mockNotifications)
+      return
+    }
 
-  const markAsRead = (id: string) => {
+    // Load real notifications from database
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20)
+
+      if (data && !error) {
+        setNotifications(data.map(n => ({
+          id: n.id,
+          userId: n.user_id,
+          type: n.type,
+          title: n.title,
+          message: n.message,
+          isRead: n.is_read,
+          metadata: n.metadata,
+          actionUrl: n.action_url,
+          createdAt: n.created_at,
+          readAt: n.read_at,
+          priority: n.priority || 'normal',
+          icon: n.metadata?.icon
+        })))
+      }
+    } catch (error) {
+      console.error('Error loading notifications:', error)
+    }
+  }
+
+  const markAsRead = async (id: string) => {
     setNotifications(prev => 
       prev.map(n => n.id === id ? { ...n, isRead: true } : n)
     )
+
+    // Update in database if real user
+    if (user?.id && user.id !== 'demo') {
+      await supabase
+        .from('notifications')
+        .update({ is_read: true, read_at: new Date().toISOString() })
+        .eq('id', id)
+    }
   }
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
     clearNotifications()
+
+    // Update all in database if real user
+    if (user?.id && user.id !== 'demo') {
+      await supabase
+        .from('notifications')
+        .update({ is_read: true, read_at: new Date().toISOString() })
+        .eq('user_id', user.id)
+        .eq('is_read', false)
+    }
   }
 
   const unreadCount = notifications.filter(n => !n.isRead).length
@@ -485,57 +542,64 @@ const NotificationSystem = () => {
             )}
             
             <div className="flex-1 overflow-y-auto space-y-2">
-              {notifications.map((notification) => (
-                <motion.button
-                  key={notification.id}
-                  onClick={() => {
-                    markAsRead(notification.id)
-                    if (notification.actionUrl) {
-                      setShowModal(false)
-                      if (notification.actionUrl.startsWith('#')) {
-                        const element = document.querySelector(notification.actionUrl)
-                        element?.scrollIntoView({ behavior: 'smooth' })
-                      } else {
-                        router.push(notification.actionUrl)
+              {notifications.length > 0 ? (
+                notifications.map((notification) => (
+                  <motion.button
+                    key={notification.id}
+                    onClick={() => {
+                      markAsRead(notification.id)
+                      if (notification.actionUrl) {
+                        setShowModal(false)
+                        if (notification.actionUrl.startsWith('#')) {
+                          const element = document.querySelector(notification.actionUrl)
+                          element?.scrollIntoView({ behavior: 'smooth' })
+                        } else {
+                          router.push(notification.actionUrl)
+                        }
                       }
-                    }
-                  }}
-                  className={cn(
-                    'w-full p-3 rounded-lg text-left transition-all border',
-                    getNotificationColor(notification.type),
-                    notification.isRead ? 'opacity-60' : ''
-                  )}
-                  whileHover={{ x: 4 }}
-                >
-                  <div className="flex items-start gap-3">
-                    <span className="text-xl flex-shrink-0">
-                      {notification.icon}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
+                    }}
+                    className={cn(
+                      'w-full p-3 rounded-lg text-left transition-all border',
+                      getNotificationColor(notification.type),
+                      notification.isRead ? 'opacity-60' : ''
+                    )}
+                    whileHover={{ x: 4 }}
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="text-xl flex-shrink-0">
+                        {notification.icon}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className={cn(
+                            'text-sm font-medium',
+                            notification.isRead ? 'text-gray-300' : 'text-white'
+                          )}>
+                            {notification.title}
+                          </p>
+                          {!notification.isRead && (
+                            <span className="w-2 h-2 bg-indigo-500 rounded-full flex-shrink-0 mt-1"></span>
+                          )}
+                        </div>
                         <p className={cn(
-                          'text-sm font-medium',
-                          notification.isRead ? 'text-gray-300' : 'text-white'
+                          'text-xs mt-1',
+                          notification.isRead ? 'text-gray-500' : 'text-gray-400'
                         )}>
-                          {notification.title}
+                          {notification.message}
                         </p>
-                        {!notification.isRead && (
-                          <span className="w-2 h-2 bg-indigo-500 rounded-full flex-shrink-0 mt-1"></span>
-                        )}
+                        <p className="text-xs text-gray-500 mt-2">
+                          {formatTime(notification.createdAt)}
+                        </p>
                       </div>
-                      <p className={cn(
-                        'text-xs mt-1',
-                        notification.isRead ? 'text-gray-500' : 'text-gray-400'
-                      )}>
-                        {notification.message}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-2">
-                        {formatTime(notification.createdAt)}
-                      </p>
                     </div>
-                  </div>
-                </motion.button>
-              ))}
+                  </motion.button>
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <Bell className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                  <p className="text-gray-400">Nessuna notifica</p>
+                </div>
+              )}
             </div>
 
             <div className="mt-4 pt-4 border-t border-gray-800">
@@ -566,9 +630,13 @@ export default function DashboardPage() {
   } = useUserStore()
   
   const [loading, setLoading] = useState(true)
+  const [activeDuels, setActiveDuels] = useState<DuelCardData[]>([])
+  const [dailyChallenges, setDailyChallenges] = useState<DailyChallenge[]>(MOCK_DAILY_CHALLENGES)
+  const [leaderboard, setLeaderboard] = useState(MOCK_LEADERBOARD)
 
   useEffect(() => {
     loadUserData()
+    loadActiveDuels()
   }, [])
 
   const loadUserData = async () => {
@@ -596,6 +664,8 @@ export default function DashboardPage() {
             newsletter: false,
             createdAt: new Date().toISOString()
           })
+          // Use mock data for demo user
+          setActiveDuels(MOCK_ACTIVE_DUELS)
         } else {
           router.push('/login')
           return
@@ -615,15 +685,17 @@ export default function DashboardPage() {
           .single()
         
         if (profileData) {
+          const userLevel = profileData.level || Math.floor(Math.sqrt((profileData.xp || 0) / 10)) || 1
+          
           setUser({
             id: authUser.id,
             email: authUser.email || '',
-            username: profileData.username || authUser.email?.split('@')[0] || 'User',
-            level: statsData?.level || 1,
-            xp: statsData?.total_xp || 100,
-            totalXp: statsData?.total_xp || 100,
-            coins: statsData?.coins || 0,
-            rank: 'Rookie',
+            username: profileData.username || profileData.display_name || authUser.email?.split('@')[0] || 'User',
+            level: userLevel,
+            xp: profileData.xp || 0,
+            totalXp: profileData.xp || 0,
+            coins: profileData.coins || 0,
+            rank: userLevel < 10 ? 'Rookie' : userLevel < 20 ? 'Pro' : 'Master',
             fitnessLevel: 'intermediate',
             goals: [],
             newsletter: false,
@@ -633,14 +705,14 @@ export default function DashboardPage() {
         
         if (statsData) {
           setStats({
-            totalDuels: statsData.total_duels || 0,
-            wins: statsData.duels_won || 0,
-            losses: (statsData.total_duels || 0) - (statsData.duels_won || 0),
-            winRate: statsData.total_duels > 0 
-              ? Math.round((statsData.duels_won / statsData.total_duels) * 100) 
+            totalDuels: statsData.total_duels_completed || 0,
+            wins: statsData.total_wins || 0,
+            losses: statsData.total_losses || 0,
+            winRate: statsData.total_duels_completed > 0 
+              ? Math.round((statsData.total_wins / statsData.total_duels_completed) * 100) 
               : 0,
-            currentStreak: statsData.daily_streak || 0,
-            bestStreak: statsData.daily_streak || 0,
+            currentStreak: statsData.current_win_streak || 0,
+            bestStreak: statsData.max_win_streak || 0,
             totalExercises: 0,
             fitnessScore: 85,
             avgFormScore: 82,
@@ -654,6 +726,82 @@ export default function DashboardPage() {
       setLoading(false)
       setStoreLoading(false)
     }
+  }
+
+  const loadActiveDuels = async () => {
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (!authUser) return
+
+      // Load active duels from database
+      const { data: duelsData, error } = await supabase
+        .from('duels')
+        .select(`
+          *,
+          challenger:profiles!challenger_id(
+            id,
+            username,
+            display_name,
+            avatar_url
+          ),
+          challenged:profiles!challenged_id(
+            id,
+            username,
+            display_name,
+            avatar_url
+          ),
+          exercise:exercises!exercise_id(
+            id,
+            name,
+            icon
+          )
+        `)
+        .or(`challenger_id.eq.${authUser.id},challenged_id.eq.${authUser.id}`)
+        .in('status', ['pending', 'open', 'active'])
+        .order('created_at', { ascending: false })
+        .limit(5)
+
+      if (duelsData && !error) {
+        const formattedDuels: DuelCardData[] = duelsData.map(duel => {
+          const isChallenger = duel.challenger_id === authUser.id
+          const timeLeft = duel.expires_at ? 
+            formatTimeLeft(new Date(duel.expires_at).getTime() - Date.now()) : 
+            'No limit'
+
+          return {
+            id: duel.id,
+            challengerName: isChallenger ? 'Tu' : 
+              duel.challenger?.display_name || duel.challenger?.username || 'Sfidante',
+            challengedName: !isChallenger && duel.challenged_id === authUser.id ? 'Tu' :
+              duel.challenged?.display_name || duel.challenged?.username || null,
+            exerciseName: duel.exercise?.name || 'Esercizio',
+            exerciseIcon: duel.exercise?.icon,
+            status: duel.status,
+            challengerScore: duel.challenger_score,
+            challengedScore: duel.challenged_score,
+            timeLeft,
+            xpReward: duel.xp_reward,
+            wagerCoins: duel.wager_coins,
+            type: duel.type
+          }
+        })
+
+        setActiveDuels(formattedDuels)
+      }
+    } catch (error) {
+      console.error('Error loading duels:', error)
+    }
+  }
+
+  const formatTimeLeft = (ms: number): string => {
+    if (ms <= 0) return 'Scaduto'
+    const hours = Math.floor(ms / (1000 * 60 * 60))
+    const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60))
+    if (hours > 24) {
+      const days = Math.floor(hours / 24)
+      return `${days}g ${hours % 24}h`
+    }
+    return `${hours}h ${minutes}m`
   }
 
   const handleLogout = async () => {
@@ -809,7 +957,7 @@ export default function DashboardPage() {
               </div>
               
               <div className="grid md:grid-cols-2 gap-4">
-                {MOCK_DAILY_CHALLENGES.map((challenge, index) => (
+                {dailyChallenges.map((challenge, index) => (
                   <motion.div
                     key={challenge.id}
                     initial={{ opacity: 0, y: 20 }}
@@ -892,16 +1040,28 @@ export default function DashboardPage() {
               </div>
               
               <div className="space-y-3">
-                {MOCK_ACTIVE_DUELS.map((duel, index) => (
-                  <motion.div
-                    key={duel.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: 0.5 + index * 0.1 }}
-                  >
-                    <DuelCard duel={duel} />
-                  </motion.div>
-                ))}
+                {activeDuels.length > 0 ? (
+                  activeDuels.map((duel, index) => (
+                    <motion.div
+                      key={duel.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, delay: 0.5 + index * 0.1 }}
+                    >
+                      <DuelCard duel={duel} />
+                    </motion.div>
+                  ))
+                ) : (
+                  <Card variant="glass" className="p-8 text-center">
+                    <Swords className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                    <p className="text-gray-400">Nessun duello attivo</p>
+                    <Link href="/challenges">
+                      <Button variant="gradient" size="sm" className="mt-4">
+                        Crea il tuo primo duello
+                      </Button>
+                    </Link>
+                  </Card>
+                )}
               </div>
             </motion.div>
           </div>
@@ -968,7 +1128,7 @@ export default function DashboardPage() {
                 </div>
                 
                 <div className="space-y-3">
-                  {MOCK_LEADERBOARD.slice(0, 5).map((player) => (
+                  {leaderboard.slice(0, 5).map((player) => (
                     <div key={player.rank} className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <span className={cn(
