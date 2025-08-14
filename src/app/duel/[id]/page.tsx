@@ -18,7 +18,7 @@ import { AIExerciseTracker } from '@/components/game/AIExerciseTracker'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 // ====================================
-// TYPES
+// TYPES - UPDATED TO MATCH DATABASE
 // ====================================
 interface Duel {
   id: string
@@ -31,16 +31,21 @@ interface Duel {
   exercise_id: string
   exercise?: any
   difficulty: 'easy' | 'medium' | 'hard' | 'extreme'
-  wager_xp: number
-  reward_xp: number
-  target_reps: number | null
-  target_time: number | null
-  target_form_score: number | null
+  wager_coins: number // CORRECT: wager_coins not wager_xp
+  xp_reward: number // CORRECT: xp_reward not reward_xp
+  challenger_score?: number | null
+  challenged_score?: number | null
   winner_id: string | null
-  is_draw: boolean
+  metadata?: { // CORRECT: using metadata for targets
+    targetReps?: number
+    targetTime?: number
+    targetFormScore?: number
+    rules?: any
+  } | null
   created_at: string
   completed_at: string | null
   expires_at: string | null
+  updated_at: string
 }
 
 interface Performance {
@@ -123,17 +128,36 @@ export default function DuelPage() {
       
       setCurrentUser(user)
 
-      // Load duel with exercise info
+      // Load duel with exercise info - CORRECT JOINS
       const { data: duelData, error: duelError } = await supabase
         .from('duels')
         .select(`
           *,
-          exercises (
+          exercise:exercises!exercise_id(
             id,
             name,
             code,
             category,
-            description
+            description,
+            icon
+          ),
+          challenger:profiles!challenger_id(
+            id,
+            username,
+            display_name,
+            avatar_url,
+            level,
+            xp,
+            coins
+          ),
+          challenged:profiles!challenged_id(
+            id,
+            username,
+            display_name,
+            avatar_url,
+            level,
+            xp,
+            coins
           )
         `)
         .eq('id', duelId)
@@ -145,33 +169,8 @@ export default function DuelPage() {
         loadMockData()
         return
       }
-      
-      // Transform data
-      const transformedDuel = {
-        ...duelData,
-        exercise: duelData.exercises
-      }
 
-      // Load profiles
-      const profileIds = []
-      if (duelData.challenger_id) profileIds.push(duelData.challenger_id)
-      if (duelData.challenged_id) profileIds.push(duelData.challenged_id)
-
-      if (profileIds.length > 0) {
-        const { data: profilesData } = await supabase
-          .from('profiles')
-          .select('*')
-          .in('id', profileIds)
-
-        const profilesMap = new Map(
-          (profilesData || []).map(profile => [profile.id, profile])
-        )
-
-        transformedDuel.challenger = profilesMap.get(duelData.challenger_id)
-        transformedDuel.challenged = profilesMap.get(duelData.challenged_id)
-      }
-
-      setDuel(transformedDuel)
+      setDuel(duelData)
 
       // Load performances if duel is active or completed
       if (['active', 'completed'].includes(duelData.status)) {
@@ -204,30 +203,48 @@ export default function DuelPage() {
   }
 
   const loadMockData = () => {
-    // Mock duel data for demo mode
+    // Mock duel data for demo mode - USING CORRECT FIELDS
     setDuel({
       id: duelId,
       type: '1v1',
       status: 'active',
       challenger_id: 'demo-1',
-      challenger: { username: 'Mario', level: 25 },
+      challenger: { 
+        username: 'Mario', 
+        display_name: 'Super Mario',
+        level: 25,
+        xp: 2500,
+        coins: 1000
+      },
       challenged_id: 'demo-2',
-      challenged: { username: 'Luigi', level: 20 },
+      challenged: { 
+        username: 'Luigi', 
+        display_name: 'Luigi Bros',
+        level: 20,
+        xp: 2000,
+        coins: 800
+      },
       exercise_id: 'ex-1',
       exercise: {
+        id: 'ex-1',
         name: 'Push-Up',
         code: 'pushup',
+        icon: '💪',
         description: 'Esegui più flessioni possibili mantenendo la forma corretta'
       },
       difficulty: 'medium',
-      wager_xp: 50,
-      reward_xp: 150,
-      target_reps: 30,
-      target_time: 60,
-      target_form_score: 80,
+      wager_coins: 50, // CORRECT
+      xp_reward: 150, // CORRECT
+      challenger_score: null,
+      challenged_score: null,
+      metadata: { // CORRECT: using metadata
+        targetReps: 30,
+        targetTime: 60,
+        targetFormScore: 80
+      },
       winner_id: null,
-      is_draw: false,
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       completed_at: null,
       expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
     })
@@ -282,7 +299,7 @@ export default function DuelPage() {
       const { data: { user } } = await supabase.auth.getUser()
       
       if (user) {
-        // Save to database
+        // Save to performances table
         const { data: perfData, error: perfError } = await supabase
           .from('performances')
           .insert({
@@ -305,28 +322,35 @@ export default function DuelPage() {
 
         setMyPerformance(perfData)
 
+        // Update my score in duel
+        const scoreUpdate = duel.challenger_id === user.id
+          ? { challenger_score: exerciseResult.reps }
+          : { challenged_score: exerciseResult.reps }
+
+        await supabase
+          .from('duels')
+          .update(scoreUpdate)
+          .eq('id', duel.id)
+
         // Check if both users have completed
-        const { data: allPerformances } = await supabase
-          .from('performances')
+        const { data: updatedDuel } = await supabase
+          .from('duels')
           .select('*')
-          .eq('duel_id', duel.id)
+          .eq('id', duel.id)
+          .single()
 
-        if (allPerformances && allPerformances.length >= 2) {
+        if (updatedDuel && 
+            updatedDuel.challenger_score !== null && 
+            updatedDuel.challenged_score !== null) {
           // Determine winner
-          const myScore = calculateScore(perfData)
-          const oppPerf = allPerformances.find(p => p.user_id !== user.id)
-          const oppScore = oppPerf ? calculateScore(oppPerf) : 0
-
           let winnerId = null
-          let isDraw = false
-
-          if (myScore > oppScore) {
-            winnerId = user.id
-          } else if (oppScore > myScore) {
-            winnerId = oppPerf?.user_id
-          } else {
-            isDraw = true
+          
+          if (updatedDuel.challenger_score > updatedDuel.challenged_score) {
+            winnerId = updatedDuel.challenger_id
+          } else if (updatedDuel.challenged_score > updatedDuel.challenger_score) {
+            winnerId = updatedDuel.challenged_id
           }
+          // If scores are equal, it's a draw (winner_id remains null)
 
           // Update duel status
           await supabase
@@ -334,10 +358,18 @@ export default function DuelPage() {
             .update({
               status: 'completed',
               winner_id: winnerId,
-              is_draw: isDraw,
               completed_at: new Date().toISOString()
             })
             .eq('id', duel.id)
+
+          // Award XP
+          if (winnerId === user.id) {
+            // Winner gets full XP
+            await awardXP(user.id, duel.xp_reward)
+          } else {
+            // Loser gets partial XP (1/3)
+            await awardXP(user.id, Math.round(duel.xp_reward / 3))
+          }
         }
       } else {
         // Demo mode - just save locally
@@ -360,6 +392,45 @@ export default function DuelPage() {
       setDuelPhase('results')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  // Award XP to user
+  const awardXP = async (userId: string, xpAmount: number) => {
+    try {
+      // Get current profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('xp')
+        .eq('id', userId)
+        .single()
+
+      if (profile) {
+        const newXP = (profile.xp || 0) + xpAmount
+        const newLevel = Math.floor(Math.sqrt(newXP / 10)) || 1
+
+        // Update profile with new XP and level
+        await supabase
+          .from('profiles')
+          .update({
+            xp: newXP,
+            level: newLevel
+          })
+          .eq('id', userId)
+
+        // Log XP transaction
+        await supabase
+          .from('xp_transactions')
+          .insert({
+            user_id: userId,
+            amount: xpAmount,
+            type: 'duel_reward',
+            description: `Duel ${duel?.id} reward`,
+            metadata: { duel_id: duel?.id }
+          })
+      }
+    } catch (err) {
+      console.error('Error awarding XP:', err)
     }
   }
 
@@ -406,7 +477,7 @@ export default function DuelPage() {
     if (duel.winner_id) {
       const userId = currentUser.id || currentUser.email
       if (duel.winner_id === userId) return 'user'
-      if (duel.is_draw) return 'tie'
+      if (duel.winner_id === null && duel.status === 'completed') return 'tie'
       return 'opponent'
     }
     
@@ -417,6 +488,10 @@ export default function DuelPage() {
     if (myScore > oppScore) return 'user'
     if (oppScore > myScore) return 'opponent'
     return 'tie'
+  }
+
+  const getDisplayName = (user: any) => {
+    return user?.display_name || user?.username || 'Giocatore'
   }
 
   // Loading state
@@ -451,8 +526,8 @@ export default function DuelPage() {
     return (
       <AIExerciseTracker
         exerciseType={getExerciseType(duel.exercise?.code)}
-        targetReps={duel.target_reps || 20}
-        targetTime={duel.target_time || undefined}
+        targetReps={duel.metadata?.targetReps || 20}
+        targetTime={duel.metadata?.targetTime || undefined}
         onComplete={handleExerciseComplete}
         onCancel={handleExerciseCancel}
         duelId={duel.id}
@@ -474,7 +549,7 @@ export default function DuelPage() {
               <div>
                 <h1 className="text-xl font-bold text-white">{duel.exercise?.name || 'Duello'}</h1>
                 <p className="text-sm text-gray-400">
-                  {duel.challenger?.username || 'Sfidante'} vs {duel.challenged?.username || 'In attesa'}
+                  {getDisplayName(duel.challenger)} vs {getDisplayName(duel.challenged) || 'In attesa'}
                 </p>
               </div>
             </div>
@@ -517,26 +592,40 @@ export default function DuelPage() {
               <Card variant="glass" className="p-6">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h2 className="text-2xl font-bold text-white mb-2">{duel.exercise?.name}</h2>
+                    <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
+                      {duel.exercise?.icon && <span className="text-3xl">{duel.exercise.icon}</span>}
+                      {duel.exercise?.name}
+                    </h2>
                     <p className="text-gray-400">{duel.exercise?.description || 'Completa l\'esercizio per vincere il duello!'}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-3xl font-bold text-yellow-500">+{duel.reward_xp}</p>
+                    <p className="text-3xl font-bold text-yellow-500">+{duel.xp_reward}</p>
                     <p className="text-sm text-gray-400">XP Premio</p>
                   </div>
                 </div>
 
                 {/* Competitors */}
                 <div className="grid md:grid-cols-3 gap-6 mb-6">
-                  {/* Current User */}
+                  {/* Challenger */}
                   <div className="text-center">
                     <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <span className="text-3xl">💪</span>
+                      {duel.challenger?.avatar_url ? (
+                        <img 
+                          src={duel.challenger.avatar_url} 
+                          alt={getDisplayName(duel.challenger)}
+                          className="w-full h-full rounded-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-3xl">💪</span>
+                      )}
                     </div>
-                    <h3 className="font-bold text-white">{currentUser?.username || currentUser?.email?.split('@')[0] || 'Tu'}</h3>
-                    {myPerformance && (
+                    <h3 className="font-bold text-white">{getDisplayName(duel.challenger)}</h3>
+                    {duel.challenger?.level && (
+                      <p className="text-xs text-gray-400">Livello {duel.challenger.level}</p>
+                    )}
+                    {duel.challenger_score !== null && (
                       <div className="mt-2">
-                        <p className="text-2xl font-bold text-white">{myPerformance.reps}</p>
+                        <p className="text-2xl font-bold text-white">{duel.challenger_score}</p>
                         <p className="text-xs text-gray-400">reps</p>
                       </div>
                     )}
@@ -547,15 +636,26 @@ export default function DuelPage() {
                     <span className="text-4xl font-bold text-gray-600">VS</span>
                   </div>
 
-                  {/* Opponent */}
+                  {/* Challenged */}
                   <div className="text-center">
                     <div className="w-20 h-20 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <span className="text-3xl">🏋️</span>
+                      {duel.challenged?.avatar_url ? (
+                        <img 
+                          src={duel.challenged.avatar_url} 
+                          alt={getDisplayName(duel.challenged)}
+                          className="w-full h-full rounded-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-3xl">🏋️</span>
+                      )}
                     </div>
-                    <h3 className="font-bold text-white">{duel.challenged?.username || 'In attesa...'}</h3>
-                    {opponentPerformance && (
+                    <h3 className="font-bold text-white">{getDisplayName(duel.challenged) || 'In attesa...'}</h3>
+                    {duel.challenged?.level && (
+                      <p className="text-xs text-gray-400">Livello {duel.challenged.level}</p>
+                    )}
+                    {duel.challenged_score !== null && (
                       <div className="mt-2">
-                        <p className="text-2xl font-bold text-white">{opponentPerformance.reps}</p>
+                        <p className="text-2xl font-bold text-white">{duel.challenged_score}</p>
                         <p className="text-xs text-gray-400">reps</p>
                       </div>
                     )}
@@ -564,21 +664,21 @@ export default function DuelPage() {
 
                 {/* Target Info */}
                 <div className="grid grid-cols-3 gap-4 p-4 bg-gray-800/30 rounded-lg">
-                  {duel.target_reps && (
+                  {duel.metadata?.targetReps && (
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-white">{duel.target_reps}</p>
+                      <p className="text-2xl font-bold text-white">{duel.metadata.targetReps}</p>
                       <p className="text-xs text-gray-400">Target Reps</p>
                     </div>
                   )}
-                  {duel.target_time && (
+                  {duel.metadata?.targetTime && (
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-white">{formatTime(duel.target_time)}</p>
+                      <p className="text-2xl font-bold text-white">{formatTime(duel.metadata.targetTime)}</p>
                       <p className="text-xs text-gray-400">Tempo Max</p>
                     </div>
                   )}
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-white">{duel.wager_xp}</p>
-                    <p className="text-xs text-gray-400">XP Puntata</p>
+                    <p className="text-2xl font-bold text-white">🪙 {duel.wager_coins}</p>
+                    <p className="text-xs text-gray-400">Coins Puntata</p>
                   </div>
                 </div>
               </Card>
@@ -772,18 +872,23 @@ export default function DuelPage() {
                 <div className="grid grid-cols-2 gap-6 mb-6">
                   <div className="text-center">
                     <p className="text-4xl font-bold text-white">
-                      {exerciseResult?.reps || myPerformance?.reps || 0}
+                      {exerciseResult?.reps || myPerformance?.reps || duel.challenger_score || 0}
                     </p>
-                    <p className="text-sm text-gray-400">Il tuo score</p>
+                    <p className="text-sm text-gray-400">
+                      {currentUser?.id === duel.challenger_id ? 'Il tuo score' : getDisplayName(duel.challenger)}
+                    </p>
                     <p className="text-xs text-gray-500">
                       {formatTime(exerciseResult?.duration || myPerformance?.duration || 0)}
                     </p>
                   </div>
                   <div className="text-center">
                     <p className="text-4xl font-bold text-white">
-                      {opponentPerformance ? opponentPerformance.reps : '?'}
+                      {duel.challenged_score !== null ? duel.challenged_score : 
+                       opponentPerformance ? opponentPerformance.reps : '?'}
                     </p>
-                    <p className="text-sm text-gray-400">Score avversario</p>
+                    <p className="text-sm text-gray-400">
+                      {currentUser?.id === duel.challenged_id ? 'Il tuo score' : getDisplayName(duel.challenged) || 'Avversario'}
+                    </p>
                     {opponentPerformance && (
                       <p className="text-xs text-gray-500">{formatTime(opponentPerformance.duration)}</p>
                     )}
@@ -806,7 +911,7 @@ export default function DuelPage() {
                   </div>
                   <div className="text-center">
                     <p className="text-xl font-bold text-yellow-500">
-                      +{getWinner() === 'user' ? duel.reward_xp : Math.round(duel.reward_xp / 3)} XP
+                      +{getWinner() === 'user' ? duel.xp_reward : Math.round(duel.xp_reward / 3)} XP
                     </p>
                     <p className="text-xs text-gray-400">Guadagnati</p>
                   </div>
