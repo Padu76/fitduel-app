@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 
 // ====================================
-// TYPES
+// TYPES - UPDATED TO MATCH DATABASE
 // ====================================
 export type GameMode = 'training' | 'duel' | 'tournament' | 'mission'
 export type GameStatus = 'idle' | 'ready' | 'countdown' | 'playing' | 'paused' | 'completed'
@@ -12,8 +12,10 @@ export type ValidationStatus = 'idle' | 'validating' | 'valid' | 'invalid'
 export interface GameSession {
   id: string
   mode: GameMode
-  exerciseCode: string
+  exerciseId: string // CHANGED: exercise_id instead of exerciseCode
   exerciseName: string
+  exerciseCode?: string // Optional for backwards compatibility
+  exerciseIcon?: string
   difficulty: string
   targetReps?: number
   targetTime?: number
@@ -28,7 +30,8 @@ export interface GameSession {
 }
 
 export interface ExercisePerformance {
-  exerciseCode: string
+  exerciseId: string // CHANGED: exercise_id
+  exerciseCode?: string // Optional for backwards compatibility
   timestamp: string
   reps: number
   duration: number
@@ -62,10 +65,13 @@ export interface FormValidation {
 
 export interface GameAchievement {
   id: string
+  achievement_id: string // ADDED: to match database
   type: 'milestone' | 'streak' | 'perfect' | 'speed' | 'endurance'
-  name: string
+  title: string // CHANGED: from name to title to match database
   description: string
-  unlockedAt?: string
+  icon?: string
+  rarity?: 'common' | 'rare' | 'epic' | 'legendary'
+  unlocked_at?: string // CHANGED: from unlockedAt
   progress: number
   target: number
 }
@@ -75,7 +81,8 @@ export interface LeaderboardEntry {
   username: string
   avatar?: string
   score: number
-  exerciseCode: string
+  exerciseId: string // CHANGED: exercise_id
+  exerciseCode?: string
   difficulty: string
   formScore: number
   timestamp: string
@@ -122,7 +129,7 @@ interface GameState {
 
 interface GameActions {
   // Session management
-  startSession: (mode: GameMode, exerciseCode: string, difficulty: string, targets?: { reps?: number; time?: number }) => void
+  startSession: (mode: GameMode, exerciseId: string, difficulty: string, targets?: { reps?: number; time?: number }) => void
   endSession: () => void
   pauseSession: () => void
   resumeSession: () => void
@@ -135,7 +142,7 @@ interface GameActions {
   // Performance tracking
   updatePerformance: (reps: number, time: number, formScore: number, calories: number) => void
   savePerformance: () => void
-  getBestPerformance: (exerciseCode: string) => ExercisePerformance | null
+  getBestPerformance: (exerciseId: string) => ExercisePerformance | null
   
   // Validation
   validateForm: (videoFrame: any) => Promise<FormValidation>
@@ -154,9 +161,9 @@ interface GameActions {
   updateAchievementProgress: (achievementId: string, progress: number) => void
   
   // Leaderboard
-  fetchLeaderboard: (exerciseCode?: string, timeframe?: 'daily' | 'weekly' | 'monthly' | 'all') => Promise<void>
+  fetchLeaderboard: (exerciseId?: string, timeframe?: 'daily' | 'weekly' | 'monthly' | 'all') => Promise<void>
   submitToLeaderboard: (performance: ExercisePerformance) => Promise<void>
-  getUserRank: (userId: string, exerciseCode: string) => number | null
+  getUserRank: (userId: string, exerciseId: string) => number | null
   
   // Stats
   updateStats: (performance: ExercisePerformance) => void
@@ -242,12 +249,12 @@ export const useGameStore = create<GameStore>()(
       isAudioReady: false,
 
       // Session management
-      startSession: (mode, exerciseCode, difficulty, targets) => set((state) => {
+      startSession: (mode, exerciseId, difficulty, targets) => set((state) => {
         state.currentSession = {
           id: generateSessionId(),
           mode,
-          exerciseCode,
-          exerciseName: exerciseCode.replace('_', ' '),
+          exerciseId, // Using exercise_id
+          exerciseName: '', // Should be fetched from exercises table
           difficulty,
           targetReps: targets?.reps,
           targetTime: targets?.time,
@@ -332,6 +339,7 @@ export const useGameStore = create<GameStore>()(
         if (!state.currentSession) return
 
         const performance: ExercisePerformance = {
+          exerciseId: state.currentSession.exerciseId,
           exerciseCode: state.currentSession.exerciseCode,
           timestamp: new Date().toISOString(),
           reps: state.currentSession.currentReps,
@@ -346,12 +354,12 @@ export const useGameStore = create<GameStore>()(
           state.performances.push(performance)
           
           // Update best performance
-          const exerciseCode = performance.exerciseCode
-          const currentBest = state.bestPerformances[exerciseCode]
+          const exerciseId = performance.exerciseId
+          const currentBest = state.bestPerformances[exerciseId]
           
           if (!currentBest || performance.reps > currentBest.reps ||
               (performance.reps === currentBest.reps && performance.formScore > currentBest.formScore)) {
-            state.bestPerformances[exerciseCode] = performance
+            state.bestPerformances[exerciseId] = performance
           }
         })
 
@@ -360,8 +368,8 @@ export const useGameStore = create<GameStore>()(
         updateStats(performance)
       },
 
-      getBestPerformance: (exerciseCode) => {
-        return get().bestPerformances[exerciseCode] || null
+      getBestPerformance: (exerciseId) => {
+        return get().bestPerformances[exerciseId] || null
       },
 
       // Validation
@@ -428,58 +436,60 @@ export const useGameStore = create<GameStore>()(
         const state = get()
         
         // Check streak achievement
-        if (state.streakDays >= 7 && !state.achievements.find((a: GameAchievement) => a.id === 'week-streak')) {
+        if (state.streakDays >= 7 && !state.achievements.find((a: GameAchievement) => a.achievement_id === 'week-streak')) {
           get().unlockAchievement('week-streak')
         }
         
         // Check total exercises achievement
-        if (state.totalExercises >= 100 && !state.achievements.find((a: GameAchievement) => a.id === '100-exercises')) {
+        if (state.totalExercises >= 100 && !state.achievements.find((a: GameAchievement) => a.achievement_id === '100-exercises')) {
           get().unlockAchievement('100-exercises')
         }
         
         // Check perfect form achievement
         const perfectForms = state.performances.filter(p => p.formScore >= 95).length
-        if (perfectForms >= 10 && !state.achievements.find((a: GameAchievement) => a.id === 'perfect-10')) {
+        if (perfectForms >= 10 && !state.achievements.find((a: GameAchievement) => a.achievement_id === 'perfect-10')) {
           get().unlockAchievement('perfect-10')
         }
       },
 
       unlockAchievement: (achievementId) => set((state) => {
-        const achievement = state.achievements.find((a: GameAchievement) => a.id === achievementId)
-        if (achievement && !achievement.unlockedAt) {
-          achievement.unlockedAt = new Date().toISOString()
+        const achievement = state.achievements.find((a: GameAchievement) => a.achievement_id === achievementId)
+        if (achievement && !achievement.unlocked_at) {
+          achievement.unlocked_at = new Date().toISOString()
         }
       }),
 
       updateAchievementProgress: (achievementId, progress) => set((state) => {
-        const achievement = state.achievements.find((a: GameAchievement) => a.id === achievementId)
+        const achievement = state.achievements.find((a: GameAchievement) => a.achievement_id === achievementId)
         if (achievement) {
           achievement.progress = progress
-          if (progress >= achievement.target && !achievement.unlockedAt) {
-            achievement.unlockedAt = new Date().toISOString()
+          if (progress >= achievement.target && !achievement.unlocked_at) {
+            achievement.unlocked_at = new Date().toISOString()
           }
         }
       }),
 
       // Leaderboard
-      fetchLeaderboard: async (exerciseCode, timeframe = 'all') => {
+      fetchLeaderboard: async (exerciseId, timeframe = 'all') => {
         const { setLoading, setError } = get()
         setLoading(true)
         setError(null)
 
         try {
           const params = new URLSearchParams()
-          if (exerciseCode) params.append('exercise', exerciseCode)
+          if (exerciseId) params.append('exercise', exerciseId)
           params.append('timeframe', timeframe)
 
           const response = await fetch(`/api/leaderboard?${params}`)
           if (!response.ok) throw new Error('Failed to fetch leaderboard')
           
           const data = await response.json()
-          set((state) => {
-            state.leaderboard = data.leaderboard || []
-            state.globalLeaderboard = data.global || []
-          })
+          if (data.success && data.data) {
+            set((state) => {
+              state.leaderboard = data.data.leaderboard || []
+              state.globalLeaderboard = data.data.leaderboard || []
+            })
+          }
         } catch (error) {
           setError(error instanceof Error ? error.message : 'Failed to fetch leaderboard')
         } finally {
@@ -507,9 +517,9 @@ export const useGameStore = create<GameStore>()(
         }
       },
 
-      getUserRank: (userId, exerciseCode) => {
+      getUserRank: (userId, exerciseId) => {
         const { leaderboard } = get()
-        const entry = leaderboard.find(e => e.userId === userId && e.exerciseCode === exerciseCode)
+        const entry = leaderboard.find(e => e.userId === userId && e.exerciseId === exerciseId)
         return entry?.rank || null
       },
 
@@ -520,7 +530,7 @@ export const useGameStore = create<GameStore>()(
         state.totalDuration += performance.duration
         state.totalCalories += performance.calories
         
-        // Update average form score - FIX: Added type annotation for 'sum' and 'p'
+        // Update average form score
         const totalFormScore = state.performances.reduce((sum: number, p: ExercisePerformance) => sum + p.formScore, 0)
         state.averageFormScore = Math.round(totalFormScore / state.performances.length)
         
