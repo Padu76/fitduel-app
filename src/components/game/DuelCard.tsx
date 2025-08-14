@@ -9,39 +9,52 @@ import {
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { formatTimeAgo, formatDuration, formatNumber } from '@/utils/helpers'
-import { EXERCISE_DATA, DUEL_STATUS } from '@/utils/constants'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 
 // ====================================
-// TYPES & INTERFACES
+// TYPES & INTERFACES - UPDATED TO MATCH DATABASE
 // ====================================
 export interface DuelData {
   id: string
-  creatorId: string
-  creatorName: string
-  creatorAvatar?: string
-  creatorLevel: number
-  creatorXP: number
-  opponentId?: string
-  opponentName?: string
-  opponentAvatar?: string
-  opponentLevel?: number
-  opponentXP?: number
-  exerciseCode: string
-  status: string
-  challengeType: '1v1' | 'open' | 'tournament' | 'mission'
-  mode: 'live' | 'async'
-  targetValue?: number
-  targetDescription?: string
-  creatorScore?: number
-  opponentScore?: number
-  winnerId?: string
-  xpReward: number
-  wagerCoins?: number
-  createdAt: string
-  expiresAt?: string
-  completedAt?: string
+  // Participants - USING CORRECT COLUMN NAMES
+  challenger_id: string
+  challengerName?: string
+  challengerAvatar?: string
+  challengerLevel?: number
+  challengerXP?: number
+  challenged_id?: string // CORRECT: challenged_id, not opponentId
+  challengedName?: string // CORRECT: challenged, not opponent
+  challengedAvatar?: string
+  challengedLevel?: number
+  challengedXP?: number
+  // Exercise
+  exercise_id: string // CORRECT: exercise_id from exercises table
+  exerciseName?: string
+  exerciseCode?: string
+  exerciseIcon?: string
+  // Duel details
+  type: '1v1' | 'open' | 'tournament' | 'mission' // CORRECT: type enum
+  status: 'pending' | 'open' | 'active' | 'completed' | 'expired' | 'cancelled' // CORRECT: status enum
+  difficulty: 'easy' | 'medium' | 'hard' | 'extreme' // CORRECT: difficulty enum
+  // Scores
+  challenger_score?: number
+  challenged_score?: number // CORRECT: challenged_score
+  winner_id?: string
+  // Rewards & Wagers
+  xp_reward: number
+  wager_coins?: number // CORRECT: coins, not XP
+  // Timestamps
+  created_at: string
+  expires_at?: string
+  completed_at?: string
+  // Metadata
+  metadata?: {
+    targetReps?: number
+    targetTime?: number
+    rules?: any
+  }
+  // UI specific (not from DB)
   isPublic?: boolean
   viewers?: number
 }
@@ -70,12 +83,12 @@ const statusConfig = {
     icon: Clock,
     label: 'In attesa',
   },
-  accepted: {
+  open: {
     color: 'text-blue-500',
     bgColor: 'bg-blue-500/10',
     borderColor: 'border-blue-500/20',
-    icon: CheckCircle,
-    label: 'Accettato',
+    icon: Users,
+    label: 'Aperta',
   },
   active: {
     color: 'text-green-500',
@@ -127,23 +140,26 @@ export function DuelCard({
 }: DuelCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   
-  const isCreator = duel.creatorId === currentUserId
-  const isOpponent = duel.opponentId === currentUserId
-  const isParticipant = isCreator || isOpponent
-  const isWinner = duel.winnerId === currentUserId
-  const isLoser = Boolean(duel.winnerId && isParticipant && !isWinner)
+  const isChallenger = duel.challenger_id === currentUserId
+  const isChallenged = duel.challenged_id === currentUserId
+  const isParticipant = isChallenger || isChallenged
+  const isWinner = duel.winner_id === currentUserId
+  const isLoser = Boolean(duel.winner_id && isParticipant && !isWinner)
   
-  const exercise = EXERCISE_DATA[duel.exerciseCode as keyof typeof EXERCISE_DATA]
-  // Fix: Convert status to lowercase to match statusConfig keys
-  const statusKey = duel.status.toLowerCase() as keyof typeof statusConfig
-  const status = statusConfig[statusKey] || statusConfig.pending
+  const status = statusConfig[duel.status] || statusConfig.pending
+
+  // Get target description from metadata
+  const targetDescription = duel.metadata?.targetReps 
+    ? `${duel.metadata.targetReps} ripetizioni`
+    : duel.metadata?.targetTime
+    ? `${duel.metadata.targetTime} secondi`
+    : 'Massimo punteggio'
 
   if (variant === 'compact') {
     return (
       <CompactDuelCard
         duel={duel}
         currentUserId={currentUserId}
-        exercise={exercise}
         status={status}
         isWinner={isWinner}
         isLoser={isLoser}
@@ -158,7 +174,6 @@ export function DuelCard({
       <LiveDuelCard
         duel={duel}
         currentUserId={currentUserId}
-        exercise={exercise}
         status={status}
         onView={onView}
         className={className}
@@ -171,13 +186,13 @@ export function DuelCard({
       <DetailedDuelCard
         duel={duel}
         currentUserId={currentUserId}
-        exercise={exercise}
         status={status}
-        isCreator={isCreator}
-        isOpponent={isOpponent}
+        isChallenger={isChallenger}
+        isChallenged={isChallenged}
         isWinner={isWinner}
         isLoser={isLoser}
         showActions={showActions}
+        targetDescription={targetDescription}
         onAccept={onAccept}
         onReject={onReject}
         onComplete={onComplete}
@@ -216,16 +231,16 @@ export function DuelCard({
               'bg-gradient-to-br from-indigo-500 to-purple-500',
               'shadow-lg shadow-indigo-500/25'
             )}>
-              <span className="text-2xl">{exercise?.icon || '💪'}</span>
+              <span className="text-2xl">{duel.exerciseIcon || '💪'}</span>
             </div>
 
             {/* Exercise and status */}
             <div>
               <h3 className="font-bold text-white flex items-center gap-2">
-                {exercise?.nameIt || exercise?.name || 'Exercise'}
-                {duel.mode === 'live' && (
-                  <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs rounded-full">
-                    LIVE
+                {duel.exerciseName || 'Esercizio'}
+                {duel.type === 'open' && (
+                  <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full">
+                    APERTA
                   </span>
                 )}
               </h3>
@@ -235,7 +250,7 @@ export function DuelCard({
                   {status.label}
                 </span>
                 <span className="text-xs text-gray-500">
-                  • {formatTimeAgo(duel.createdAt)}
+                  • {formatTimeAgo(duel.created_at)}
                 </span>
               </div>
             </div>
@@ -246,12 +261,12 @@ export function DuelCard({
             <div className="flex items-center gap-1">
               <Zap className="w-4 h-4 text-yellow-500" />
               <span className="font-bold text-yellow-500">
-                {duel.xpReward} XP
+                {duel.xp_reward} XP
               </span>
             </div>
-            {duel.wagerCoins && (
+            {duel.wager_coins && (
               <div className="text-xs text-gray-500">
-                🪙 {duel.wagerCoins} coins
+                🪙 {duel.wager_coins} coins
               </div>
             )}
           </div>
@@ -260,12 +275,12 @@ export function DuelCard({
         {/* Participants */}
         <div className="flex items-center justify-between mb-3">
           <UserAvatar
-            name={duel.creatorName}
-            avatar={duel.creatorAvatar}
-            level={duel.creatorLevel}
-            score={duel.creatorScore}
-            isWinner={duel.winnerId === duel.creatorId}
-            isYou={isCreator}
+            name={duel.challengerName || 'Sfidante'}
+            avatar={duel.challengerAvatar}
+            level={duel.challengerLevel}
+            score={duel.challenger_score}
+            isWinner={duel.winner_id === duel.challenger_id}
+            isYou={isChallenger}
           />
 
           <div className="flex items-center gap-2">
@@ -273,14 +288,14 @@ export function DuelCard({
             <span className="text-xs text-gray-500">VS</span>
           </div>
 
-          {duel.opponentId ? (
+          {duel.challenged_id ? (
             <UserAvatar
-              name={duel.opponentName || 'In attesa...'}
-              avatar={duel.opponentAvatar}
-              level={duel.opponentLevel}
-              score={duel.opponentScore}
-              isWinner={duel.winnerId === duel.opponentId}
-              isYou={isOpponent}
+              name={duel.challengedName || 'Avversario'}
+              avatar={duel.challengedAvatar}
+              level={duel.challengedLevel}
+              score={duel.challenged_score}
+              isWinner={duel.winner_id === duel.challenged_id}
+              isYou={isChallenged}
             />
           ) : (
             <div className="flex items-center gap-2">
@@ -296,11 +311,11 @@ export function DuelCard({
         </div>
 
         {/* Target/Goal */}
-        {duel.targetDescription && (
+        {targetDescription && targetDescription !== 'Massimo punteggio' && (
           <div className="flex items-center gap-2 p-2 bg-gray-800/50 rounded-lg mb-3">
             <Target className="w-4 h-4 text-gray-400" />
             <span className="text-sm text-gray-300">
-              {duel.targetDescription}
+              {targetDescription}
             </span>
           </div>
         )}
@@ -309,8 +324,8 @@ export function DuelCard({
         {showActions && (
           <DuelActions
             duel={duel}
-            isCreator={isCreator}
-            isOpponent={isOpponent}
+            isChallenger={isChallenger}
+            isChallenged={isChallenged}
             onAccept={onAccept}
             onReject={onReject}
             onComplete={onComplete}
@@ -413,25 +428,40 @@ function UserAvatar({
 // ====================================
 function DuelActions({
   duel,
-  isCreator,
-  isOpponent,
+  isChallenger,
+  isChallenged,
   onAccept,
   onReject,
   onComplete,
   onView,
 }: {
   duel: DuelData
-  isCreator: boolean
-  isOpponent: boolean
+  isChallenger: boolean
+  isChallenged: boolean
   onAccept?: (duelId: string) => void
   onReject?: (duelId: string) => void
   onComplete?: (duelId: string) => void
   onView?: (duelId: string) => void
 }) {
-  const statusLower = duel.status.toLowerCase()
-  
-  // Pending - opponent can accept/reject
-  if (statusLower === 'pending' && isOpponent && !duel.opponentId) {
+  // Open duel - anyone can accept
+  if (duel.status === 'open' && !isChallenger) {
+    return (
+      <Button
+        size="sm"
+        variant="gradient"
+        onClick={(e) => {
+          e.stopPropagation()
+          onAccept?.(duel.id)
+        }}
+        className="w-full"
+      >
+        Accetta Sfida
+      </Button>
+    )
+  }
+
+  // Pending - challenged user can accept/reject
+  if (duel.status === 'pending' && isChallenged) {
     return (
       <div className="flex gap-2">
         <Button
@@ -443,7 +473,7 @@ function DuelActions({
           }}
           className="flex-1"
         >
-          Accetta Sfida
+          Accetta
         </Button>
         <Button
           size="sm"
@@ -460,7 +490,7 @@ function DuelActions({
   }
 
   // Active - participants can complete
-  if ((statusLower === 'active' || statusLower === 'accepted') && (isCreator || isOpponent)) {
+  if (duel.status === 'active' && (isChallenger || isChallenged)) {
     return (
       <Button
         size="sm"
@@ -477,7 +507,7 @@ function DuelActions({
   }
 
   // Completed - view results
-  if (statusLower === 'completed') {
+  if (duel.status === 'completed') {
     return (
       <Button
         size="sm"
@@ -502,7 +532,6 @@ function DuelActions({
 function CompactDuelCard({
   duel,
   currentUserId,
-  exercise,
   status,
   isWinner,
   isLoser,
@@ -511,7 +540,6 @@ function CompactDuelCard({
 }: {
   duel: DuelData
   currentUserId: string
-  exercise: any
   status: StatusConfig
   isWinner: boolean
   isLoser: boolean
@@ -536,24 +564,24 @@ function CompactDuelCard({
     >
       {/* Exercise icon */}
       <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0">
-        <span className="text-xl">{exercise?.icon || '💪'}</span>
+        <span className="text-xl">{duel.exerciseIcon || '💪'}</span>
       </div>
 
       {/* Info */}
       <div className="flex-1 text-left">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-sm">{exercise?.nameIt || exercise?.name || 'Exercise'}</span>
+          <span className="font-semibold text-sm">{duel.exerciseName || 'Esercizio'}</span>
           <status.icon className={cn('w-3 h-3', status.color)} />
         </div>
         <div className="flex items-center gap-2 text-xs text-gray-500">
-          <span>{duel.opponentName || 'Sfida aperta'}</span>
+          <span>{duel.challengedName || 'Sfida aperta'}</span>
           <span>•</span>
-          <span>{formatTimeAgo(duel.createdAt)}</span>
+          <span>{formatTimeAgo(duel.created_at)}</span>
         </div>
       </div>
 
       {/* Result or XP */}
-      {duel.status.toLowerCase() === 'completed' ? (
+      {duel.status === 'completed' ? (
         <div className="text-right">
           {isWinner ? (
             <div className="text-green-400">
@@ -571,7 +599,7 @@ function CompactDuelCard({
         <div className="flex items-center gap-1">
           <Zap className="w-3 h-3 text-yellow-500" />
           <span className="text-xs font-bold text-yellow-500">
-            {duel.xpReward}
+            {duel.xp_reward}
           </span>
         </div>
       )}
@@ -587,14 +615,12 @@ function CompactDuelCard({
 function LiveDuelCard({
   duel,
   currentUserId,
-  exercise,
   status,
   onView,
   className,
 }: {
   duel: DuelData
   currentUserId: string
-  exercise: any
   status: StatusConfig
   onView?: (duelId: string) => void
   className?: string
@@ -625,11 +651,11 @@ function LiveDuelCard({
         {/* Exercise */}
         <div className="flex items-center gap-4 mb-4">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-lg shadow-red-500/50">
-            <span className="text-3xl">{exercise?.icon || '💪'}</span>
+            <span className="text-3xl">{duel.exerciseIcon || '💪'}</span>
           </div>
           <div>
             <h3 className="text-2xl font-bold text-white">
-              {exercise?.nameIt || exercise?.name || 'Exercise'}
+              {duel.exerciseName || 'Esercizio'}
             </h3>
             <p className="text-gray-400">Duello Live</p>
           </div>
@@ -639,17 +665,17 @@ function LiveDuelCard({
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="text-center p-3 bg-gray-900/50 rounded-xl">
             <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500" />
-            <p className="font-semibold text-sm">{duel.creatorName}</p>
+            <p className="font-semibold text-sm">{duel.challengerName || 'Sfidante'}</p>
             <p className="text-2xl font-bold text-white">
-              {duel.creatorScore || 0}
+              {duel.challenger_score || 0}
             </p>
           </div>
           
           <div className="text-center p-3 bg-gray-900/50 rounded-xl">
             <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-gradient-to-br from-purple-500 to-pink-500" />
-            <p className="font-semibold text-sm">{duel.opponentName || 'Waiting...'}</p>
+            <p className="font-semibold text-sm">{duel.challengedName || 'In attesa...'}</p>
             <p className="text-2xl font-bold text-white">
-              {duel.opponentScore || 0}
+              {duel.challenged_score || 0}
             </p>
           </div>
         </div>
@@ -675,13 +701,13 @@ function LiveDuelCard({
 function DetailedDuelCard({
   duel,
   currentUserId,
-  exercise,
   status,
-  isCreator,
-  isOpponent,
+  isChallenger,
+  isChallenged,
   isWinner,
   isLoser,
   showActions,
+  targetDescription,
   onAccept,
   onReject,
   onComplete,
@@ -691,13 +717,13 @@ function DetailedDuelCard({
 }: {
   duel: DuelData
   currentUserId: string
-  exercise: any
   status: StatusConfig
-  isCreator: boolean
-  isOpponent: boolean
+  isChallenger: boolean
+  isChallenged: boolean
   isWinner: boolean
   isLoser: boolean
   showActions: boolean
+  targetDescription: string
   onAccept?: (duelId: string) => void
   onReject?: (duelId: string) => void
   onComplete?: (duelId: string) => void
@@ -735,14 +761,14 @@ function DetailedDuelCard({
         {/* Exercise info */}
         <div className="relative flex items-center gap-4">
           <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-            <span className="text-4xl">{exercise?.icon || '💪'}</span>
+            <span className="text-4xl">{duel.exerciseIcon || '💪'}</span>
           </div>
           <div className="text-white">
-            <h2 className="text-2xl font-bold">{exercise?.nameIt || exercise?.name || 'Exercise'}</h2>
+            <h2 className="text-2xl font-bold">{duel.exerciseName || 'Esercizio'}</h2>
             <p className="text-white/80">
-              {duel.challengeType === '1v1' ? 'Duello 1v1' :
-               duel.challengeType === 'open' ? 'Sfida Aperta' :
-               duel.challengeType === 'tournament' ? 'Torneo' : 'Missione'}
+              {duel.type === '1v1' ? 'Duello 1v1' :
+               duel.type === 'open' ? 'Sfida Aperta' :
+               duel.type === 'tournament' ? 'Torneo' : 'Missione'}
             </p>
           </div>
         </div>
@@ -752,25 +778,25 @@ function DetailedDuelCard({
         {/* Participants detailed */}
         <div className="space-y-4">
           <ParticipantDetail
-            name={duel.creatorName}
-            avatar={duel.creatorAvatar}
-            level={duel.creatorLevel}
-            xp={duel.creatorXP}
-            score={duel.creatorScore}
-            isWinner={duel.winnerId === duel.creatorId}
-            isYou={isCreator}
+            name={duel.challengerName || 'Sfidante'}
+            avatar={duel.challengerAvatar}
+            level={duel.challengerLevel || 1}
+            xp={duel.challengerXP || 0}
+            score={duel.challenger_score}
+            isWinner={duel.winner_id === duel.challenger_id}
+            isYou={isChallenger}
             label="Sfidante"
           />
           
-          {duel.opponentId ? (
+          {duel.challenged_id ? (
             <ParticipantDetail
-              name={duel.opponentName!}
-              avatar={duel.opponentAvatar}
-              level={duel.opponentLevel!}
-              xp={duel.opponentXP!}
-              score={duel.opponentScore}
-              isWinner={duel.winnerId === duel.opponentId}
-              isYou={isOpponent}
+              name={duel.challengedName || 'Avversario'}
+              avatar={duel.challengedAvatar}
+              level={duel.challengedLevel || 1}
+              xp={duel.challengedXP || 0}
+              score={duel.challenged_score}
+              isWinner={duel.winner_id === duel.challenged_id}
+              isYou={isChallenged}
               label="Avversario"
             />
           ) : (
@@ -786,23 +812,23 @@ function DetailedDuelCard({
           <DetailItem
             icon={Target}
             label="Obiettivo"
-            value={duel.targetDescription || 'Massimo punteggio'}
+            value={targetDescription}
           />
           <DetailItem
             icon={Zap}
             label="Premio XP"
-            value={`${duel.xpReward} XP`}
+            value={`${duel.xp_reward} XP`}
             highlight
           />
           <DetailItem
             icon={Calendar}
             label="Creato"
-            value={formatTimeAgo(duel.createdAt)}
+            value={formatTimeAgo(duel.created_at)}
           />
           <DetailItem
             icon={Timer}
             label="Scadenza"
-            value={duel.expiresAt ? formatTimeAgo(duel.expiresAt) : 'Mai'}
+            value={duel.expires_at ? formatTimeAgo(duel.expires_at) : 'Mai'}
           />
         </div>
 
@@ -810,8 +836,8 @@ function DetailedDuelCard({
         {showActions && (
           <DuelActions
             duel={duel}
-            isCreator={isCreator}
-            isOpponent={isOpponent}
+            isChallenger={isChallenger}
+            isChallenged={isChallenged}
             onAccept={onAccept}
             onReject={onReject}
             onComplete={onComplete}
