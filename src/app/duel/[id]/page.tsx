@@ -8,13 +8,13 @@ import {
   Play, Pause, Square, RotateCcw, Upload, CheckCircle,
   Camera, Video, Zap, Target, Award, Coins, Star,
   AlertCircle, Loader2, Plus, Minus, Volume2, VolumeX,
-  Info, Send, XCircle, Activity, Shield
+  Info, Send, XCircle, Activity, Shield, Eye, Download
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
-import { AIExerciseTracker } from '@/components/game/AIExerciseTracker'
+import { AIExerciseTracker, type PerformanceData } from '@/components/game/AIExerciseTracker'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 // ====================================
@@ -31,12 +31,12 @@ interface Duel {
   exercise_id: string
   exercise?: any
   difficulty: 'easy' | 'medium' | 'hard' | 'extreme'
-  wager_coins: number // CORRECT: wager_coins not wager_xp
-  xp_reward: number // CORRECT: xp_reward not reward_xp
+  wager_coins: number
+  xp_reward: number
   challenger_score?: number | null
   challenged_score?: number | null
   winner_id: string | null
-  metadata?: { // CORRECT: using metadata for targets
+  metadata?: {
     targetReps?: number
     targetTime?: number
     targetFormScore?: number
@@ -56,17 +56,7 @@ interface Performance {
   form_score: number
   video_url?: string
   performed_at: string
-}
-
-interface ExerciseResult {
-  exerciseType: string
-  reps: number
-  duration: number
-  formScore: number
-  videoUrl?: string
-  calories: number
-  maxStreak: number
-  timestamps: number[]
+  calories_burned?: number
 }
 
 type DuelPhase = 'overview' | 'ai_exercise' | 'uploading' | 'results'
@@ -95,8 +85,8 @@ export default function DuelPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [showAITracker, setShowAITracker] = useState(false)
   
-  // Exercise result from AI
-  const [exerciseResult, setExerciseResult] = useState<ExerciseResult | null>(null)
+  // Performance data from AI
+  const [performanceResult, setPerformanceResult] = useState<PerformanceData | null>(null)
 
   // Load duel data
   useEffect(() => {
@@ -128,7 +118,7 @@ export default function DuelPage() {
       
       setCurrentUser(user)
 
-      // Load duel with exercise info - CORRECT JOINS
+      // Load duel with exercise info
       const { data: duelData, error: duelError } = await supabase
         .from('duels')
         .select(`
@@ -203,7 +193,7 @@ export default function DuelPage() {
   }
 
   const loadMockData = () => {
-    // Mock duel data for demo mode - USING CORRECT FIELDS
+    // Mock duel data for demo mode
     setDuel({
       id: duelId,
       type: '1v1',
@@ -228,16 +218,16 @@ export default function DuelPage() {
       exercise: {
         id: 'ex-1',
         name: 'Push-Up',
-        code: 'pushup',
+        code: 'push_up',
         icon: '💪',
         description: 'Esegui più flessioni possibili mantenendo la forma corretta'
       },
       difficulty: 'medium',
-      wager_coins: 50, // CORRECT
-      xp_reward: 150, // CORRECT
+      wager_coins: 50,
+      xp_reward: 150,
       challenger_score: null,
       challenged_score: null,
-      metadata: { // CORRECT: using metadata
+      metadata: {
         targetReps: 30,
         targetTime: 60,
         targetFormScore: 80
@@ -257,10 +247,10 @@ export default function DuelPage() {
     setShowAITracker(true)
   }
 
-  // Handle AI exercise completion
-  const handleExerciseComplete = (result: ExerciseResult) => {
+  // Handle AI exercise completion - FIXED TYPE
+  const handleExerciseComplete = (result: PerformanceData) => {
     console.log('Exercise completed:', result)
-    setExerciseResult(result)
+    setPerformanceResult(result)
     setShowAITracker(false)
     setDuelPhase('uploading')
     simulateUpload()
@@ -289,7 +279,7 @@ export default function DuelPage() {
 
   // Save performance to database
   const savePerformance = async () => {
-    if (!duel || !currentUser || !exerciseResult) return
+    if (!duel || !currentUser || !performanceResult) return
 
     try {
       setIsSaving(true)
@@ -299,6 +289,24 @@ export default function DuelPage() {
       const { data: { user } } = await supabase.auth.getUser()
       
       if (user) {
+        // Upload video if available
+        let videoUrl: string | undefined
+        if (performanceResult.videoBlob) {
+          const fileName = `performances/${user.id}_${duel.id}_${Date.now()}.webm`
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('performance-videos')
+            .upload(fileName, performanceResult.videoBlob)
+
+          if (!uploadError) {
+            const { data: { publicUrl } } = supabase.storage
+              .from('performance-videos')
+              .getPublicUrl(fileName)
+            
+            videoUrl = publicUrl
+          }
+        }
+
         // Save to performances table
         const { data: perfData, error: perfError } = await supabase
           .from('performances')
@@ -306,13 +314,13 @@ export default function DuelPage() {
             user_id: user.id,
             duel_id: duel.id,
             exercise_id: duel.exercise_id,
-            reps: exerciseResult.reps,
-            duration: exerciseResult.duration,
-            form_score: exerciseResult.formScore,
-            video_url: exerciseResult.videoUrl,
+            reps: performanceResult.repsCompleted,
+            duration: performanceResult.duration,
+            form_score: performanceResult.formScore,
+            video_url: videoUrl || performanceResult.videoUrl,
             difficulty: duel.difficulty,
-            calories_burned: exerciseResult.calories,
-            max_streak: exerciseResult.maxStreak,
+            calories_burned: performanceResult.caloriesBurned,
+            ai_feedback: performanceResult.feedback,
             performed_at: new Date().toISOString()
           })
           .select()
@@ -324,8 +332,8 @@ export default function DuelPage() {
 
         // Update my score in duel
         const scoreUpdate = duel.challenger_id === user.id
-          ? { challenger_score: exerciseResult.reps }
-          : { challenged_score: exerciseResult.reps }
+          ? { challenger_score: performanceResult.repsCompleted }
+          : { challenged_score: performanceResult.repsCompleted }
 
         await supabase
           .from('duels')
@@ -371,16 +379,23 @@ export default function DuelPage() {
             await awardXP(user.id, Math.round(duel.xp_reward / 3))
           }
         }
+
+        // Update missions progress if missionId is present
+        if (performanceResult.missionId) {
+          await updateMissionProgress(performanceResult.missionId, performanceResult.repsCompleted)
+        }
+
       } else {
         // Demo mode - just save locally
         setMyPerformance({
           user_id: currentUser.id,
           duel_id: duel.id,
-          reps: exerciseResult.reps,
-          duration: exerciseResult.duration,
-          form_score: exerciseResult.formScore,
-          video_url: exerciseResult.videoUrl,
-          performed_at: new Date().toISOString()
+          reps: performanceResult.repsCompleted,
+          duration: performanceResult.duration,
+          form_score: performanceResult.formScore,
+          video_url: performanceResult.videoUrl,
+          performed_at: new Date().toISOString(),
+          calories_burned: performanceResult.caloriesBurned
         })
       }
 
@@ -398,25 +413,22 @@ export default function DuelPage() {
   // Award XP to user
   const awardXP = async (userId: string, xpAmount: number) => {
     try {
-      // Get current profile
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('xp')
-        .eq('id', userId)
+      // Update user_stats table
+      const { data: stats } = await supabase
+        .from('user_stats')
+        .select('total_xp')
+        .eq('user_id', userId)
         .single()
 
-      if (profile) {
-        const newXP = (profile.xp || 0) + xpAmount
-        const newLevel = Math.floor(Math.sqrt(newXP / 10)) || 1
+      if (stats) {
+        const newXP = (stats.total_xp || 0) + xpAmount
 
-        // Update profile with new XP and level
         await supabase
-          .from('profiles')
+          .from('user_stats')
           .update({
-            xp: newXP,
-            level: newLevel
+            total_xp: newXP
           })
-          .eq('id', userId)
+          .eq('user_id', userId)
 
         // Log XP transaction
         await supabase
@@ -424,13 +436,39 @@ export default function DuelPage() {
           .insert({
             user_id: userId,
             amount: xpAmount,
-            type: 'duel_reward',
-            description: `Duel ${duel?.id} reward`,
-            metadata: { duel_id: duel?.id }
+            reason: `Duel ${duel?.id} reward`,
+            reference_type: 'duel',
+            reference_id: duel?.id
           })
       }
     } catch (err) {
       console.error('Error awarding XP:', err)
+    }
+  }
+
+  // Update mission progress
+  const updateMissionProgress = async (missionId: string, progress: number) => {
+    try {
+      const { data: mission } = await supabase
+        .from('user_missions')
+        .select('*')
+        .eq('mission_id', missionId)
+        .eq('user_id', currentUser?.id)
+        .single()
+
+      if (mission && !mission.is_completed) {
+        const newValue = mission.current_value + progress
+        
+        await supabase
+          .from('user_missions')
+          .update({
+            current_value: newValue
+          })
+          .eq('mission_id', missionId)
+          .eq('user_id', currentUser?.id)
+      }
+    } catch (err) {
+      console.error('Error updating mission:', err)
     }
   }
 
@@ -455,20 +493,6 @@ export default function DuelPage() {
       case 'extreme': return 'text-red-400'
       default: return 'text-gray-400'
     }
-  }
-
-  const getExerciseType = (exerciseCode: string): string => {
-    // Map exercise codes to AI tracker types
-    const mapping: Record<string, string> = {
-      'push_up': 'pushup',
-      'pushup': 'pushup',
-      'squat': 'squat',
-      'plank': 'plank',
-      'jumping_jack': 'jumping_jack',
-      'burpee': 'burpee',
-      'situp': 'situp'
-    }
-    return mapping[exerciseCode?.toLowerCase()] || 'pushup'
   }
 
   const getWinner = () => {
@@ -524,15 +548,26 @@ export default function DuelPage() {
   // Show AI Exercise Tracker in full screen when active
   if (showAITracker && duelPhase === 'ai_exercise') {
     return (
-      <AIExerciseTracker
-        exerciseType={getExerciseType(duel.exercise?.code)}
-        targetReps={duel.metadata?.targetReps || 20}
-        targetTime={duel.metadata?.targetTime || undefined}
-        onComplete={handleExerciseComplete}
-        onCancel={handleExerciseCancel}
-        duelId={duel.id}
-        userId={currentUser?.id}
-      />
+      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-indigo-950 to-purple-950">
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold text-white">{duel.exercise?.name || 'Esercizio'}</h1>
+            <Button variant="ghost" onClick={handleExerciseCancel}>
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+
+          <AIExerciseTracker
+            exerciseId={duel.exercise?.code || 'push_up'}
+            userId={currentUser?.id || 'demo_user'}
+            duelId={duel.id}
+            targetReps={duel.metadata?.targetReps}
+            targetTime={duel.metadata?.targetTime}
+            onComplete={handleExerciseComplete}
+            onProgress={(progress) => console.log('Progress:', progress)}
+          />
+        </div>
+      </div>
     )
   }
 
@@ -752,7 +787,7 @@ export default function DuelPage() {
                 </ul>
               </Card>
 
-              {/* Start Button - SEMPRE VISIBILE */}
+              {/* Start Button */}
               <div className="text-center">
                 {myPerformance ? (
                   <div className="text-center">
@@ -807,20 +842,20 @@ export default function DuelPage() {
                 
                 <p className="text-sm text-gray-400">{Math.round(uploadProgress)}% completato</p>
                 
-                {exerciseResult && (
+                {performanceResult && (
                   <div className="mt-6 p-4 bg-gray-800/50 rounded-lg">
                     <div className="grid grid-cols-3 gap-2 text-sm">
                       <div>
                         <p className="text-gray-400">Reps</p>
-                        <p className="text-white font-bold">{exerciseResult.reps}</p>
+                        <p className="text-white font-bold">{performanceResult.repsCompleted}</p>
                       </div>
                       <div>
                         <p className="text-gray-400">Form</p>
-                        <p className="text-white font-bold">{exerciseResult.formScore}%</p>
+                        <p className="text-white font-bold">{Math.round(performanceResult.formScore)}%</p>
                       </div>
                       <div>
                         <p className="text-gray-400">Tempo</p>
-                        <p className="text-white font-bold">{formatTime(exerciseResult.duration)}</p>
+                        <p className="text-white font-bold">{formatTime(performanceResult.duration)}</p>
                       </div>
                     </div>
                   </div>
@@ -872,13 +907,13 @@ export default function DuelPage() {
                 <div className="grid grid-cols-2 gap-6 mb-6">
                   <div className="text-center">
                     <p className="text-4xl font-bold text-white">
-                      {exerciseResult?.reps || myPerformance?.reps || duel.challenger_score || 0}
+                      {performanceResult?.repsCompleted || myPerformance?.reps || duel.challenger_score || 0}
                     </p>
                     <p className="text-sm text-gray-400">
                       {currentUser?.id === duel.challenger_id ? 'Il tuo score' : getDisplayName(duel.challenger)}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {formatTime(exerciseResult?.duration || myPerformance?.duration || 0)}
+                      {formatTime(performanceResult?.duration || myPerformance?.duration || 0)}
                     </p>
                   </div>
                   <div className="text-center">
@@ -899,13 +934,13 @@ export default function DuelPage() {
                 <div className="grid grid-cols-3 gap-4 p-4 bg-gray-800/30 rounded-lg">
                   <div className="text-center">
                     <p className="text-xl font-bold text-white">
-                      {exerciseResult?.formScore || myPerformance?.form_score || 0}%
+                      {Math.round(performanceResult?.formScore || myPerformance?.form_score || 0)}%
                     </p>
                     <p className="text-xs text-gray-400">Form Score</p>
                   </div>
                   <div className="text-center">
                     <p className="text-xl font-bold text-white">
-                      {exerciseResult?.calories || 0}
+                      {performanceResult?.caloriesBurned || myPerformance?.calories_burned || 0}
                     </p>
                     <p className="text-xs text-gray-400">Calorie</p>
                   </div>
@@ -918,22 +953,54 @@ export default function DuelPage() {
                 </div>
 
                 {/* AI Stats */}
-                {exerciseResult && (
+                {performanceResult && (
                   <div className="mt-4 p-4 bg-indigo-500/10 rounded-lg">
                     <div className="flex items-center gap-2 mb-2">
                       <Activity className="w-5 h-5 text-indigo-400" />
                       <span className="text-sm font-medium text-indigo-400">Statistiche AI</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Max Streak:</span>
-                        <span className="text-white font-medium">{exerciseResult.maxStreak}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Tipo Esercizio:</span>
-                        <span className="text-white font-medium">{exerciseResult.exerciseType}</span>
-                      </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      {performanceResult.feedback.perfectReps > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Reps Perfette:</span>
+                          <span className="text-green-400 font-medium">{performanceResult.feedback.perfectReps}</span>
+                        </div>
+                      )}
+                      {performanceResult.feedback.goodReps > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Reps Buone:</span>
+                          <span className="text-yellow-400 font-medium">{performanceResult.feedback.goodReps}</span>
+                        </div>
+                      )}
+                      {performanceResult.feedback.mistakes.length > 0 && (
+                        <div className="col-span-2">
+                          <p className="text-gray-400 mb-1">Suggerimenti:</p>
+                          <ul className="text-xs text-gray-500 space-y-1">
+                            {performanceResult.feedback.suggestions.slice(0, 2).map((s, i) => (
+                              <li key={i}>• {s}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
+                  </div>
+                )}
+
+                {/* Video Download */}
+                {(performanceResult?.videoUrl || myPerformance?.video_url) && (
+                  <div className="mt-4">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => {
+                        const url = performanceResult?.videoUrl || myPerformance?.video_url
+                        if (url) window.open(url, '_blank')
+                      }}
+                    >
+                      <Eye className="w-4 h-4" />
+                      Guarda Video Performance
+                    </Button>
                   </div>
                 )}
               </Card>
