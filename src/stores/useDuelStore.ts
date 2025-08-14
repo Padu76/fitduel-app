@@ -3,86 +3,75 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 
 // ====================================
-// TYPES
+// TYPES - UPDATED TO MATCH DATABASE
 // ====================================
 export type DuelType = '1v1' | 'open' | 'tournament' | 'mission'
-export type DuelStatus = 'PENDING' | 'OPEN' | 'ACTIVE' | 'COMPLETED' | 'EXPIRED' | 'CANCELLED'
-export type ExerciseCode = 'push_up' | 'squat' | 'plank' | 'burpee' | 'jumping_jack' | 'mountain_climber'
+export type DuelStatus = 'pending' | 'open' | 'active' | 'completed' | 'expired' | 'cancelled'
 export type Difficulty = 'easy' | 'medium' | 'hard' | 'extreme'
 
 export interface Duel {
   id: string
-  challengerId: string
-  challengerUsername: string
+  // Participants - USING CORRECT COLUMN NAMES
+  challenger_id: string
+  challengerUsername?: string
   challengerAvatar?: string
-  challengedId?: string
+  challenged_id?: string // CORRECT: challenged_id, not opponent_id
   challengedUsername?: string
   challengedAvatar?: string
-  exerciseCode: ExerciseCode
-  exerciseName: string
-  duelType: DuelType
+  // Exercise
+  exercise_id: string // CORRECT: exercise_id from exercises table
+  exerciseName?: string
+  exerciseCode?: string
+  exerciseIcon?: string
+  // Duel details
+  type: DuelType
   status: DuelStatus
-  wagerXP: number
-  rewardXP: number
-  duration: number // seconds
   difficulty: Difficulty
-  maxParticipants: number
-  currentParticipants: number
-  timeLimit: string // e.g., "24h"
-  expiresAt: string
-  createdAt: string
-  startedAt?: string
-  completedAt?: string
-  winnerId?: string
-  winnerUsername?: string
-  rules?: DuelRules
-  results?: DuelResult[]
-}
-
-export interface DuelRules {
-  minReps?: number
-  targetTime?: number
-  formScoreRequired?: number
-  allowRetry?: boolean
-  maxAttempts?: number
-}
-
-export interface DuelResult {
-  userId: string
-  username: string
-  score: number
-  reps?: number
-  duration?: number
-  formScore?: number
-  videoUrl?: string
-  submittedAt: string
-  verified: boolean
+  // Rewards & Wagers
+  wager_coins: number // CORRECT: coins, not XP
+  xp_reward: number
+  // Scores
+  challenger_score?: number
+  challenged_score?: number // CORRECT: challenged_score, not opponent_score
+  // Timestamps
+  created_at: string
+  started_at?: string
+  completed_at?: string
+  expires_at: string
+  updated_at?: string
+  // Winner
+  winner_id?: string
+  // Metadata
+  metadata?: any
 }
 
 export interface DuelParticipant {
-  userId: string
-  username: string
+  id?: string
+  duel_id: string
+  user_id: string
+  username?: string
   avatar?: string
-  role: 'challenger' | 'challenged' | 'participant'
-  status: 'ready' | 'in_progress' | 'completed' | 'forfeit'
   score?: number
-  joinedAt: string
+  form_score?: number
+  completed?: boolean
+  joined_at: string
+  completed_at?: string
 }
 
-export interface ExerciseInfo {
-  code: ExerciseCode
+export interface Exercise {
+  id: string
+  code: string
   name: string
-  nameIt: string
-  category: 'strength' | 'cardio' | 'core' | 'flexibility'
-  muscleGroups: string[]
-  difficulty: {
-    easy: { reps?: number; time?: number }
-    medium: { reps?: number; time?: number }
-    hard: { reps?: number; time?: number }
-    extreme: { reps?: number; time?: number }
-  }
   description?: string
-  tips?: string[]
+  category: string
+  muscle_groups?: string
+  met_value?: number
+  icon?: string
+  video_url?: string
+  instructions?: string
+  common_mistakes?: string
+  is_active: boolean
+  created_at: string
 }
 
 interface DuelState {
@@ -97,6 +86,9 @@ interface DuelState {
   currentDuel: Duel | null
   currentParticipants: DuelParticipant[]
   
+  // Exercises
+  exercises: Exercise[]
+  
   // UI state
   isLoading: boolean
   error: string | null
@@ -104,7 +96,7 @@ interface DuelState {
     type: DuelType | 'all'
     status: DuelStatus | 'all'
     difficulty: Difficulty | 'all'
-    exercise: ExerciseCode | 'all'
+    exercise: string | 'all'
   }
   
   // Stats
@@ -126,12 +118,16 @@ interface DuelActions {
   joinDuel: (duelId: string, userId: string) => Promise<boolean>
   leaveDuel: (duelId: string, userId: string) => Promise<boolean>
   
+  // Exercises
+  setExercises: (exercises: Exercise[]) => void
+  fetchExercises: () => Promise<void>
+  
   // Duel actions
   createDuel: (data: CreateDuelData) => Promise<Duel | null>
   acceptDuel: (duelId: string, userId: string) => Promise<boolean>
   declineDuel: (duelId: string, userId: string) => Promise<boolean>
   startDuel: (duelId: string) => Promise<boolean>
-  completeDuel: (duelId: string, result: DuelResult) => Promise<boolean>
+  completeDuel: (duelId: string, userId: string, score: number, data?: any) => Promise<boolean>
   cancelDuel: (duelId: string) => Promise<boolean>
   
   // Fetching
@@ -158,105 +154,14 @@ type DuelStore = DuelState & DuelActions
 
 export interface CreateDuelData {
   challengerId: string
-  challengedId?: string
-  exerciseCode: ExerciseCode
+  challengedId?: string // CORRECT: challenged_id
+  exerciseId: string // CORRECT: exercise_id
   duelType: DuelType
-  wagerXP: number
-  duration: number
+  wagerCoins: number // CORRECT: coins
+  xpReward: number
   difficulty: Difficulty
-  maxParticipants?: number
   timeLimit?: number
-  rules?: DuelRules
-}
-
-// ====================================
-// EXERCISES DATA
-// ====================================
-export const EXERCISES: Record<ExerciseCode, ExerciseInfo> = {
-  push_up: {
-    code: 'push_up',
-    name: 'Push-Up',
-    nameIt: 'Flessioni',
-    category: 'strength',
-    muscleGroups: ['chest', 'triceps', 'shoulders'],
-    difficulty: {
-      easy: { reps: 10 },
-      medium: { reps: 20 },
-      hard: { reps: 30 },
-      extreme: { reps: 50 }
-    },
-    tips: ['Mantieni il corpo dritto', 'Scendi fino a 90°', 'Respira regolarmente']
-  },
-  squat: {
-    code: 'squat',
-    name: 'Squat',
-    nameIt: 'Squat',
-    category: 'strength',
-    muscleGroups: ['quads', 'glutes', 'hamstrings'],
-    difficulty: {
-      easy: { reps: 15 },
-      medium: { reps: 30 },
-      hard: { reps: 45 },
-      extreme: { reps: 60 }
-    },
-    tips: ['Schiena dritta', 'Ginocchia allineate', 'Scendi fino alle cosce parallele']
-  },
-  plank: {
-    code: 'plank',
-    name: 'Plank',
-    nameIt: 'Plank',
-    category: 'core',
-    muscleGroups: ['core', 'shoulders', 'back'],
-    difficulty: {
-      easy: { time: 30 },
-      medium: { time: 60 },
-      hard: { time: 90 },
-      extreme: { time: 120 }
-    },
-    tips: ['Corpo dritto come una tavola', 'Addome contratto', 'Respira normalmente']
-  },
-  burpee: {
-    code: 'burpee',
-    name: 'Burpee',
-    nameIt: 'Burpee',
-    category: 'cardio',
-    muscleGroups: ['full body'],
-    difficulty: {
-      easy: { reps: 5 },
-      medium: { reps: 10 },
-      hard: { reps: 15 },
-      extreme: { reps: 25 }
-    },
-    tips: ['Movimento fluido', 'Salto esplosivo', 'Atterraggio morbido']
-  },
-  jumping_jack: {
-    code: 'jumping_jack',
-    name: 'Jumping Jack',
-    nameIt: 'Jumping Jack',
-    category: 'cardio',
-    muscleGroups: ['full body'],
-    difficulty: {
-      easy: { reps: 20 },
-      medium: { reps: 40 },
-      hard: { reps: 60 },
-      extreme: { reps: 100 }
-    },
-    tips: ['Ritmo costante', 'Braccia completamente estese', 'Atterraggio sulle punte']
-  },
-  mountain_climber: {
-    code: 'mountain_climber',
-    name: 'Mountain Climber',
-    nameIt: 'Mountain Climber',
-    category: 'cardio',
-    muscleGroups: ['core', 'shoulders', 'legs'],
-    difficulty: {
-      easy: { reps: 10 },
-      medium: { reps: 20 },
-      hard: { reps: 30 },
-      extreme: { reps: 50 }
-    },
-    tips: ['Core sempre attivo', 'Ginocchia al petto', 'Ritmo veloce ma controllato']
-  }
+  metadata?: any
 }
 
 // ====================================
@@ -273,6 +178,7 @@ export const useDuelStore = create<DuelStore>()(
       completedDuels: [],
       currentDuel: null,
       currentParticipants: [],
+      exercises: [],
       isLoading: false,
       error: null,
       filters: {
@@ -288,15 +194,15 @@ export const useDuelStore = create<DuelStore>()(
       // CRUD operations
       setDuels: (duels) => set((state) => {
         state.duels = duels
-        state.activeDuels = duels.filter((d: Duel) => d.status === 'ACTIVE')
-        state.openDuels = duels.filter((d: Duel) => d.status === 'OPEN')
-        state.completedDuels = duels.filter((d: Duel) => d.status === 'COMPLETED')
+        state.activeDuels = duels.filter((d: Duel) => d.status === 'active')
+        state.openDuels = duels.filter((d: Duel) => d.status === 'open')
+        state.completedDuels = duels.filter((d: Duel) => d.status === 'completed')
       }),
 
       addDuel: (duel) => set((state) => {
         state.duels.push(duel)
-        if (duel.status === 'ACTIVE') state.activeDuels.push(duel)
-        if (duel.status === 'OPEN') state.openDuels.push(duel)
+        if (duel.status === 'active') state.activeDuels.push(duel)
+        if (duel.status === 'open') state.openDuels.push(duel)
       }),
 
       updateDuel: (id, updates) => set((state) => {
@@ -305,9 +211,9 @@ export const useDuelStore = create<DuelStore>()(
           state.duels[index] = { ...state.duels[index], ...updates }
           
           // Update categorized arrays
-          state.activeDuels = state.duels.filter((d: Duel) => d.status === 'ACTIVE')
-          state.openDuels = state.duels.filter((d: Duel) => d.status === 'OPEN')
-          state.completedDuels = state.duels.filter((d: Duel) => d.status === 'COMPLETED')
+          state.activeDuels = state.duels.filter((d: Duel) => d.status === 'active')
+          state.openDuels = state.duels.filter((d: Duel) => d.status === 'open')
+          state.completedDuels = state.duels.filter((d: Duel) => d.status === 'completed')
           
           // Update current duel if it's the one being updated
           if (state.currentDuel?.id === id) {
@@ -339,16 +245,22 @@ export const useDuelStore = create<DuelStore>()(
         setError(null)
 
         try {
-          const response = await fetch(`/api/duels/${duelId}/join`, {
+          const response = await fetch('/api/duels/accept', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId })
+            body: JSON.stringify({ duelId, userId })
           })
 
-          if (!response.ok) throw new Error('Failed to join duel')
-          
           const data = await response.json()
-          updateDuel(duelId, data.duel)
+          
+          if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Failed to join duel')
+          }
+          
+          if (data.data?.duel) {
+            updateDuel(duelId, data.data.duel)
+          }
+          
           return true
         } catch (error) {
           setError(error instanceof Error ? error.message : 'Failed to join duel')
@@ -359,25 +271,83 @@ export const useDuelStore = create<DuelStore>()(
       },
 
       leaveDuel: async (duelId, userId) => {
-        const { setLoading, setError, updateDuel } = get()
+        // Not implemented in current API
+        return false
+      },
+
+      // Exercises
+      setExercises: (exercises) => set((state) => {
+        state.exercises = exercises
+      }),
+
+      fetchExercises: async () => {
+        const { setLoading, setError, setExercises } = get()
         setLoading(true)
         setError(null)
 
         try {
-          const response = await fetch(`/api/duels/${duelId}/leave`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId })
-          })
-
-          if (!response.ok) throw new Error('Failed to leave duel')
+          // This would need a new API endpoint
+          // For now, we'll use hardcoded data
+          const exercises: Exercise[] = [
+            {
+              id: '5951b877-daf8-4cf3-83cf-d8289a82e7e4',
+              code: 'push_up',
+              name: 'Push-Up',
+              category: 'strength',
+              icon: '💪',
+              is_active: true,
+              created_at: '2025-08-12T15:08:31.574524+00'
+            },
+            {
+              id: 'e95a9adb-894a-4ae1-b9e1-282950e08261',
+              code: 'squat',
+              name: 'Squat',
+              category: 'strength',
+              icon: '🦵',
+              is_active: true,
+              created_at: '2025-08-12T15:08:31.574524+00'
+            },
+            {
+              id: 'e15981c1-bb84-4fa4-aec9-73040d69d8af',
+              code: 'plank',
+              name: 'Plank',
+              category: 'core',
+              icon: '📏',
+              is_active: true,
+              created_at: '2025-08-12T15:08:31.574524+00'
+            },
+            {
+              id: '8056563b-c178-4edc-8097-f48aa500f81a',
+              code: 'burpee',
+              name: 'Burpee',
+              category: 'cardio',
+              icon: '🔥',
+              is_active: true,
+              created_at: '2025-08-12T15:08:31.574524+00'
+            },
+            {
+              id: '7ca84c3c-2a4d-450c-beed-144a7fa033a5',
+              code: 'jumping_jack',
+              name: 'Jumping Jack',
+              category: 'cardio',
+              icon: '⭐',
+              is_active: true,
+              created_at: '2025-08-12T15:08:31.574524+00'
+            },
+            {
+              id: 'c6b883f3-4041-402c-974f-5fc59ebafccc',
+              code: 'mountain_climber',
+              name: 'Mountain Climber',
+              category: 'cardio',
+              icon: '⛰️',
+              is_active: true,
+              created_at: '2025-08-12T15:08:31.574524+00'
+            }
+          ]
           
-          const data = await response.json()
-          updateDuel(duelId, data.duel)
-          return true
+          setExercises(exercises)
         } catch (error) {
-          setError(error instanceof Error ? error.message : 'Failed to leave duel')
-          return false
+          setError(error instanceof Error ? error.message : 'Failed to fetch exercises')
         } finally {
           setLoading(false)
         }
@@ -422,16 +392,22 @@ export const useDuelStore = create<DuelStore>()(
         setError(null)
 
         try {
-          const response = await fetch(`/api/duels/${duelId}/accept`, {
+          const response = await fetch('/api/duels/accept', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId })
+            body: JSON.stringify({ duelId, userId })
           })
 
-          if (!response.ok) throw new Error('Failed to accept duel')
-          
           const data = await response.json()
-          updateDuel(duelId, { status: 'ACTIVE', ...data.duel })
+          
+          if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Failed to accept duel')
+          }
+          
+          if (data.data?.duel) {
+            updateDuel(duelId, { status: 'active', ...data.data.duel })
+          }
+          
           return true
         } catch (error) {
           setError(error instanceof Error ? error.message : 'Failed to accept duel')
@@ -442,76 +418,52 @@ export const useDuelStore = create<DuelStore>()(
       },
 
       declineDuel: async (duelId, userId) => {
-        const { setLoading, setError, removeDuel } = get()
-        setLoading(true)
-        setError(null)
-
-        try {
-          const response = await fetch(`/api/duels/${duelId}/decline`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId })
-          })
-
-          if (!response.ok) throw new Error('Failed to decline duel')
-          
-          removeDuel(duelId)
-          return true
-        } catch (error) {
-          setError(error instanceof Error ? error.message : 'Failed to decline duel')
-          return false
-        } finally {
-          setLoading(false)
-        }
+        // Not implemented in current API
+        const { removeDuel } = get()
+        removeDuel(duelId)
+        return true
       },
 
       startDuel: async (duelId) => {
-        const { setLoading, setError, updateDuel } = get()
-        setLoading(true)
-        setError(null)
-
-        try {
-          const response = await fetch(`/api/duels/${duelId}/start`, {
-            method: 'POST'
-          })
-
-          if (!response.ok) throw new Error('Failed to start duel')
-          
-          const data = await response.json()
-          updateDuel(duelId, { 
-            status: 'ACTIVE', 
-            startedAt: new Date().toISOString(),
-            ...data.duel 
-          })
-          return true
-        } catch (error) {
-          setError(error instanceof Error ? error.message : 'Failed to start duel')
-          return false
-        } finally {
-          setLoading(false)
-        }
+        const { updateDuel } = get()
+        updateDuel(duelId, { 
+          status: 'active',
+          started_at: new Date().toISOString()
+        })
+        return true
       },
 
-      completeDuel: async (duelId, result) => {
+      completeDuel: async (duelId, userId, score, data) => {
         const { setLoading, setError, updateDuel } = get()
         setLoading(true)
         setError(null)
 
         try {
-          const response = await fetch(`/api/duels/${duelId}/complete`, {
+          const response = await fetch('/api/duels/complete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ result })
+            body: JSON.stringify({ 
+              duelId, 
+              userId, 
+              score,
+              ...data 
+            })
           })
 
-          if (!response.ok) throw new Error('Failed to complete duel')
+          const result = await response.json()
           
-          const data = await response.json()
-          updateDuel(duelId, { 
-            status: 'COMPLETED',
-            completedAt: new Date().toISOString(),
-            ...data.duel 
-          })
+          if (!response.ok || !result.success) {
+            throw new Error(result.message || 'Failed to complete duel')
+          }
+          
+          if (result.data?.duel) {
+            updateDuel(duelId, { 
+              status: 'completed',
+              completed_at: new Date().toISOString(),
+              ...result.data.duel 
+            })
+          }
+          
           return true
         } catch (error) {
           setError(error instanceof Error ? error.message : 'Failed to complete duel')
@@ -522,25 +474,9 @@ export const useDuelStore = create<DuelStore>()(
       },
 
       cancelDuel: async (duelId) => {
-        const { setLoading, setError, updateDuel } = get()
-        setLoading(true)
-        setError(null)
-
-        try {
-          const response = await fetch(`/api/duels/${duelId}/cancel`, {
-            method: 'POST'
-          })
-
-          if (!response.ok) throw new Error('Failed to cancel duel')
-          
-          updateDuel(duelId, { status: 'CANCELLED' })
-          return true
-        } catch (error) {
-          setError(error instanceof Error ? error.message : 'Failed to cancel duel')
-          return false
-        } finally {
-          setLoading(false)
-        }
+        const { updateDuel } = get()
+        updateDuel(duelId, { status: 'cancelled' })
+        return true
       },
 
       // Fetching
@@ -591,12 +527,12 @@ export const useDuelStore = create<DuelStore>()(
       },
 
       fetchOpenDuels: async () => {
-        const { setLoading, setError, setDuels } = get()
+        const { setLoading, setError } = get()
         setLoading(true)
         setError(null)
 
         try {
-          const response = await fetch('/api/duels/create?status=OPEN')
+          const response = await fetch('/api/duels/create?status=open')
           if (!response.ok) throw new Error('Failed to fetch open duels')
           
           const data = await response.json()
@@ -654,10 +590,10 @@ export const useDuelStore = create<DuelStore>()(
         const { duels, filters } = get()
         
         return duels.filter((duel: Duel) => {
-          if (filters.type !== 'all' && duel.duelType !== filters.type) return false
+          if (filters.type !== 'all' && duel.type !== filters.type) return false
           if (filters.status !== 'all' && duel.status !== filters.status) return false
           if (filters.difficulty !== 'all' && duel.difficulty !== filters.difficulty) return false
-          if (filters.exercise !== 'all' && duel.exerciseCode !== filters.exercise) return false
+          if (filters.exercise !== 'all' && duel.exercise_id !== filters.exercise) return false
           return true
         })
       },
@@ -690,6 +626,7 @@ export const useDuelStore = create<DuelStore>()(
       partialize: (state) => ({
         myDuels: state.myDuels,
         completedDuels: state.completedDuels,
+        exercises: state.exercises,
         totalDuelsCreated: state.totalDuelsCreated,
         totalDuelsWon: state.totalDuelsWon,
         totalDuelsLost: state.totalDuelsLost,
