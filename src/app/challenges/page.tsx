@@ -18,15 +18,16 @@ import { Modal } from '@/components/ui/Modal'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 // ====================================
-// TYPES
+// TYPES - UPDATED TO MATCH DATABASE
 // ====================================
 interface Exercise {
   id: string
   name: string
   code: string
   category: string
-  difficulty: string
-  isTimeBased?: boolean
+  icon?: string
+  met_value?: number
+  is_active: boolean
 }
 
 interface Profile {
@@ -35,67 +36,42 @@ interface Profile {
   display_name: string | null
   avatar_url: string | null
   email: string
+  level?: number
+  xp?: number
+  coins?: number
 }
 
 interface Duel {
   id: string
   type: '1v1' | 'open' | 'tournament' | 'mission'
   status: 'pending' | 'open' | 'active' | 'completed' | 'expired' | 'cancelled'
-  challenger_id: string
+  challenger_id: string // CORRECT
   challenger?: Profile
-  challenged_id: string | null
-  challenged?: Profile
-  exercise_id: string
+  challenged_id: string | null // CORRECT: challenged_id, not opponent_id
+  challenged?: Profile // CORRECT: challenged, not opponent
+  exercise_id: string // CORRECT: exercise_id, not exercise_code
   exercise?: Exercise
   difficulty: 'easy' | 'medium' | 'hard' | 'extreme'
-  wager_xp: number
-  reward_xp: number
-  target_reps: number | null
-  target_time: number | null
-  target_form_score: number | null
-  rules: any
-  max_participants: number
-  current_participants: number
-  starts_at: string | null
+  wager_coins: number // CORRECT: coins, not xp
+  xp_reward: number
+  challenger_score?: number // CORRECT
+  challenged_score?: number // CORRECT: challenged_score, not opponent_score
+  winner_id?: string | null
+  metadata?: { // CORRECT: using metadata for targets
+    targetReps?: number
+    targetTime?: number
+    rules?: any
+  }
   expires_at: string | null
   completed_at: string | null
-  winner_id: string | null
-  is_draw: boolean
   created_at: string
   updated_at: string
 }
 
-// Mock exercises with time-based flag
-const MOCK_EXERCISES = [
-  { id: '1', name: 'Push-Up', code: 'pushup', category: 'strength', difficulty: 'medium', isTimeBased: false },
-  { id: '2', name: 'Squat', code: 'squat', category: 'strength', difficulty: 'easy', isTimeBased: false },
-  { id: '3', name: 'Plank', code: 'plank', category: 'core', difficulty: 'medium', isTimeBased: true },
-  { id: '4', name: 'Burpee', code: 'burpee', category: 'cardio', difficulty: 'hard', isTimeBased: false },
-  { id: '5', name: 'Mountain Climber', code: 'mountain_climber', category: 'cardio', difficulty: 'hard', isTimeBased: false },
-  { id: '6', name: 'Jumping Jack', code: 'jumping_jack', category: 'cardio', difficulty: 'easy', isTimeBased: false },
-  { id: '7', name: 'Wall Sit', code: 'wall_sit', category: 'strength', difficulty: 'medium', isTimeBased: true },
-  { id: '8', name: 'Dead Hang', code: 'dead_hang', category: 'strength', difficulty: 'hard', isTimeBased: true },
-  { id: '9', name: 'Bridge Hold', code: 'bridge_hold', category: 'core', difficulty: 'medium', isTimeBased: true }
-]
-
-// Helper function to get exercise data
-const getExerciseData = (code: string) => {
-  const exerciseDefaults = {
-    pushup: { isTimeBased: false, defaultTargets: { easy: 10, medium: 20, hard: 30, extreme: 50 } },
-    squat: { isTimeBased: false, defaultTargets: { easy: 15, medium: 25, hard: 40, extreme: 60 } },
-    plank: { isTimeBased: true, defaultTargets: { easy: 30, medium: 60, hard: 120, extreme: 180 } },
-    burpee: { isTimeBased: false, defaultTargets: { easy: 5, medium: 10, hard: 20, extreme: 30 } },
-    mountain_climber: { isTimeBased: false, defaultTargets: { easy: 20, medium: 30, hard: 50, extreme: 80 } },
-    jumping_jack: { isTimeBased: false, defaultTargets: { easy: 20, medium: 40, hard: 60, extreme: 100 } },
-    wall_sit: { isTimeBased: true, defaultTargets: { easy: 30, medium: 60, hard: 120, extreme: 180 } },
-    dead_hang: { isTimeBased: true, defaultTargets: { easy: 15, medium: 30, hard: 60, extreme: 90 } },
-    bridge_hold: { isTimeBased: true, defaultTargets: { easy: 30, medium: 60, hard: 90, extreme: 120 } }
-  }
-  
-  return exerciseDefaults[code as keyof typeof exerciseDefaults] || { 
-    isTimeBased: false, 
-    defaultTargets: { easy: 10, medium: 20, hard: 30, extreme: 50 } 
-  }
+// Helper function to check if exercise is time-based
+const isExerciseTimeBased = (code: string): boolean => {
+  const timeBasedExercises = ['plank', 'wall_sit', 'dead_hang', 'bridge_hold']
+  return timeBasedExercises.includes(code)
 }
 
 // ====================================
@@ -137,27 +113,30 @@ const DuelCard = ({
   }
 
   const getExerciseName = () => {
-    if (duel.exercise?.name) return duel.exercise.name
-    // Fallback to mock data if exercise not loaded
-    const mockExercise = MOCK_EXERCISES.find(e => e.id === duel.exercise_id)
-    return mockExercise?.name || 'Esercizio'
+    return duel.exercise?.name || 'Esercizio'
   }
 
   const getChallengerName = () => {
-    if (duel.challenger?.username) return duel.challenger.username
     if (duel.challenger?.display_name) return duel.challenger.display_name
+    if (duel.challenger?.username) return duel.challenger.username
     return 'Sfidante'
   }
 
+  const getChallengedName = () => {
+    if (duel.challenged?.display_name) return duel.challenged.display_name
+    if (duel.challenged?.username) return duel.challenged.username
+    return null
+  }
+
   // Check if exercise is time-based
-  const exerciseData = duel.exercise?.code ? getExerciseData(duel.exercise.code) : null
-  const isTimeBased = exerciseData?.isTimeBased || duel.target_time !== null
+  const isTimeBased = duel.exercise?.code ? isExerciseTimeBased(duel.exercise.code) : 
+                      (duel.metadata?.targetTime !== undefined && duel.metadata?.targetTime !== null)
 
   const formatTarget = () => {
-    if (isTimeBased && duel.target_time) {
-      return `${duel.target_time}s`
+    if (isTimeBased && duel.metadata?.targetTime) {
+      return `${duel.metadata.targetTime}s`
     }
-    return duel.target_reps || '-'
+    return duel.metadata?.targetReps || '-'
   }
 
   return (
@@ -165,7 +144,11 @@ const DuelCard = ({
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
-            <Swords className="w-5 h-5 text-white" />
+            {duel.exercise?.icon ? (
+              <span className="text-xl">{duel.exercise.icon}</span>
+            ) : (
+              <Swords className="w-5 h-5 text-white" />
+            )}
           </div>
           <div>
             <p className="font-medium text-white">{getExerciseName()}</p>
@@ -205,12 +188,12 @@ const DuelCard = ({
           </p>
         </div>
         <div>
-          <p className="text-2xl font-bold text-yellow-500">+{duel.reward_xp}</p>
+          <p className="text-2xl font-bold text-yellow-500">+{duel.xp_reward}</p>
           <p className="text-xs text-gray-400">XP Premio</p>
         </div>
         <div>
-          <p className="text-lg font-bold text-indigo-400">{duel.wager_xp}</p>
-          <p className="text-xs text-gray-400">XP Puntata</p>
+          <p className="text-lg font-bold text-indigo-400">{duel.wager_coins}</p>
+          <p className="text-xs text-gray-400">Coins</p>
         </div>
       </div>
 
@@ -253,48 +236,53 @@ const CreateDuelModal = ({
   onCreate: (duelData: any) => void
 }) => {
   const [selectedExercise, setSelectedExercise] = useState<string>('')
-  const [difficulty, setDifficulty] = useState<string>('medium')
+  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard' | 'extreme'>('medium')
   const [targetValue, setTargetValue] = useState<number>(20)
-  const [wagerXP, setWagerXP] = useState<number>(50)
+  const [wagerCoins, setWagerCoins] = useState<number>(50)
+  const [xpReward, setXpReward] = useState<number>(100)
   const [duelType, setDuelType] = useState<'1v1' | 'open'>('open')
 
   // Get exercise data to check if time-based
   const selectedExerciseData = selectedExercise ? 
     exercises.find(e => e.id === selectedExercise) : null
   
-  const exerciseConfig = selectedExerciseData ? 
-    getExerciseData(selectedExerciseData.code) : null
-  
-  const isTimeBased = exerciseConfig?.isTimeBased || false
+  const isTimeBased = selectedExerciseData ? 
+    isExerciseTimeBased(selectedExerciseData.code) : false
 
   // Update target value when exercise or difficulty changes
   useEffect(() => {
-    if (exerciseConfig && difficulty) {
-      const defaultTarget = exerciseConfig.defaultTargets[difficulty as keyof typeof exerciseConfig.defaultTargets]
-      setTargetValue(defaultTarget || (isTimeBased ? 60 : 20))
+    if (selectedExerciseData && difficulty) {
+      // Default targets based on difficulty
+      const defaultTargets = {
+        easy: isTimeBased ? 30 : 10,
+        medium: isTimeBased ? 60 : 20,
+        hard: isTimeBased ? 90 : 30,
+        extreme: isTimeBased ? 120 : 50
+      }
+      setTargetValue(defaultTargets[difficulty])
     }
-  }, [selectedExercise, difficulty, exerciseConfig, isTimeBased])
+  }, [selectedExercise, difficulty, isTimeBased])
 
   const handleCreate = () => {
     if (!selectedExercise) return
 
     onCreate({
-      exercise_id: selectedExercise,
+      exerciseId: selectedExercise, // CORRECT: using exerciseId
       type: duelType,
       difficulty,
-      target_reps: isTimeBased ? null : targetValue,
-      target_time: isTimeBased ? targetValue : null,
-      wager_xp: wagerXP,
-      reward_xp: wagerXP * 2,
-      max_participants: 2,
-      expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString() // 72 hours
+      targetReps: isTimeBased ? null : targetValue,
+      targetTime: isTimeBased ? targetValue : null,
+      wagerCoins, // CORRECT: using coins
+      xpReward,
+      timeLimit: 72 // hours
     })
 
     // Reset form
     setSelectedExercise('')
     setDifficulty('medium')
     setTargetValue(20)
-    setWagerXP(50)
+    setWagerCoins(50)
+    setXpReward(100)
     setDuelType('open')
     onClose()
   }
@@ -336,14 +324,11 @@ const CreateDuelModal = ({
             className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
           >
             <option value="">Seleziona un esercizio</option>
-            {exercises.map((exercise) => {
-              const data = getExerciseData(exercise.code)
-              return (
-                <option key={exercise.id} value={exercise.id}>
-                  {exercise.name} {data?.isTimeBased ? '⏱️' : '🔢'}
-                </option>
-              )
-            })}
+            {exercises.map((exercise) => (
+              <option key={exercise.id} value={exercise.id}>
+                {exercise.name} {exercise.icon || ''} {isExerciseTimeBased(exercise.code) ? '⏱️' : '🔢'}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -370,7 +355,7 @@ const CreateDuelModal = ({
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">Difficoltà</label>
           <div className="grid grid-cols-4 gap-2">
-            {['easy', 'medium', 'hard', 'extreme'].map((level) => (
+            {(['easy', 'medium', 'hard', 'extreme'] as const).map((level) => (
               <Button
                 key={level}
                 variant={difficulty === level ? 'gradient' : 'secondary'}
@@ -418,15 +403,30 @@ const CreateDuelModal = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">
-            XP Puntata: {wagerXP} (Premio: {wagerXP * 2} XP)
+            🪙 Coins Puntata: {wagerCoins}
           </label>
           <input
             type="range"
             min="10"
-            max="200"
+            max="500"
             step="10"
-            value={wagerXP}
-            onChange={(e) => setWagerXP(Number(e.target.value))}
+            value={wagerCoins}
+            onChange={(e) => setWagerCoins(Number(e.target.value))}
+            className="w-full"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            ⚡ XP Premio: {xpReward}
+          </label>
+          <input
+            type="range"
+            min="50"
+            max="1000"
+            step="50"
+            value={xpReward}
+            onChange={(e) => setXpReward(Number(e.target.value))}
             className="w-full"
           />
         </div>
@@ -511,14 +511,14 @@ export default function ChallengesPage() {
       const { data: exercisesData, error: exercisesError } = await supabase
         .from('exercises')
         .select('*')
+        .eq('is_active', true)
         .order('name')
 
       if (exercisesError) {
         console.error('Error loading exercises:', exercisesError)
-        // Use mock exercises as fallback
-        setExercises(MOCK_EXERCISES)
+        setError('Errore nel caricamento degli esercizi')
       } else {
-        setExercises(exercisesData || MOCK_EXERCISES)
+        setExercises(exercisesData || [])
       }
 
       // Load duels with proper joins
@@ -526,11 +526,30 @@ export default function ChallengesPage() {
         .from('duels')
         .select(`
           *,
-          exercises (
+          challenger:profiles!challenger_id(
+            id,
+            username,
+            display_name,
+            avatar_url,
+            level,
+            xp,
+            coins
+          ),
+          challenged:profiles!challenged_id(
+            id,
+            username,
+            display_name,
+            avatar_url,
+            level,
+            xp,
+            coins
+          ),
+          exercise:exercises!exercise_id(
             id,
             name,
             code,
-            category
+            category,
+            icon
           )
         `)
         .order('created_at', { ascending: false })
@@ -539,40 +558,7 @@ export default function ChallengesPage() {
         console.error('Error loading duels:', duelsError)
         setError('Errore nel caricamento delle sfide')
       } else {
-        // Transform the data to match our interface
-        const transformedDuels = (duelsData || []).map(duel => ({
-          ...duel,
-          exercise: duel.exercises
-        }))
-        
-        // Load challenger and challenged profiles separately
-        const profileIds = new Set<string>()
-        transformedDuels.forEach(duel => {
-          if (duel.challenger_id) profileIds.add(duel.challenger_id)
-          if (duel.challenged_id) profileIds.add(duel.challenged_id)
-        })
-
-        if (profileIds.size > 0) {
-          const { data: profilesData } = await supabase
-            .from('profiles')
-            .select('*')
-            .in('id', Array.from(profileIds))
-
-          const profilesMap = new Map(
-            (profilesData || []).map(profile => [profile.id, profile])
-          )
-
-          transformedDuels.forEach(duel => {
-            if (duel.challenger_id) {
-              duel.challenger = profilesMap.get(duel.challenger_id)
-            }
-            if (duel.challenged_id) {
-              duel.challenged = profilesMap.get(duel.challenged_id)
-            }
-          })
-        }
-
-        setDuels(transformedDuels)
+        setDuels(duelsData || [])
       }
     } catch (err: any) {
       console.error('Error loading data:', err)
@@ -630,26 +616,37 @@ export default function ChallengesPage() {
     try {
       setError(null)
       
-      const { data, error } = await supabase
-        .from('duels')
-        .insert({
-          ...duelData,
-          challenger_id: currentUser.id,
-          status: 'open',
-          current_participants: 1,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .select()
-        .single()
+      // Call the API route to create duel
+      const response = await fetch('/api/duels/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          challengerId: currentUser.id,
+          challengedId: duelData.type === '1v1' ? duelData.challengedId : undefined,
+          exerciseId: duelData.exerciseId,
+          duelType: duelData.type,
+          wagerCoins: duelData.wagerCoins,
+          xpReward: duelData.xpReward,
+          difficulty: duelData.difficulty,
+          targetReps: duelData.targetReps,
+          targetTime: duelData.targetTime,
+          timeLimit: duelData.timeLimit
+        }),
+      })
 
-      if (error) throw error
+      const result = await response.json()
+
+      if (!result.success) {
+        throw new Error(result.message || 'Errore nella creazione della sfida')
+      }
 
       setSuccess('Sfida creata con successo!')
       loadData() // Reload duels
     } catch (err: any) {
       console.error('Error creating duel:', err)
-      setError('Errore nella creazione della sfida')
+      setError(err.message || 'Errore nella creazione della sfida')
     }
   }
 
@@ -799,14 +796,11 @@ export default function ChallengesPage() {
               className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
             >
               <option value="all">Tutti gli esercizi</option>
-              {exercises.map((exercise) => {
-                const data = getExerciseData(exercise.code)
-                return (
-                  <option key={exercise.id} value={exercise.id}>
-                    {exercise.name} {data?.isTimeBased ? '⏱️' : ''}
-                  </option>
-                )
-              })}
+              {exercises.map((exercise) => (
+                <option key={exercise.id} value={exercise.id}>
+                  {exercise.name} {exercise.icon || ''} {isExerciseTimeBased(exercise.code) ? '⏱️' : ''}
+                </option>
+              ))}
             </select>
 
             <select
