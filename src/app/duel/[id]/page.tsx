@@ -8,7 +8,7 @@ import {
   Play, Pause, Square, RotateCcw, Upload, CheckCircle,
   Camera, Video, Zap, Target, Award, Coins, Star,
   AlertCircle, Loader2, Plus, Minus, Volume2, VolumeX,
-  Info, Send, XCircle, Activity, Shield, Eye, Download
+  Info, Send, XCircle, Activity, Shield, Eye, Download, X
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/Button'
