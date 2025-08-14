@@ -18,50 +18,53 @@ import { Card } from '@/components/ui/Card'
 export interface DuelData {
   id: string
   // Participants - USING CORRECT COLUMN NAMES
-  challenger_id: string
-  challengerName?: string
-  challengerAvatar?: string
-  challengerLevel?: number
-  challengerXP?: number
-  challenged_id?: string // CORRECT: challenged_id, not opponentId
-  challengedName?: string // CORRECT: challenged, not opponent
-  challengedAvatar?: string
-  challengedLevel?: number
-  challengedXP?: number
+  challengerId: string
+  challengerName?: string | null
+  challengerAvatar?: string | null
+  challengerLevel?: number | null
+  challengerXP?: number | null
+  challengedId?: string | null // CORRECT: challenged_id, not opponentId
+  challengedName?: string | null // CORRECT: challenged, not opponent
+  challengedAvatar?: string | null
+  challengedLevel?: number | null
+  challengedXP?: number | null
   // Exercise
-  exercise_id: string // CORRECT: exercise_id from exercises table
-  exerciseName?: string
-  exerciseCode?: string
-  exerciseIcon?: string
+  exerciseId: string // CORRECT: exercise_id from exercises table
+  exerciseName?: string | null
+  exerciseCode?: string | null
+  exerciseIcon?: string | null
   // Duel details
   type: '1v1' | 'open' | 'tournament' | 'mission' // CORRECT: type enum
   status: 'pending' | 'open' | 'active' | 'completed' | 'expired' | 'cancelled' // CORRECT: status enum
   difficulty: 'easy' | 'medium' | 'hard' | 'extreme' // CORRECT: difficulty enum
   // Scores
-  challenger_score?: number
-  challenged_score?: number // CORRECT: challenged_score
-  winner_id?: string
+  challengerScore?: number | null
+  challengedScore?: number | null // CORRECT: challenged_score
+  winnerId?: string | null
   // Rewards & Wagers
-  xp_reward: number
-  wager_coins?: number // CORRECT: coins, not XP
+  xpReward: number
+  wagerCoins?: number | null // CORRECT: coins, not XP
   // Timestamps
-  created_at: string
-  expires_at?: string
-  completed_at?: string
+  createdAt: string
+  expiresAt?: string | null
+  completedAt?: string | null
   // Metadata
+  targetReps?: number | null
+  targetTime?: number | null
   metadata?: {
     targetReps?: number
     targetTime?: number
     rules?: any
-  }
+  } | null
   // UI specific (not from DB)
+  isLive?: boolean
   isPublic?: boolean
-  viewers?: number
+  viewers?: number | null
 }
 
 export interface DuelCardProps {
   duel: DuelData
-  currentUserId: string
+  currentUserId?: string
   variant?: 'default' | 'compact' | 'detailed' | 'live'
   showActions?: boolean
   onAccept?: (duelId: string) => void
@@ -70,6 +73,7 @@ export interface DuelCardProps {
   onView?: (duelId: string) => void
   onShare?: (duelId: string) => void
   className?: string
+  isLive?: boolean
 }
 
 // ====================================
@@ -137,19 +141,24 @@ export function DuelCard({
   onView,
   onShare,
   className,
+  isLive = false,
 }: DuelCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   
-  const isChallenger = duel.challenger_id === currentUserId
-  const isChallenged = duel.challenged_id === currentUserId
+  const isChallenger = currentUserId ? duel.challengerId === currentUserId : false
+  const isChallenged = currentUserId && duel.challengedId ? duel.challengedId === currentUserId : false
   const isParticipant = isChallenger || isChallenged
-  const isWinner = duel.winner_id === currentUserId
-  const isLoser = Boolean(duel.winner_id && isParticipant && !isWinner)
+  const isWinner = currentUserId && duel.winnerId ? duel.winnerId === currentUserId : false
+  const isLoser = Boolean(duel.winnerId && isParticipant && !isWinner)
   
   const status = statusConfig[duel.status] || statusConfig.pending
 
-  // Get target description from metadata
-  const targetDescription = duel.metadata?.targetReps 
+  // Get target description from metadata or direct props
+  const targetDescription = duel.targetReps 
+    ? `${duel.targetReps} ripetizioni`
+    : duel.targetTime
+    ? `${duel.targetTime} secondi`
+    : duel.metadata?.targetReps
     ? `${duel.metadata.targetReps} ripetizioni`
     : duel.metadata?.targetTime
     ? `${duel.metadata.targetTime} secondi`
@@ -169,7 +178,7 @@ export function DuelCard({
     )
   }
 
-  if (variant === 'live') {
+  if (variant === 'live' || isLive) {
     return (
       <LiveDuelCard
         duel={duel}
@@ -221,6 +230,16 @@ export function DuelCard({
         style={{ color: status.color.replace('text-', '') }}
       />
 
+      {/* Live indicator for active duels */}
+      {(isLive || duel.status === 'active') && (
+        <div className="absolute top-2 right-2 z-10">
+          <div className="flex items-center gap-1 px-2 py-1 bg-red-500/20 rounded-full">
+            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+            <span className="text-xs text-red-400">LIVE</span>
+          </div>
+        </div>
+      )}
+
       <div className="p-4">
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
@@ -250,7 +269,7 @@ export function DuelCard({
                   {status.label}
                 </span>
                 <span className="text-xs text-gray-500">
-                  • {formatTimeAgo(duel.created_at)}
+                  • {formatTimeAgo(duel.createdAt)}
                 </span>
               </div>
             </div>
@@ -261,12 +280,12 @@ export function DuelCard({
             <div className="flex items-center gap-1">
               <Zap className="w-4 h-4 text-yellow-500" />
               <span className="font-bold text-yellow-500">
-                {duel.xp_reward} XP
+                {duel.xpReward} XP
               </span>
             </div>
-            {duel.wager_coins && (
+            {duel.wagerCoins && (
               <div className="text-xs text-gray-500">
-                🪙 {duel.wager_coins} coins
+                🪙 {duel.wagerCoins} coins
               </div>
             )}
           </div>
@@ -278,8 +297,8 @@ export function DuelCard({
             name={duel.challengerName || 'Sfidante'}
             avatar={duel.challengerAvatar}
             level={duel.challengerLevel}
-            score={duel.challenger_score}
-            isWinner={duel.winner_id === duel.challenger_id}
+            score={duel.challengerScore}
+            isWinner={duel.winnerId === duel.challengerId}
             isYou={isChallenger}
           />
 
@@ -288,13 +307,13 @@ export function DuelCard({
             <span className="text-xs text-gray-500">VS</span>
           </div>
 
-          {duel.challenged_id ? (
+          {duel.challengedId ? (
             <UserAvatar
               name={duel.challengedName || 'Avversario'}
               avatar={duel.challengedAvatar}
               level={duel.challengedLevel}
-              score={duel.challenged_score}
-              isWinner={duel.winner_id === duel.challenged_id}
+              score={duel.challengedScore}
+              isWinner={duel.winnerId === duel.challengedId}
               isYou={isChallenged}
             />
           ) : (
@@ -321,7 +340,7 @@ export function DuelCard({
         )}
 
         {/* Actions */}
-        {showActions && (
+        {showActions && currentUserId && (
           <DuelActions
             duel={duel}
             isChallenger={isChallenger}
@@ -335,10 +354,10 @@ export function DuelCard({
 
         {/* Live viewers */}
         {duel.viewers && duel.viewers > 0 && (
-          <div className="absolute top-2 right-2">
-            <div className="flex items-center gap-1 px-2 py-1 bg-red-500/20 rounded-full">
-              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-              <span className="text-xs text-red-400">
+          <div className="absolute bottom-2 right-2">
+            <div className="flex items-center gap-1 px-2 py-1 bg-gray-800/80 rounded-full">
+              <Users className="w-3 h-3 text-gray-400" />
+              <span className="text-xs text-gray-400">
                 {duel.viewers} watching
               </span>
             </div>
@@ -374,9 +393,9 @@ function UserAvatar({
   isYou,
 }: {
   name: string
-  avatar?: string
-  level?: number
-  score?: number
+  avatar?: string | null
+  level?: number | null
+  score?: number | null
   isWinner?: boolean
   isYou?: boolean
 }) {
@@ -409,7 +428,7 @@ function UserAvatar({
         </p>
         <div className="flex items-center gap-2 text-xs text-gray-500">
           {level && <span>Lv.{level}</span>}
-          {score !== undefined && (
+          {score !== undefined && score !== null && (
             <span className={cn(
               'font-bold',
               isWinner && 'text-green-400'
@@ -539,7 +558,7 @@ function CompactDuelCard({
   className,
 }: {
   duel: DuelData
-  currentUserId: string
+  currentUserId?: string
   status: StatusConfig
   isWinner: boolean
   isLoser: boolean
@@ -576,7 +595,7 @@ function CompactDuelCard({
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <span>{duel.challengedName || 'Sfida aperta'}</span>
           <span>•</span>
-          <span>{formatTimeAgo(duel.created_at)}</span>
+          <span>{formatTimeAgo(duel.createdAt)}</span>
         </div>
       </div>
 
@@ -599,7 +618,7 @@ function CompactDuelCard({
         <div className="flex items-center gap-1">
           <Zap className="w-3 h-3 text-yellow-500" />
           <span className="text-xs font-bold text-yellow-500">
-            {duel.xp_reward}
+            {duel.xpReward}
           </span>
         </div>
       )}
@@ -620,7 +639,7 @@ function LiveDuelCard({
   className,
 }: {
   duel: DuelData
-  currentUserId: string
+  currentUserId?: string
   status: StatusConfig
   onView?: (duelId: string) => void
   className?: string
@@ -667,7 +686,7 @@ function LiveDuelCard({
             <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500" />
             <p className="font-semibold text-sm">{duel.challengerName || 'Sfidante'}</p>
             <p className="text-2xl font-bold text-white">
-              {duel.challenger_score || 0}
+              {duel.challengerScore || 0}
             </p>
           </div>
           
@@ -675,7 +694,7 @@ function LiveDuelCard({
             <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-gradient-to-br from-purple-500 to-pink-500" />
             <p className="font-semibold text-sm">{duel.challengedName || 'In attesa...'}</p>
             <p className="text-2xl font-bold text-white">
-              {duel.challenged_score || 0}
+              {duel.challengedScore || 0}
             </p>
           </div>
         </div>
@@ -716,7 +735,7 @@ function DetailedDuelCard({
   className,
 }: {
   duel: DuelData
-  currentUserId: string
+  currentUserId?: string
   status: StatusConfig
   isChallenger: boolean
   isChallenged: boolean
@@ -782,20 +801,20 @@ function DetailedDuelCard({
             avatar={duel.challengerAvatar}
             level={duel.challengerLevel || 1}
             xp={duel.challengerXP || 0}
-            score={duel.challenger_score}
-            isWinner={duel.winner_id === duel.challenger_id}
+            score={duel.challengerScore}
+            isWinner={duel.winnerId === duel.challengerId}
             isYou={isChallenger}
             label="Sfidante"
           />
           
-          {duel.challenged_id ? (
+          {duel.challengedId ? (
             <ParticipantDetail
               name={duel.challengedName || 'Avversario'}
               avatar={duel.challengedAvatar}
               level={duel.challengedLevel || 1}
               xp={duel.challengedXP || 0}
-              score={duel.challenged_score}
-              isWinner={duel.winner_id === duel.challenged_id}
+              score={duel.challengedScore}
+              isWinner={duel.winnerId === duel.challengedId}
               isYou={isChallenged}
               label="Avversario"
             />
@@ -817,23 +836,23 @@ function DetailedDuelCard({
           <DetailItem
             icon={Zap}
             label="Premio XP"
-            value={`${duel.xp_reward} XP`}
+            value={`${duel.xpReward} XP`}
             highlight
           />
           <DetailItem
             icon={Calendar}
             label="Creato"
-            value={formatTimeAgo(duel.created_at)}
+            value={formatTimeAgo(duel.createdAt)}
           />
           <DetailItem
             icon={Timer}
             label="Scadenza"
-            value={duel.expires_at ? formatTimeAgo(duel.expires_at) : 'Mai'}
+            value={duel.expiresAt ? formatTimeAgo(duel.expiresAt) : 'Mai'}
           />
         </div>
 
         {/* Actions */}
-        {showActions && (
+        {showActions && currentUserId && (
           <DuelActions
             duel={duel}
             isChallenger={isChallenger}
@@ -863,10 +882,10 @@ function ParticipantDetail({
   label,
 }: {
   name: string
-  avatar?: string
+  avatar?: string | null
   level: number
   xp: number
-  score?: number
+  score?: number | null
   isWinner?: boolean
   isYou?: boolean
   label: string
@@ -909,7 +928,7 @@ function ParticipantDetail({
           </div>
         </div>
 
-        {score !== undefined && (
+        {score !== undefined && score !== null && (
           <div className="text-right">
             <p className="text-xs text-gray-500">{label}</p>
             <p className={cn(
