@@ -42,6 +42,8 @@ interface Team {
     username: string
     avatar_url: string | null
   }
+  my_role?: string
+  my_contribution?: number
 }
 
 interface TeamMember {
@@ -192,7 +194,22 @@ export default function TeamsPage() {
           role,
           contribution_xp,
           teams:team_id (
-            *,
+            id,
+            name,
+            description,
+            avatar_url,
+            type,
+            location,
+            leader_id,
+            current_members,
+            max_members,
+            total_xp,
+            weekly_xp,
+            is_public,
+            is_verified,
+            is_active,
+            invite_code,
+            created_at,
             leader:leader_id (
               username,
               avatar_url
@@ -203,12 +220,20 @@ export default function TeamsPage() {
         .eq('is_active', true)
 
       if (memberData) {
-        const teams = memberData.map(m => ({
-          ...m.teams,
-          my_role: m.role,
-          my_contribution: m.contribution_xp
-        }))
-        setMyTeams(teams)
+        const teams = memberData
+          .filter(m => m.teams) // Ensure teams exists
+          .map(m => {
+            // Handle if teams is an array (shouldn't be, but being safe)
+            const teamData = Array.isArray(m.teams) ? m.teams[0] : m.teams
+            return {
+              ...teamData,
+              my_role: m.role,
+              my_contribution: m.contribution_xp
+            }
+          })
+          .filter(t => t.id) // Ensure we have valid team data
+        
+        setMyTeams(teams as Team[])
       }
 
       // Fetch public teams
@@ -226,7 +251,7 @@ export default function TeamsPage() {
         .limit(20)
 
       if (publicData) {
-        setPublicTeams(publicData)
+        setPublicTeams(publicData as Team[])
       }
     } catch (error) {
       console.error('Error fetching teams:', error)
