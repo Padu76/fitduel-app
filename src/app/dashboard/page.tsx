@@ -9,7 +9,7 @@ import {
   TrendingUp, Medal, Star, Crown, Swords, Timer,
   BarChart3, Target, ChevronRight, Settings, LogOut,
   Activity, Coins, CheckCircle, ExternalLink, RefreshCw,
-  Shield, Heart, Sparkles, AlertTriangle, Info, X
+  Shield, Heart, Sparkles, AlertTriangle, Info, X, Loader2
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/Button'
@@ -18,8 +18,22 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useUserStore } from '@/stores/useUserStore'
 
 // ====================================
-// TYPES - UPDATED TO MATCH DATABASE
+// TYPES
 // ====================================
+interface Mission {
+  id: string
+  title: string
+  description: string
+  icon: string
+  type: 'daily' | 'weekly' | 'achievement'
+  xpReward: number
+  coinReward?: number
+  progress: number
+  target: number
+  isCompleted: boolean
+  isClaimed: boolean
+}
+
 interface DuelCardData {
   id: string
   challengerName: string
@@ -67,7 +81,299 @@ interface Notification {
 }
 
 // ====================================
-// MOCK DATA - UPDATED TO MATCH DATABASE
+// MISSIONS WIDGET COMPONENT
+// ====================================
+const MissionsWidget = () => {
+  const router = useRouter()
+  const supabase = createClientComponentClient()
+  const { user, addXP, addCoins } = useUserStore()
+  const [missions, setMissions] = useState<Mission[]>([])
+  const [claiming, setClaiming] = useState<string | null>(null)
+  const [claimSuccess, setClaimSuccess] = useState<string | null>(null)
+
+  useEffect(() => {
+    loadMissions()
+  }, [user])
+
+  const loadMissions = async () => {
+    // Mock missions for now - replace with real data from Supabase
+    const mockMissions: Mission[] = [
+      {
+        id: 'm1',
+        title: 'Guerriero',
+        description: 'Vinci 3 duelli',
+        icon: '⚔️',
+        type: 'daily',
+        xpReward: 100,
+        progress: 2,
+        target: 3,
+        isCompleted: false,
+        isClaimed: false
+      },
+      {
+        id: 'm2',
+        title: 'Streak',
+        description: 'Mantieni una streak di 3 vittorie',
+        icon: '🔥',
+        type: 'daily',
+        xpReward: 50,
+        coinReward: 25,
+        progress: 3,
+        target: 3,
+        isCompleted: true,
+        isClaimed: false
+      },
+      {
+        id: 'm3',
+        title: 'Atleta',
+        description: 'Completa 5 esercizi oggi',
+        icon: '💪',
+        type: 'daily',
+        xpReward: 75,
+        progress: 1,
+        target: 5,
+        isCompleted: false,
+        isClaimed: false
+      }
+    ]
+
+    // If real user, try to load from database
+    if (user?.id && user.id !== 'demo') {
+      try {
+        const { data, error } = await supabase
+          .from('user_missions')
+          .select(`
+            *,
+            mission:missions(*)
+          `)
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+
+        if (data && !error) {
+          const realMissions = data.map(um => ({
+            id: um.mission.id,
+            title: um.mission.title,
+            description: um.mission.description,
+            icon: um.mission.icon || '🎯',
+            type: um.mission.type,
+            xpReward: um.mission.xp_reward,
+            coinReward: um.mission.coin_reward,
+            progress: um.progress || 0,
+            target: um.mission.target_value,
+            isCompleted: um.is_completed,
+            isClaimed: um.is_claimed
+          }))
+          setMissions(realMissions.length > 0 ? realMissions : mockMissions)
+        } else {
+          setMissions(mockMissions)
+        }
+      } catch (error) {
+        console.error('Error loading missions:', error)
+        setMissions(mockMissions)
+      }
+    } else {
+      setMissions(mockMissions)
+    }
+  }
+
+  const handleClaimReward = async (mission: Mission) => {
+    if (!mission.isCompleted || mission.isClaimed || claiming) return
+
+    setClaiming(mission.id)
+    setClaimSuccess(null)
+
+    try {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      // Update user stats
+      if (mission.xpReward) {
+        addXP(mission.xpReward)
+      }
+      if (mission.coinReward) {
+        addCoins(mission.coinReward)
+      }
+
+      // Update mission state
+      setMissions(prev => prev.map(m => 
+        m.id === mission.id ? { ...m, isClaimed: true } : m
+      ))
+
+      // Show success message
+      setClaimSuccess(mission.id)
+      setTimeout(() => setClaimSuccess(null), 3000)
+
+      // If real user, update in database
+      if (user?.id && user.id !== 'demo') {
+        try {
+          // Update mission claim status
+          await supabase
+            .from('user_missions')
+            .update({ 
+              is_claimed: true,
+              claimed_at: new Date().toISOString()
+            })
+            .eq('user_id', user.id)
+            .eq('mission_id', mission.id)
+
+          // Update user profile with new XP and coins
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('xp, coins')
+            .eq('id', user.id)
+            .single()
+
+          if (profile) {
+            await supabase
+              .from('profiles')
+              .update({
+                xp: (profile.xp || 0) + mission.xpReward,
+                coins: (profile.coins || 0) + (mission.coinReward || 0)
+              })
+              .eq('id', user.id)
+          }
+
+          // Call API to handle additional rewards logic
+          await fetch('/api/missions/claim', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user.id,
+              missionId: mission.id,
+              xpReward: mission.xpReward,
+              coinReward: mission.coinReward
+            })
+          })
+        } catch (error) {
+          console.error('Error updating database:', error)
+        }
+      }
+    } catch (error) {
+      console.error('Error claiming reward:', error)
+    } finally {
+      setClaiming(null)
+    }
+  }
+
+  const activeMissions = missions.filter(m => !m.isClaimed)
+  const completedUnclaimed = missions.filter(m => m.isCompleted && !m.isClaimed)
+
+  return (
+    <Card variant="glass" className="p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Target className="w-5 h-5 text-indigo-500" />
+          <h3 className="font-bold text-white">Missioni</h3>
+        </div>
+        <span className="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-1 rounded-full">
+          {activeMissions.length} attive
+        </span>
+      </div>
+      
+      <div className="space-y-3">
+        {missions.slice(0, 3).map((mission) => (
+          <motion.div
+            key={mission.id}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className={cn(
+              "p-3 rounded-lg transition-all",
+              mission.isCompleted && !mission.isClaimed ? "bg-green-500/10 border border-green-500/30" :
+              mission.isClaimed ? "bg-gray-800/30 opacity-60" :
+              "bg-gray-800/50"
+            )}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">{mission.icon}</span>
+                <p className="text-sm font-medium text-white">{mission.title}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {mission.xpReward > 0 && (
+                  <span className="text-xs text-yellow-500">+{mission.xpReward} XP</span>
+                )}
+                {mission.coinReward && mission.coinReward > 0 && (
+                  <span className="text-xs text-yellow-600">+{mission.coinReward} 💰</span>
+                )}
+                {mission.isClaimed && (
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                )}
+              </div>
+            </div>
+
+            {!mission.isCompleted && (
+              <>
+                <div className="w-full bg-gray-700 rounded-full h-2 mb-1">
+                  <motion.div 
+                    className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(mission.progress / mission.target) * 100}%` }}
+                    transition={{ duration: 0.5 }}
+                  />
+                </div>
+                <p className="text-xs text-gray-400">{mission.progress}/{mission.target} {mission.description}</p>
+              </>
+            )}
+
+            {mission.isCompleted && !mission.isClaimed && (
+              <Button 
+                variant="gradient" 
+                size="sm" 
+                className="w-full"
+                disabled={claiming === mission.id}
+                onClick={() => handleClaimReward(mission)}
+              >
+                {claiming === mission.id ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                    Riscattando...
+                  </>
+                ) : claimSuccess === mission.id ? (
+                  <>
+                    <CheckCircle className="w-4 h-4 mr-1" />
+                    Riscattato!
+                  </>
+                ) : (
+                  <>
+                    Riscatta +{mission.xpReward} XP
+                    {mission.coinReward && ` +${mission.coinReward} 💰`}
+                  </>
+                )}
+              </Button>
+            )}
+
+            {mission.isClaimed && (
+              <p className="text-xs text-gray-500 text-center">Ricompensa riscattata ✓</p>
+            )}
+          </motion.div>
+        ))}
+
+        {completedUnclaimed.length > 0 && claimSuccess && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="p-2 bg-green-500/10 border border-green-500/30 rounded-lg"
+          >
+            <p className="text-xs text-green-400 text-center">
+              🎉 Ricompensa riscattata con successo!
+            </p>
+          </motion.div>
+        )}
+      </div>
+
+      <Link href="/missions">
+        <Button variant="secondary" size="sm" className="w-full mt-4">
+          Tutte le Missioni
+          <ChevronRight className="w-4 h-4 ml-1" />
+        </Button>
+      </Link>
+    </Card>
+  )
+}
+
+// ====================================
+// MOCK DATA
 // ====================================
 const MOCK_ACTIVE_DUELS: DuelCardData[] = [
   {
@@ -340,14 +646,12 @@ const NotificationSystem = () => {
   const { user, incrementNotifications, clearNotifications } = useUserStore()
   const supabase = createClientComponentClient()
 
-  // Load notifications
   useEffect(() => {
     loadNotifications()
   }, [user])
 
   const loadNotifications = async () => {
     if (!user?.id) {
-      // Mock notifications for demo
       const mockNotifications: Notification[] = [
         {
           id: '1',
@@ -378,7 +682,6 @@ const NotificationSystem = () => {
       return
     }
 
-    // Load real notifications from database
     try {
       const { data, error } = await supabase
         .from('notifications')
@@ -413,7 +716,6 @@ const NotificationSystem = () => {
       prev.map(n => n.id === id ? { ...n, isRead: true } : n)
     )
 
-    // Update in database if real user
     if (user?.id && user.id !== 'demo') {
       await supabase
         .from('notifications')
@@ -426,7 +728,6 @@ const NotificationSystem = () => {
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
     clearNotifications()
 
-    // Update all in database if real user
     if (user?.id && user.id !== 'demo') {
       await supabase
         .from('notifications')
@@ -465,7 +766,6 @@ const NotificationSystem = () => {
 
   return (
     <>
-      {/* Notification Bell */}
       <div className="relative">
         <Button 
           variant="ghost" 
@@ -481,7 +781,6 @@ const NotificationSystem = () => {
         )}
       </div>
 
-      {/* Toast Notification */}
       <AnimatePresence>
         {showToast && currentToast && (
           <motion.div
@@ -509,7 +808,6 @@ const NotificationSystem = () => {
         )}
       </AnimatePresence>
 
-      {/* Notification Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <motion.div
@@ -664,14 +962,12 @@ export default function DashboardPage() {
             newsletter: false,
             createdAt: new Date().toISOString()
           })
-          // Use mock data for demo user
           setActiveDuels(MOCK_ACTIVE_DUELS)
         } else {
           router.push('/login')
           return
         }
       } else {
-        // Load real user data from Supabase
         const { data: profileData } = await supabase
           .from('profiles')
           .select('*')
@@ -733,7 +1029,6 @@ export default function DashboardPage() {
       const { data: { user: authUser } } = await supabase.auth.getUser()
       if (!authUser) return
 
-      // Load active duels from database
       const { data: duelsData, error } = await supabase
         .from('duels')
         .select(`
@@ -820,7 +1115,7 @@ export default function DashboardPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-950 via-indigo-950 to-purple-950 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mx-auto mb-4" />
           <p className="text-gray-400">Caricamento dashboard...</p>
         </div>
       </div>
@@ -1164,61 +1459,13 @@ export default function DashboardPage() {
               </Card>
             </motion.div>
 
-            {/* Daily Missions Widget */}
+            {/* Daily Missions Widget - UPDATED */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.4 }}
             >
-              <Card variant="glass" className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Target className="w-5 h-5 text-indigo-500" />
-                    <h3 className="font-bold text-white">Missioni</h3>
-                  </div>
-                  <span className="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-1 rounded-full">
-                    2 attive
-                  </span>
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="p-3 bg-gray-800/50 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">⚔️</span>
-                        <p className="text-sm font-medium text-white">Guerriero</p>
-                      </div>
-                      <span className="text-xs text-yellow-500">+100 XP</span>
-                    </div>
-                    <div className="w-full bg-gray-700 rounded-full h-2">
-                      <div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full" 
-                           style={{ width: '66%' }}>
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-1">2/3 duelli vinti</p>
-                  </div>
-
-                  <div className="p-3 bg-green-500/10 rounded-lg border border-green-500/30">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">🔥</span>
-                        <p className="text-sm font-medium text-white">Streak</p>
-                      </div>
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                    </div>
-                    <Button variant="gradient" size="sm" className="w-full">
-                      Riscatta +50 XP
-                    </Button>
-                  </div>
-                </div>
-
-                <Link href="/missions">
-                  <Button variant="secondary" size="sm" className="w-full mt-4">
-                    Tutte le Missioni
-                    <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
-                </Link>
-              </Card>
+              <MissionsWidget />
             </motion.div>
           </div>
         </div>
@@ -1226,3 +1473,4 @@ export default function DashboardPage() {
     </div>
   )
 }
+          
