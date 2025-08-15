@@ -9,7 +9,7 @@ import {
   Plus, Search, Filter, ChevronRight, Flame, Crown,
   Star, Medal, Activity, TrendingUp, Calendar, Bell,
   ArrowLeft, RefreshCw, AlertCircle, CheckCircle, Clock,
-  Info
+  Info, Loader2
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/Button'
@@ -18,7 +18,7 @@ import { Modal } from '@/components/ui/Modal'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 // ====================================
-// TYPES - UPDATED TO MATCH DATABASE
+// TYPES
 // ====================================
 interface Exercise {
   id: string
@@ -45,19 +45,19 @@ interface Duel {
   id: string
   type: '1v1' | 'open' | 'tournament' | 'mission'
   status: 'pending' | 'open' | 'active' | 'completed' | 'expired' | 'cancelled'
-  challenger_id: string // CORRECT
+  challenger_id: string
   challenger?: Profile
-  challenged_id: string | null // CORRECT: challenged_id, not opponent_id
-  challenged?: Profile // CORRECT: challenged, not opponent
-  exercise_id: string // CORRECT: exercise_id, not exercise_code
+  challenged_id: string | null
+  challenged?: Profile
+  exercise_id: string
   exercise?: Exercise
   difficulty: 'easy' | 'medium' | 'hard' | 'extreme'
-  wager_coins: number // CORRECT: coins, not xp
+  wager_coins: number
   xp_reward: number
-  challenger_score?: number // CORRECT
-  challenged_score?: number // CORRECT: challenged_score, not opponent_score
+  challenger_score?: number
+  challenged_score?: number
   winner_id?: string | null
-  metadata?: { // CORRECT: using metadata for targets
+  metadata?: {
     targetReps?: number
     targetTime?: number
     rules?: any
@@ -122,13 +122,6 @@ const DuelCard = ({
     return 'Sfidante'
   }
 
-  const getChallengedName = () => {
-    if (duel.challenged?.display_name) return duel.challenged.display_name
-    if (duel.challenged?.username) return duel.challenged.username
-    return null
-  }
-
-  // Check if exercise is time-based
   const isTimeBased = duel.exercise?.code ? isExerciseTimeBased(duel.exercise.code) : 
                       (duel.metadata?.targetTime !== undefined && duel.metadata?.targetTime !== null)
 
@@ -242,17 +235,14 @@ const CreateDuelModal = ({
   const [xpReward, setXpReward] = useState<number>(100)
   const [duelType, setDuelType] = useState<'1v1' | 'open'>('open')
 
-  // Get exercise data to check if time-based
   const selectedExerciseData = selectedExercise ? 
     exercises.find(e => e.id === selectedExercise) : null
   
   const isTimeBased = selectedExerciseData ? 
     isExerciseTimeBased(selectedExerciseData.code) : false
 
-  // Update target value when exercise or difficulty changes
   useEffect(() => {
     if (selectedExerciseData && difficulty) {
-      // Default targets based on difficulty
       const defaultTargets = {
         easy: isTimeBased ? 30 : 10,
         medium: isTimeBased ? 60 : 20,
@@ -261,23 +251,22 @@ const CreateDuelModal = ({
       }
       setTargetValue(defaultTargets[difficulty])
     }
-  }, [selectedExercise, difficulty, isTimeBased])
+  }, [selectedExercise, difficulty, isTimeBased, selectedExerciseData])
 
   const handleCreate = () => {
     if (!selectedExercise) return
 
     onCreate({
-      exerciseId: selectedExercise, // CORRECT: using exerciseId
+      exerciseId: selectedExercise,
       type: duelType,
       difficulty,
       targetReps: isTimeBased ? null : targetValue,
       targetTime: isTimeBased ? targetValue : null,
-      wagerCoins, // CORRECT: using coins
+      wagerCoins,
       xpReward,
-      timeLimit: 72 // hours
+      timeLimit: 72
     })
 
-    // Reset form
     setSelectedExercise('')
     setDifficulty('medium')
     setTargetValue(20)
@@ -289,10 +278,8 @@ const CreateDuelModal = ({
 
   const getTargetRange = () => {
     if (isTimeBased) {
-      // Time in seconds
       return { min: 10, max: 300, step: 5 }
     } else {
-      // Repetitions
       return { min: 5, max: 100, step: 5 }
     }
   }
@@ -346,8 +333,9 @@ const CreateDuelModal = ({
               variant={duelType === '1v1' ? 'gradient' : 'secondary'}
               size="sm"
               onClick={() => setDuelType('1v1')}
+              disabled
             >
-              1 vs 1
+              1 vs 1 (Soon)
             </Button>
           </div>
         </div>
@@ -437,7 +425,7 @@ const CreateDuelModal = ({
               <Info className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
               <div className="text-xs text-blue-300">
                 <p className="font-medium mb-1">Sfida Isometrica</p>
-                <p>Vince chi raggiunge il tempo target mantenendo la forma corretta. Se nessuno raggiunge il target, vince chi resiste più a lungo.</p>
+                <p>Vince chi raggiunge il tempo target mantenendo la forma corretta.</p>
               </div>
             </div>
           </div>
@@ -490,7 +478,22 @@ export default function ChallengesPage() {
   // Filter duels when filters change
   useEffect(() => {
     filterDuels()
-  }, [duels, selectedTab, searchQuery, filterExercise, filterDifficulty])
+  }, [duels, selectedTab, searchQuery, filterExercise, filterDifficulty, currentUser])
+
+  // Auto-hide success/error messages
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => setSuccess(null), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [success])
+
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [error])
 
   const loadData = async () => {
     try {
@@ -501,11 +504,18 @@ export default function ChallengesPage() {
       const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) {
-        router.push('/login')
-        return
+        // Check localStorage for saved user
+        const savedUser = localStorage.getItem('fitduel_user')
+        if (savedUser) {
+          const userData = JSON.parse(savedUser)
+          setCurrentUser(userData)
+        } else {
+          router.push('/login')
+          return
+        }
+      } else {
+        setCurrentUser(user)
       }
-      
-      setCurrentUser(user)
 
       // Load exercises
       const { data: exercisesData, error: exercisesError } = await supabase
@@ -516,10 +526,11 @@ export default function ChallengesPage() {
 
       if (exercisesError) {
         console.error('Error loading exercises:', exercisesError)
-        setError('Errore nel caricamento degli esercizi')
-      } else {
-        setExercises(exercisesData || [])
+        setError('Errore nel caricamento degli esercizi. Verifica la configurazione del database.')
+        return
       }
+      
+      setExercises(exercisesData || [])
 
       // Load duels with proper joins
       const { data: duelsData, error: duelsError } = await supabase
@@ -556,35 +567,39 @@ export default function ChallengesPage() {
 
       if (duelsError) {
         console.error('Error loading duels:', duelsError)
-        setError('Errore nel caricamento delle sfide')
-      } else {
-        setDuels(duelsData || [])
+        setError('Errore nel caricamento delle sfide. Verifica la configurazione del database.')
+        return
       }
+      
+      setDuels(duelsData || [])
+      
     } catch (err: any) {
       console.error('Error loading data:', err)
-      setError('Errore nel caricamento dei dati')
+      setError('Errore nel caricamento dei dati. Verifica la connessione.')
     } finally {
       setLoading(false)
     }
   }
 
   const filterDuels = () => {
+    if (!currentUser) return
+    
     let filtered = [...duels]
 
     // Filter by tab
     if (selectedTab === 'available') {
       filtered = filtered.filter(d => 
         d.status === 'open' && 
-        d.challenger_id !== currentUser?.id
+        d.challenger_id !== currentUser.id
       )
     } else if (selectedTab === 'my-duels') {
       filtered = filtered.filter(d => 
-        (d.challenger_id === currentUser?.id || d.challenged_id === currentUser?.id) &&
+        (d.challenger_id === currentUser.id || d.challenged_id === currentUser.id) &&
         ['pending', 'open', 'active'].includes(d.status)
       )
     } else if (selectedTab === 'history') {
       filtered = filtered.filter(d => 
-        (d.challenger_id === currentUser?.id || d.challenged_id === currentUser?.id) &&
+        (d.challenger_id === currentUser.id || d.challenged_id === currentUser.id) &&
         ['completed', 'expired', 'cancelled'].includes(d.status)
       )
     }
@@ -616,15 +631,12 @@ export default function ChallengesPage() {
     try {
       setError(null)
       
-      // Call the API route to create duel
       const response = await fetch('/api/duels/create', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           challengerId: currentUser.id,
-          challengedId: duelData.type === '1v1' ? duelData.challengedId : undefined,
+          challengedId: duelData.type === '1v1' ? duelData.challengedId : null,
           exerciseId: duelData.exerciseId,
           duelType: duelData.type,
           wagerCoins: duelData.wagerCoins,
@@ -643,7 +655,7 @@ export default function ChallengesPage() {
       }
 
       setSuccess('Sfida creata con successo!')
-      loadData() // Reload duels
+      await loadData()
     } catch (err: any) {
       console.error('Error creating duel:', err)
       setError(err.message || 'Errore nella creazione della sfida')
@@ -656,9 +668,7 @@ export default function ChallengesPage() {
       
       const response = await fetch('/api/duels/accept', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           duelId: duelId,
           userId: currentUser.id
@@ -672,7 +682,7 @@ export default function ChallengesPage() {
       }
 
       setSuccess('Sfida accettata!')
-      loadData() // Reload duels to update the status
+      await loadData()
       router.push(`/duel/${duelId}`)
     } catch (err: any) {
       console.error('Error accepting duel:', err)
@@ -688,7 +698,7 @@ export default function ChallengesPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-950 via-indigo-950 to-purple-950 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mx-auto mb-4" />
           <p className="text-gray-400">Caricamento sfide...</p>
         </div>
       </div>
@@ -718,10 +728,19 @@ export default function ChallengesPage() {
               </div>
             </div>
 
-            <Button variant="gradient" onClick={() => setShowCreateModal(true)}>
-              <Plus className="w-5 h-5 mr-2" />
-              Crea Sfida
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={loadData}
+              >
+                <RefreshCw className="w-5 h-5" />
+              </Button>
+              <Button variant="gradient" onClick={() => setShowCreateModal(true)}>
+                <Plus className="w-5 h-5 mr-2" />
+                Crea Sfida
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -748,6 +767,26 @@ export default function ChallengesPage() {
           >
             <CheckCircle className="w-5 h-5 text-green-400 mt-0.5" />
             <p className="text-sm text-green-400">{success}</p>
+          </motion.div>
+        )}
+
+        {/* Database Setup Info */}
+        {exercises.length === 0 && !loading && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg"
+          >
+            <div className="flex items-start gap-2">
+              <Info className="w-5 h-5 text-blue-400 mt-0.5" />
+              <div>
+                <p className="text-sm text-blue-400 font-medium">Database Setup Required</p>
+                <p className="text-xs text-blue-300 mt-1">
+                  Per iniziare, configura il database Supabase con le tabelle necessarie:
+                  exercises, duels, profiles, e le relative RLS policies.
+                </p>
+              </div>
+            </div>
           </motion.div>
         )}
 
@@ -845,7 +884,7 @@ export default function ChallengesPage() {
                selectedTab === 'my-duels' ? 'Non hai sfide attive.' :
                'Non hai ancora completato nessuna sfida.'}
             </p>
-            {selectedTab === 'available' && (
+            {selectedTab === 'available' && exercises.length > 0 && (
               <Button variant="gradient" onClick={() => setShowCreateModal(true)}>
                 <Plus className="w-5 h-5 mr-2" />
                 Crea la Prima Sfida
