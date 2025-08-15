@@ -104,6 +104,8 @@ export default function TeamsWidget() {
   }, [activeTeamId])
 
   const fetchMyTeams = async () => {
+    if (!user?.id) return
+    
     try {
       setLoading(true)
 
