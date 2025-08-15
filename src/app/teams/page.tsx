@@ -179,6 +179,8 @@ export default function TeamsPage() {
   }, [selectedTeam, activeTab])
 
   const fetchTeams = async () => {
+    if (!user?.id) return
+    
     try {
       setLoading(true)
 
@@ -332,7 +334,7 @@ export default function TeamsPage() {
   }
 
   const createTeam = async () => {
-    if (!newTeam.name) return
+    if (!newTeam.name || !user?.id) return
 
     try {
       const { data, error } = await supabase
@@ -365,7 +367,7 @@ export default function TeamsPage() {
   }
 
   const joinTeamByCode = async () => {
-    if (!joinCode) return
+    if (!joinCode || !user?.id) return
 
     try {
       const { data, error } = await supabase
@@ -389,6 +391,8 @@ export default function TeamsPage() {
   }
 
   const joinPublicTeam = async (teamId: string) => {
+    if (!user?.id) return
+    
     try {
       const { error } = await supabase
         .from('team_members')
@@ -419,7 +423,7 @@ export default function TeamsPage() {
   }
 
   const leaveTeam = async (teamId: string) => {
-    if (!confirm('Sei sicuro di voler lasciare questo team?')) return
+    if (!confirm('Sei sicuro di voler lasciare questo team?') || !user?.id) return
 
     try {
       await supabase
@@ -436,7 +440,7 @@ export default function TeamsPage() {
   }
 
   const sendMessage = async () => {
-    if (!messageInput.trim() || !selectedTeam) return
+    if (!messageInput.trim() || !selectedTeam || !user?.id) return
 
     try {
       const { error } = await supabase
@@ -929,7 +933,7 @@ export default function TeamsPage() {
                           <div
                             key={msg.id}
                             className={`flex gap-3 ${
-                              msg.user_id === user.id ? 'flex-row-reverse' : ''
+                              msg.user_id === user?.id ? 'flex-row-reverse' : ''
                             }`}
                           >
                             <img
@@ -938,13 +942,13 @@ export default function TeamsPage() {
                               className="w-8 h-8 rounded-full"
                             />
                             <div className={`max-w-[70%] ${
-                              msg.user_id === user.id ? 'text-right' : ''
+                              msg.user_id === user?.id ? 'text-right' : ''
                             }`}>
                               <div className="text-xs text-gray-400 mb-1">
                                 {msg.profiles?.username}
                               </div>
                               <div className={`inline-block px-3 py-2 rounded-lg ${
-                                msg.user_id === user.id
+                                msg.user_id === user?.id
                                   ? 'bg-yellow-500/20 text-yellow-500'
                                   : 'bg-gray-800 text-white'
                               }`}>
