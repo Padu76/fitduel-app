@@ -33,6 +33,7 @@ export function MissionsWidget() {
   const [claimSuccess, setClaimSuccess] = useState<string | null>(null)
   const [claimedMissions, setClaimedMissions] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadMissions()
@@ -73,57 +74,10 @@ export function MissionsWidget() {
   }
 
   const loadMissions = async () => {
-    // Get user's current streak from stats store
-    const userStreak = stats?.currentStreak || 0
+    setLoading(true)
     
-    const mockMissions: Mission[] = [
-      {
-        id: 'm1',
-        title: 'Guerriero',
-        description: 'Vinci 3 duelli',
-        icon: '⚔️',
-        type: 'daily',
-        xpReward: 100,
-        progress: 2,
-        target: 3,
-        isCompleted: false,
-        isClaimed: false
-      },
-      {
-        id: 'm2',
-        title: 'Streak',
-        description: 'Mantieni una streak di 3 vittorie consecutive',
-        icon: '🔥',
-        type: 'daily',
-        xpReward: 50,
-        coinReward: 25,
-        progress: userStreak >= 3 ? 3 : userStreak,
-        target: 3,
-        isCompleted: userStreak >= 3,
-        isClaimed: false
-      },
-      {
-        id: 'm3',
-        title: 'Atleta',
-        description: 'Completa 5 esercizi oggi',
-        icon: '💪',
-        type: 'daily',
-        xpReward: 75,
-        progress: 1,
-        target: 5,
-        isCompleted: false,
-        isClaimed: false
-      }
-    ]
-
-    // Check if missions are already claimed
-    const missionsWithClaimStatus = mockMissions.map(m => ({
-      ...m,
-      isClaimed: claimedMissions.has(m.id)
-    }))
-
-    // If real user, try to load from database
-    if (user?.id && user.id !== 'demo') {
+    // Load missions from database
+    if (user?.id) {
       try {
         const { data, error } = await supabase
           .from('user_missions')
@@ -150,15 +104,18 @@ export function MissionsWidget() {
           }))
           setMissions(realMissions)
         } else {
-          setMissions(missionsWithClaimStatus)
+          // No missions available
+          setMissions([])
         }
       } catch (error) {
         console.error('Error loading missions:', error)
-        setMissions(missionsWithClaimStatus)
+        setMissions([])
       }
     } else {
-      setMissions(missionsWithClaimStatus)
+      setMissions([])
     }
+    
+    setLoading(false)
   }
 
   const handleClaimReward = async (mission: Mission) => {
@@ -184,17 +141,6 @@ export function MissionsWidget() {
     setError(null)
 
     try {
-      // Validate streak mission specifically
-      if (mission.id === 'm2' || mission.title === 'Streak') {
-        // Check actual user streak from stats store
-        const currentStreak = stats?.currentStreak || 0
-        if (currentStreak < 3) {
-          setError(`Streak attuale: ${currentStreak}/3. Vinci più duelli consecutivi!`)
-          setClaiming(null)
-          return
-        }
-      }
-
       // Save to claimed missions immediately to prevent re-claims
       saveClaimedMissions(mission.id)
 
@@ -219,7 +165,7 @@ export function MissionsWidget() {
       setTimeout(() => setClaimSuccess(null), 3000)
 
       // If real user, update in database
-      if (user?.id && user.id !== 'demo') {
+      if (user?.id) {
         try {
           // Check if mission was already claimed in DB
           const { data: existingClaim } = await supabase
@@ -260,17 +206,6 @@ export function MissionsWidget() {
               })
               .eq('id', user.id)
           }
-
-          // Log the claim for audit
-          await supabase
-            .from('mission_claims_log')
-            .insert({
-              user_id: user.id,
-              mission_id: mission.id,
-              xp_rewarded: mission.xpReward,
-              coins_rewarded: mission.coinReward || 0,
-              claimed_at: new Date().toISOString()
-            })
         } catch (error) {
           console.error('Error updating database:', error)
         }
@@ -297,9 +232,11 @@ export function MissionsWidget() {
           <Target className="w-5 h-5 text-indigo-500" />
           <h3 className="font-bold text-white">Missioni</h3>
         </div>
-        <span className="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-1 rounded-full">
-          {activeMissions.length} attive
-        </span>
+        {!loading && (
+          <span className="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-1 rounded-full">
+            {activeMissions.length} attive
+          </span>
+        )}
       </div>
 
       {/* Error Message */}
@@ -314,112 +251,114 @@ export function MissionsWidget() {
         </motion.div>
       )}
       
-      <div className="space-y-3">
-        {missions.slice(0, 3).map((mission) => (
-          <motion.div
-            key={mission.id}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className={cn(
-              "p-3 rounded-lg transition-all",
-              mission.isCompleted && !mission.isClaimed ? "bg-green-500/10 border border-green-500/30" :
-              mission.isClaimed ? "bg-gray-800/30 opacity-60" :
-              "bg-gray-800/50"
-            )}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">{mission.icon}</span>
-                <p className="text-sm font-medium text-white">{mission.title}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                {mission.xpReward > 0 && (
-                  <span className="text-xs text-yellow-500">+{mission.xpReward} XP</span>
-                )}
-                {mission.coinReward && mission.coinReward > 0 && (
-                  <span className="text-xs text-yellow-600">+{mission.coinReward} 💰</span>
-                )}
-                {mission.isClaimed && (
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                )}
-              </div>
-            </div>
-
-            {/* Progress bar for incomplete missions */}
-            {!mission.isCompleted && (
-              <>
-                <div className="w-full bg-gray-700 rounded-full h-2 mb-1">
-                  <motion.div 
-                    className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(mission.progress / mission.target) * 100}%` }}
-                    transition={{ duration: 0.5 }}
-                  />
+      {loading ? (
+        <div className="text-center py-8">
+          <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mx-auto mb-2" />
+          <p className="text-sm text-gray-400">Caricamento missioni...</p>
+        </div>
+      ) : missions.length > 0 ? (
+        <div className="space-y-3">
+          {missions.slice(0, 3).map((mission) => (
+            <motion.div
+              key={mission.id}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className={cn(
+                "p-3 rounded-lg transition-all",
+                mission.isCompleted && !mission.isClaimed ? "bg-green-500/10 border border-green-500/30" :
+                mission.isClaimed ? "bg-gray-800/30 opacity-60" :
+                "bg-gray-800/50"
+              )}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{mission.icon}</span>
+                  <p className="text-sm font-medium text-white">{mission.title}</p>
                 </div>
-                <p className="text-xs text-gray-400">{mission.progress}/{mission.target} {mission.description}</p>
-              </>
-            )}
-
-            {/* Claim button for completed but unclaimed missions */}
-            {mission.isCompleted && !mission.isClaimed && !claimedMissions.has(mission.id) && (
-              <Button 
-                variant="gradient" 
-                size="sm" 
-                className="w-full"
-                disabled={claiming === mission.id || claimedMissions.has(mission.id)}
-                onClick={() => handleClaimReward(mission)}
-              >
-                {claiming === mission.id ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                    Riscattando...
-                  </>
-                ) : claimSuccess === mission.id ? (
-                  <>
-                    <CheckCircle className="w-4 h-4 mr-1" />
-                    Riscattato!
-                  </>
-                ) : (
-                  <>
-                    Riscatta +{mission.xpReward} XP
-                    {mission.coinReward && ` +${mission.coinReward} 💰`}
-                  </>
-                )}
-              </Button>
-            )}
-
-            {/* Already claimed indicator */}
-            {(mission.isClaimed || claimedMissions.has(mission.id)) && (
-              <p className="text-xs text-gray-500 text-center">Ricompensa già riscattata ✔</p>
-            )}
-
-            {/* Streak info */}
-            {mission.title === 'Streak' && !mission.isCompleted && (
-              <div className="mt-2 p-2 bg-blue-500/10 rounded flex items-start gap-2">
-                <Info className="w-3 h-3 text-blue-400 mt-0.5" />
-                <p className="text-xs text-blue-300">
-                  Lo streak è una serie di vittorie consecutive. Vinci {mission.target} duelli di fila!
-                  {stats?.currentStreak ? ` (Attuale: ${stats.currentStreak})` : ''}
-                </p>
+                <div className="flex items-center gap-2">
+                  {mission.xpReward > 0 && (
+                    <span className="text-xs text-yellow-500">+{mission.xpReward} XP</span>
+                  )}
+                  {mission.coinReward && mission.coinReward > 0 && (
+                    <span className="text-xs text-yellow-600">+{mission.coinReward} 💰</span>
+                  )}
+                  {mission.isClaimed && (
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                  )}
+                </div>
               </div>
-            )}
-          </motion.div>
-        ))}
 
-        {/* Success message */}
-        {completedUnclaimed.length > 0 && claimSuccess && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="p-2 bg-green-500/10 border border-green-500/30 rounded-lg"
-          >
-            <p className="text-xs text-green-400 text-center">
-              🎉 Ricompensa riscattata con successo!
-            </p>
-          </motion.div>
-        )}
-      </div>
+              {/* Progress bar for incomplete missions */}
+              {!mission.isCompleted && (
+                <>
+                  <div className="w-full bg-gray-700 rounded-full h-2 mb-1">
+                    <motion.div 
+                      className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(mission.progress / mission.target) * 100}%` }}
+                      transition={{ duration: 0.5 }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400">{mission.progress}/{mission.target} {mission.description}</p>
+                </>
+              )}
+
+              {/* Claim button for completed but unclaimed missions */}
+              {mission.isCompleted && !mission.isClaimed && !claimedMissions.has(mission.id) && (
+                <Button 
+                  variant="gradient" 
+                  size="sm" 
+                  className="w-full"
+                  disabled={claiming === mission.id || claimedMissions.has(mission.id)}
+                  onClick={() => handleClaimReward(mission)}
+                >
+                  {claiming === mission.id ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                      Riscattando...
+                    </>
+                  ) : claimSuccess === mission.id ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-1" />
+                      Riscattato!
+                    </>
+                  ) : (
+                    <>
+                      Riscatta +{mission.xpReward} XP
+                      {mission.coinReward && ` +${mission.coinReward} 💰`}
+                    </>
+                  )}
+                </Button>
+              )}
+
+              {/* Already claimed indicator */}
+              {(mission.isClaimed || claimedMissions.has(mission.id)) && (
+                <p className="text-xs text-gray-500 text-center">Ricompensa già riscattata ✔</p>
+              )}
+            </motion.div>
+          ))}
+
+          {/* Success message */}
+          {completedUnclaimed.length > 0 && claimSuccess && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="p-2 bg-green-500/10 border border-green-500/30 rounded-lg"
+            >
+              <p className="text-xs text-green-400 text-center">
+                🎉 Ricompensa riscattata con successo!
+              </p>
+            </motion.div>
+          )}
+        </div>
+      ) : (
+        <div className="text-center py-8">
+          <Target className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+          <p className="text-sm text-gray-400">Nessuna missione disponibile</p>
+          <p className="text-xs text-gray-500 mt-1">Le missioni saranno generate automaticamente</p>
+        </div>
+      )}
 
       <Link href="/missions">
         <Button variant="secondary" size="sm" className="w-full mt-4">
