@@ -27,7 +27,7 @@ interface Mission {
 
 export function MissionsWidget() {
   const supabase = createClientComponentClient()
-  const { user, addXP, addCoins } = useUserStore()
+  const { user, stats, addXP, addCoins } = useUserStore()
   const [missions, setMissions] = useState<Mission[]>([])
   const [claiming, setClaiming] = useState<string | null>(null)
   const [claimSuccess, setClaimSuccess] = useState<string | null>(null)
@@ -37,7 +37,7 @@ export function MissionsWidget() {
   useEffect(() => {
     loadMissions()
     loadClaimedMissions()
-  }, [user])
+  }, [user, stats])
 
   // Load claimed missions from localStorage to prevent duplicate claims
   const loadClaimedMissions = () => {
@@ -73,8 +73,8 @@ export function MissionsWidget() {
   }
 
   const loadMissions = async () => {
-    // Get user's current streak from stats
-    const userStreak = user?.stats?.currentStreak || 0
+    // Get user's current streak from stats store
+    const userStreak = stats?.currentStreak || 0
     
     const mockMissions: Mission[] = [
       {
@@ -186,8 +186,8 @@ export function MissionsWidget() {
     try {
       // Validate streak mission specifically
       if (mission.id === 'm2' || mission.title === 'Streak') {
-        // Check actual user streak
-        const currentStreak = user?.stats?.currentStreak || 0
+        // Check actual user streak from stats store
+        const currentStreak = stats?.currentStreak || 0
         if (currentStreak < 3) {
           setError(`Streak attuale: ${currentStreak}/3. Vinci più duelli consecutivi!`)
           setClaiming(null)
@@ -390,7 +390,7 @@ export function MissionsWidget() {
 
             {/* Already claimed indicator */}
             {(mission.isClaimed || claimedMissions.has(mission.id)) && (
-              <p className="text-xs text-gray-500 text-center">Ricompensa già riscattata ✓</p>
+              <p className="text-xs text-gray-500 text-center">Ricompensa già riscattata ✔</p>
             )}
 
             {/* Streak info */}
@@ -399,6 +399,7 @@ export function MissionsWidget() {
                 <Info className="w-3 h-3 text-blue-400 mt-0.5" />
                 <p className="text-xs text-blue-300">
                   Lo streak è una serie di vittorie consecutive. Vinci {mission.target} duelli di fila!
+                  {stats?.currentStreak ? ` (Attuale: ${stats.currentStreak})` : ''}
                 </p>
               </div>
             )}
