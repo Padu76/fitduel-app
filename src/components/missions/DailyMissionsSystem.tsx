@@ -510,7 +510,7 @@ const MissionCard = ({
             )}
 
             {mission.isClaimed && (
-              <span className="text-xs text-gray-500">Riscattato ✓</span>
+              <span className="text-xs text-gray-500">Riscattato ✔</span>
             )}
           </div>
         </div>
@@ -534,6 +534,98 @@ export function DailyMissionsSystem({ currentUserId }: { currentUserId: string }
   const [selectedTab, setSelectedTab] = useState<'daily' | 'weekly'>('daily')
   const [lastGenerated, setLastGenerated] = useState<string | null>(null)
 
+  // Demo missions for testing
+  const DEMO_DAILY_MISSIONS: Mission[] = [
+    {
+      id: 'demo_daily_1',
+      title: 'Burpee Master',
+      description: 'Completa 10 ripetizioni di Burpee',
+      type: 'daily',
+      category: 'exercise',
+      icon: '🔥',
+      difficulty: 'hard',
+      xpReward: 50,
+      coinReward: 10,
+      progress: 0,
+      target: 10,
+      isCompleted: false,
+      isClaimed: false,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: 'demo_daily_2',
+      title: 'Vincitore',
+      description: 'Vinci 2 duelli consecutivi',
+      type: 'daily',
+      category: 'duel',
+      icon: '⚔️',
+      difficulty: 'medium',
+      xpReward: 75,
+      coinReward: 20,
+      progress: 0,
+      target: 2,
+      isCompleted: false,
+      isClaimed: false,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date().toISOString()
+    }
+  ]
+
+  const DEMO_WEEKLY_MISSIONS: Mission[] = [
+    {
+      id: 'demo_weekly_1',
+      title: 'Maestro del Fitness',
+      description: 'Completa 20 esercizi questa settimana',
+      type: 'weekly',
+      category: 'exercise',
+      icon: '💪',
+      difficulty: 'hard',
+      xpReward: 500,
+      coinReward: 150,
+      progress: 0,
+      target: 20,
+      isCompleted: false,
+      isClaimed: false,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: 'demo_weekly_2',
+      title: 'Campione Settimanale',
+      description: 'Vinci 10 duelli questa settimana',
+      type: 'weekly',
+      category: 'duel',
+      icon: '🏆',
+      difficulty: 'hard',
+      xpReward: 600,
+      coinReward: 200,
+      progress: 0,
+      target: 10,
+      isCompleted: false,
+      isClaimed: false,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: 'demo_weekly_3',
+      title: 'Costanza Leggendaria',
+      description: 'Mantieni una streak di 7 giorni',
+      type: 'weekly',
+      category: 'streak',
+      icon: '🔥',
+      difficulty: 'medium',
+      xpReward: 400,
+      coinReward: 100,
+      progress: 0,
+      target: 7,
+      isCompleted: false,
+      isClaimed: false,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date().toISOString()
+    }
+  ]
+
   useEffect(() => {
     checkAndGenerateMissions()
   }, [currentUserId])
@@ -542,6 +634,15 @@ export function DailyMissionsSystem({ currentUserId }: { currentUserId: string }
     setLoading(true)
     
     try {
+      // Check if user is in demo mode
+      if (!currentUserId || currentUserId === 'demo-user') {
+        // Use demo missions
+        setDailyMissions(DEMO_DAILY_MISSIONS)
+        setWeeklyMissions(DEMO_WEEKLY_MISSIONS)
+        setLoading(false)
+        return
+      }
+
       // Check localStorage for last generation time
       const lastGen = localStorage.getItem('fitduel_missions_generated')
       const lastGenDate = lastGen ? new Date(lastGen) : null
@@ -561,8 +662,9 @@ export function DailyMissionsSystem({ currentUserId }: { currentUserId: string }
       }
     } catch (error) {
       console.error('Error checking missions:', error)
-      // Generate new missions as fallback
-      await generateNewMissions()
+      // Use demo missions as fallback
+      setDailyMissions(DEMO_DAILY_MISSIONS)
+      setWeeklyMissions(DEMO_WEEKLY_MISSIONS)
     } finally {
       setLoading(false)
     }
@@ -573,13 +675,27 @@ export function DailyMissionsSystem({ currentUserId }: { currentUserId: string }
     const savedWeekly = localStorage.getItem('fitduel_weekly_missions')
     
     if (savedDaily) {
-      const dailyData = JSON.parse(savedDaily)
-      setDailyMissions(dailyData)
+      try {
+        const dailyData = JSON.parse(savedDaily)
+        setDailyMissions(dailyData)
+      } catch (e) {
+        console.error('Error parsing daily missions:', e)
+        setDailyMissions(DEMO_DAILY_MISSIONS)
+      }
+    } else {
+      setDailyMissions(DEMO_DAILY_MISSIONS)
     }
     
     if (savedWeekly) {
-      const weeklyData = JSON.parse(savedWeekly)
-      setWeeklyMissions(weeklyData)
+      try {
+        const weeklyData = JSON.parse(savedWeekly)
+        setWeeklyMissions(weeklyData)
+      } catch (e) {
+        console.error('Error parsing weekly missions:', e)
+        setWeeklyMissions(DEMO_WEEKLY_MISSIONS)
+      }
+    } else {
+      setWeeklyMissions(DEMO_WEEKLY_MISSIONS)
     }
   }
 
@@ -587,7 +703,7 @@ export function DailyMissionsSystem({ currentUserId }: { currentUserId: string }
     setIsGenerating(true)
     
     try {
-      // Get user level and stats
+      // Get user level - handle null user safely
       const userLevel = user?.level || 1
       const userStats = {} // Can be expanded with real stats
       
@@ -615,6 +731,9 @@ export function DailyMissionsSystem({ currentUserId }: { currentUserId: string }
       }
     } catch (error) {
       console.error('Error generating missions:', error)
+      // Use demo missions as fallback
+      setDailyMissions(DEMO_DAILY_MISSIONS)
+      setWeeklyMissions(DEMO_WEEKLY_MISSIONS)
     } finally {
       setIsGenerating(false)
     }
@@ -644,11 +763,11 @@ export function DailyMissionsSystem({ currentUserId }: { currentUserId: string }
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1000))
       
-      // Update user stats
-      if (mission.xpReward) {
+      // Update user stats - check if functions exist
+      if (typeof addXP === 'function' && mission.xpReward) {
         addXP(mission.xpReward)
       }
-      if (mission.coinReward) {
+      if (typeof addCoins === 'function' && mission.coinReward) {
         addCoins(mission.coinReward)
       }
       
@@ -768,7 +887,9 @@ export function DailyMissionsSystem({ currentUserId }: { currentUserId: string }
             className="h-full bg-gradient-to-r from-indigo-500 to-purple-500"
             initial={{ width: 0 }}
             animate={{ 
-              width: `${(displayMissions.filter(m => m.isCompleted).length / displayMissions.length) * 100}%` 
+              width: displayMissions.length > 0 
+                ? `${(displayMissions.filter(m => m.isCompleted).length / displayMissions.length) * 100}%` 
+                : '0%'
             }}
             transition={{ duration: 0.5 }}
           />
