@@ -225,8 +225,13 @@ export default function TeamsPage() {
           .map(m => {
             // Handle if teams is an array (shouldn't be, but being safe)
             const teamData = Array.isArray(m.teams) ? m.teams[0] : m.teams
+            // Handle if leader is an array
+            const leaderData = teamData.leader
+            const leader = Array.isArray(leaderData) ? leaderData[0] : leaderData
+            
             return {
               ...teamData,
+              leader: leader || undefined,
               my_role: m.role,
               my_contribution: m.contribution_xp
             }
@@ -251,7 +256,18 @@ export default function TeamsPage() {
         .limit(20)
 
       if (publicData) {
-        setPublicTeams(publicData as Team[])
+        const publicTeamsProcessed = publicData.map(team => {
+          // Handle if leader is an array
+          const leaderData = team.leader
+          const leader = Array.isArray(leaderData) ? leaderData[0] : leaderData
+          
+          return {
+            ...team,
+            leader: leader || undefined
+          }
+        })
+        
+        setPublicTeams(publicTeamsProcessed as Team[])
       }
     } catch (error) {
       console.error('Error fetching teams:', error)
