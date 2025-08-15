@@ -67,78 +67,13 @@ interface Notification {
   icon?: string
 }
 
-// ====================================
-// MOCK DATA
-// ====================================
-const MOCK_ACTIVE_DUELS: DuelCardData[] = [
-  {
-    id: '1',
-    challengerName: 'Tu',
-    challengedName: 'SpeedRunner',
-    exerciseName: 'Push-Up',
-    exerciseIcon: '💪',
-    status: 'active',
-    challengerScore: 45,
-    challengedScore: 38,
-    timeLeft: '2h 15m',
-    xpReward: 150,
-    wagerCoins: 50,
-    type: '1v1'
-  },
-  {
-    id: '2',
-    challengerName: 'FitGuru',
-    challengedName: 'Tu',
-    exerciseName: 'Plank',
-    exerciseIcon: '🏋️',
-    status: 'pending',
-    challengerScore: null,
-    challengedScore: null,
-    timeLeft: '5h 30m',
-    xpReward: 200,
-    wagerCoins: 75,
-    type: '1v1'
-  }
-]
-
-const MOCK_DAILY_CHALLENGES: DailyChallenge[] = [
-  {
-    id: 'dc1',
-    exercise: 'Squat',
-    exerciseIcon: '🦵',
-    difficulty: 'medium',
-    targetReps: 50,
-    xpReward: 200,
-    coinReward: 50,
-    description: 'Completa 50 squat con forma perfetta',
-    completedBy: 234,
-    totalPlayers: 500,
-    expiresIn: '18h 30m',
-    isCompleted: false
-  },
-  {
-    id: 'dc2',
-    exercise: 'Plank',
-    exerciseIcon: '🏋️',
-    difficulty: 'hard',
-    targetTime: 120,
-    xpReward: 300,
-    coinReward: 75,
-    description: 'Mantieni il plank per 2 minuti',
-    completedBy: 156,
-    totalPlayers: 500,
-    expiresIn: '18h 30m',
-    isCompleted: false
-  }
-]
-
-const MOCK_LEADERBOARD = [
-  { rank: 1, username: 'FitMaster', level: 25, xp: 6250, avatar: '👑' },
-  { rank: 2, username: 'IronWill', level: 22, xp: 4840, avatar: '💪' },
-  { rank: 3, username: 'SpeedDemon', level: 20, xp: 4000, avatar: '⚡' },
-  { rank: 4, username: 'Tu', level: 12, xp: 1890, avatar: '🔥' },
-  { rank: 5, username: 'CardioKing', level: 16, xp: 2560, avatar: '🏃' }
-]
+interface LeaderboardEntry {
+  rank: number
+  username: string
+  level: number
+  xp: number
+  avatar?: string
+}
 
 // ====================================
 // COMPONENTS
@@ -346,36 +281,7 @@ const NotificationSystem = () => {
   }, [user])
 
   const loadNotifications = async () => {
-    if (!user?.id) {
-      const mockNotifications: Notification[] = [
-        {
-          id: '1',
-          userId: 'demo',
-          type: 'tournament',
-          title: '🏆 Torneo in corso!',
-          message: 'Sei al 12° posto. Continua così per entrare nella top 10!',
-          isRead: false,
-          priority: 'high',
-          actionUrl: '/tournament',
-          createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-          icon: '🏆'
-        },
-        {
-          id: '2',
-          userId: 'demo',
-          type: 'daily_reset',
-          title: '🌅 Nuove Sfide Giornaliere!',
-          message: '3 nuove sfide ti aspettano. Completale entro mezzanotte!',
-          isRead: false,
-          priority: 'normal',
-          actionUrl: '#daily-challenges',
-          createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          icon: '🎯'
-        }
-      ]
-      setNotifications(mockNotifications)
-      return
-    }
+    if (!user?.id) return
 
     try {
       const { data, error } = await supabase
@@ -411,7 +317,7 @@ const NotificationSystem = () => {
       prev.map(n => n.id === id ? { ...n, isRead: true } : n)
     )
 
-    if (user?.id && user.id !== 'demo') {
+    if (user?.id) {
       await supabase
         .from('notifications')
         .update({ is_read: true, read_at: new Date().toISOString() })
@@ -423,7 +329,7 @@ const NotificationSystem = () => {
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
     clearNotifications()
 
-    if (user?.id && user.id !== 'demo') {
+    if (user?.id) {
       await supabase
         .from('notifications')
         .update({ is_read: true, read_at: new Date().toISOString() })
@@ -624,12 +530,14 @@ export default function DashboardPage() {
   
   const [loading, setLoading] = useState(true)
   const [activeDuels, setActiveDuels] = useState<DuelCardData[]>([])
-  const [dailyChallenges, setDailyChallenges] = useState<DailyChallenge[]>(MOCK_DAILY_CHALLENGES)
-  const [leaderboard, setLeaderboard] = useState(MOCK_LEADERBOARD)
+  const [dailyChallenges, setDailyChallenges] = useState<DailyChallenge[]>([])
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
 
   useEffect(() => {
     loadUserData()
     loadActiveDuels()
+    loadDailyChallenges()
+    loadLeaderboard()
   }, [])
 
   const loadUserData = async () => {
@@ -648,8 +556,8 @@ export default function DashboardPage() {
             email: userData.email || 'demo@fitduel.com',
             username: userData.username || 'DemoUser',
             level: userData.level || 1,
-            xp: userData.xp || 100,
-            totalXp: userData.totalXp || 100,
+            xp: userData.xp || 0,
+            totalXp: userData.totalXp || 0,
             coins: userData.coins || 0,
             rank: 'Rookie',
             fitnessLevel: 'beginner',
@@ -657,7 +565,6 @@ export default function DashboardPage() {
             newsletter: false,
             createdAt: new Date().toISOString()
           })
-          setActiveDuels(MOCK_ACTIVE_DUELS)
         } else {
           router.push('/login')
           return
@@ -676,7 +583,7 @@ export default function DashboardPage() {
           .single()
         
         if (profileData) {
-          const userLevel = profileData.level || Math.floor(Math.sqrt((profileData.xp || 0) / 10)) || 1
+          const userLevel = profileData.level || Math.floor(Math.sqrt((profileData.xp || 0) / 100)) || 1
           
           setUser({
             id: authUser.id,
@@ -780,6 +687,62 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error('Error loading duels:', error)
+    }
+  }
+
+  const loadDailyChallenges = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('daily_challenges')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+
+      if (data && !error) {
+        const formattedChallenges: DailyChallenge[] = data.map(challenge => ({
+          id: challenge.id,
+          exercise: challenge.exercise_name,
+          exerciseIcon: challenge.exercise_icon,
+          difficulty: challenge.difficulty,
+          targetReps: challenge.target_reps,
+          targetTime: challenge.target_time,
+          xpReward: challenge.xp_reward,
+          coinReward: challenge.coin_reward,
+          description: challenge.description,
+          completedBy: challenge.completed_by || 0,
+          totalPlayers: challenge.total_players || 1,
+          expiresIn: formatTimeLeft(new Date(challenge.expires_at).getTime() - Date.now()),
+          isCompleted: false // This would need user-specific data
+        }))
+
+        setDailyChallenges(formattedChallenges)
+      }
+    } catch (error) {
+      console.error('Error loading daily challenges:', error)
+    }
+  }
+
+  const loadLeaderboard = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, username, display_name, level, xp')
+        .order('xp', { ascending: false })
+        .limit(5)
+
+      if (data && !error) {
+        const formattedLeaderboard: LeaderboardEntry[] = data.map((player, index) => ({
+          rank: index + 1,
+          username: player.display_name || player.username || 'Player',
+          level: player.level || 1,
+          xp: player.xp || 0,
+          avatar: '🏆'
+        }))
+
+        setLeaderboard(formattedLeaderboard)
+      }
+    } catch (error) {
+      console.error('Error loading leaderboard:', error)
     }
   }
 
@@ -936,9 +899,6 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-purple-500" />
                   <h3 className="text-xl font-bold text-white">Sfide Giornaliere</h3>
-                  <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded-full">
-                    Resetta in 18h 30m
-                  </span>
                 </div>
                 <Button variant="ghost" size="sm">
                   <Info className="w-4 h-4 mr-1" />
@@ -946,34 +906,25 @@ export default function DashboardPage() {
                 </Button>
               </div>
               
-              <div className="grid md:grid-cols-2 gap-4">
-                {dailyChallenges.map((challenge, index) => (
-                  <motion.div
-                    key={challenge.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
-                  >
-                    <DailyChallengeCard challenge={challenge} />
-                  </motion.div>
-                ))}
-              </div>
-
-              <Card variant="gradient" className="mt-4 p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Shield className="w-5 h-5 text-yellow-500" />
-                    <div>
-                      <p className="text-sm font-bold text-white">Bonus Completamento</p>
-                      <p className="text-xs text-gray-300">Completa tutte le sfide giornaliere</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-yellow-500">+500 XP</p>
-                    <p className="text-xs text-gray-400">0/2 completate</p>
-                  </div>
+              {dailyChallenges.length > 0 ? (
+                <div className="grid md:grid-cols-2 gap-4">
+                  {dailyChallenges.map((challenge, index) => (
+                    <motion.div
+                      key={challenge.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
+                    >
+                      <DailyChallengeCard challenge={challenge} />
+                    </motion.div>
+                  ))}
                 </div>
-              </Card>
+              ) : (
+                <Card variant="glass" className="p-8 text-center">
+                  <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                  <p className="text-gray-400">Le sfide giornaliere arriveranno presto!</p>
+                </Card>
+              )}
             </motion.div>
 
             {/* Quick Actions */}
@@ -1064,44 +1015,26 @@ export default function DashboardPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
             >
-              <Card variant="gradient" className="p-6 border-yellow-500/30">
+              <Card variant="glass" className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <Trophy className="w-5 h-5 text-yellow-500" />
-                    <h3 className="font-bold text-white">Torneo Settimanale</h3>
+                    <h3 className="font-bold text-white">Tornei</h3>
                   </div>
-                  <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full animate-pulse">
-                    LIVE
-                  </span>
                 </div>
                 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-300">La tua posizione</span>
-                    <span className="text-xl font-bold text-white">#12</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-300">Punti torneo</span>
-                    <span className="text-xl font-bold text-yellow-500">1,890</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-300">Termina tra</span>
-                    <span className="text-sm font-medium text-white">4g 18h</span>
-                  </div>
-                </div>
-
-                <div className="mt-4 p-3 bg-yellow-500/10 rounded-lg">
-                  <p className="text-xs text-yellow-400">
-                    🎯 Ancora 3 duelli per entrare nella Top 10!
+                <div className="text-center py-6">
+                  <Trophy className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                  <p className="text-sm text-gray-400 mb-4">
+                    I tornei saranno presto disponibili
                   </p>
+                  <Link href="/tournament">
+                    <Button variant="secondary" size="sm">
+                      Esplora Tornei
+                      <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </Link>
                 </div>
-
-                <Link href="/tournament">
-                  <Button variant="secondary" className="w-full mt-4">
-                    Vai al Torneo
-                    <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
-                </Link>
               </Card>
             </motion.div>
 
@@ -1117,34 +1050,43 @@ export default function DashboardPage() {
                   <h3 className="font-bold text-white">Top Giocatori</h3>
                 </div>
                 
-                <div className="space-y-3">
-                  {leaderboard.slice(0, 5).map((player) => (
-                    <div key={player.rank} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className={cn(
-                          'w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold',
-                          player.rank === 1 ? 'bg-yellow-500 text-black' :
-                          player.rank === 2 ? 'bg-gray-400 text-black' :
-                          player.rank === 3 ? 'bg-orange-600 text-white' :
-                          'bg-gray-700 text-gray-300'
-                        )}>
-                          {player.rank}
-                        </span>
-                        <span className="text-lg">{player.avatar}</span>
-                        <div>
-                          <p className={cn(
-                            'text-sm font-medium',
-                            player.username === 'Tu' ? 'text-yellow-500' : 'text-white'
+                {leaderboard.length > 0 ? (
+                  <div className="space-y-3">
+                    {leaderboard.map((player) => (
+                      <div key={player.rank} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className={cn(
+                            'w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold',
+                            player.rank === 1 ? 'bg-yellow-500 text-black' :
+                            player.rank === 2 ? 'bg-gray-400 text-black' :
+                            player.rank === 3 ? 'bg-orange-600 text-white' :
+                            'bg-gray-700 text-gray-300'
                           )}>
-                            {player.username}
-                          </p>
-                          <p className="text-xs text-gray-400">Lv.{player.level}</p>
+                            {player.rank}
+                          </span>
+                          <span className="text-lg">{player.avatar}</span>
+                          <div>
+                            <p className={cn(
+                              'text-sm font-medium',
+                              player.username === user.username ? 'text-yellow-500' : 'text-white'
+                            )}>
+                              {player.username}
+                            </p>
+                            <p className="text-xs text-gray-400">Lv.{player.level}</p>
+                          </div>
                         </div>
+                        <p className="text-sm font-medium text-yellow-500">{player.xp}</p>
                       </div>
-                      <p className="text-sm font-medium text-yellow-500">{player.xp}</p>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <Medal className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                    <p className="text-sm text-gray-400">
+                      Sii il primo nella classifica!
+                    </p>
+                  </div>
+                )}
 
                 <Link href="/leaderboard">
                   <Button variant="secondary" size="sm" className="w-full mt-4">
@@ -1154,7 +1096,7 @@ export default function DashboardPage() {
               </Card>
             </motion.div>
 
-            {/* Daily Missions Widget - UPDATED */}
+            {/* Daily Missions Widget */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -1168,4 +1110,3 @@ export default function DashboardPage() {
     </div>
   )
 }
-          
