@@ -137,11 +137,19 @@ export default function TeamsWidget() {
         .eq('is_active', true)
 
       if (memberData) {
-        const teams = memberData.map(m => ({
-          ...m.teams,
-          my_role: m.role,
-          my_contribution: m.contribution_xp
-        }))
+        const teams = memberData
+          .filter(m => m.teams) // Ensure teams exists
+          .map(m => {
+            // Handle if teams is an array (shouldn't be, but being safe)
+            const teamData = Array.isArray(m.teams) ? m.teams[0] : m.teams
+            return {
+              ...teamData,
+              my_role: m.role,
+              my_contribution: m.contribution_xp
+            }
+          })
+          .filter(t => t && t.id) // Ensure we have valid team data
+        
         setMyTeams(teams)
         
         // Seleziona il primo team come attivo
