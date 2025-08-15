@@ -979,10 +979,10 @@ export const AIExerciseTracker = ({
     }
 
     // Stop recording
-    let videoBlob: Blob | null = null
+    let videoBlob: Blob | undefined = undefined
     if (isRecording) {
-      videoBlob = await recorderRef.current?.stopRecording() || null
-      setRecordedBlob(videoBlob)
+      videoBlob = await recorderRef.current?.stopRecording() || undefined
+      setRecordedBlob(videoBlob || null)
       setIsRecording(false)
     }
 
@@ -1129,7 +1129,7 @@ export const AIExerciseTracker = ({
   // DATA PERSISTENCE
   // ====================================
 
-  const savePerformance = async (videoBlob: Blob | null) => {
+  const savePerformance = async (videoBlob: Blob | undefined) => {
     try {
       let videoUrl: string | undefined
 
