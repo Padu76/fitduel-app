@@ -16,24 +16,11 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useUserStore } from '@/stores/useUserStore'
+import { MissionsWidget } from '@/components/missions/MissionsWidget'
 
 // ====================================
 // TYPES
 // ====================================
-interface Mission {
-  id: string
-  title: string
-  description: string
-  icon: string
-  type: 'daily' | 'weekly' | 'achievement'
-  xpReward: number
-  coinReward?: number
-  progress: number
-  target: number
-  isCompleted: boolean
-  isClaimed: boolean
-}
-
 interface DuelCardData {
   id: string
   challengerName: string
