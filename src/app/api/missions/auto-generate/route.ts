@@ -454,6 +454,7 @@ export async function GET(request: NextRequest) {
       .select('*', { count: 'exact', head: true })
     
     // Get ALL users first for counting
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     const { data: allUsersData } = await supabase
       .from('profiles')
       .select('id, updated_at, created_at, is_active')
