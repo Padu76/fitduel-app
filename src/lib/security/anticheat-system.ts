@@ -7,7 +7,6 @@
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { AIValidator } from '@/lib/validation/ai-validator'
 import { MotionTracker } from '@/lib/validation/motion-tracker'
-import CryptoJS from 'crypto-js'
 
 // ====================================
 // TYPES & INTERFACES
@@ -136,6 +135,24 @@ export interface ChallengeVerification {
   timeLimit: number
   attempts: number
   passed: boolean
+}
+
+// ====================================
+// CRYPTO HELPER FUNCTIONS
+// ====================================
+
+async function sha256(message: string): Promise<string> {
+  // Encode as UTF-8
+  const msgBuffer = new TextEncoder().encode(message)
+  
+  // Hash the message
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer)
+  
+  // Convert ArrayBuffer to hex string
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  
+  return hashHex
 }
 
 // ====================================
@@ -268,7 +285,7 @@ export class AntiCheatManager {
     }
 
     // Generate device hash
-    fingerprint.deviceHash = this.generateDeviceHash(fingerprint)
+    fingerprint.deviceHash = await this.generateDeviceHash(fingerprint)
     fingerprint.id = fingerprint.deviceHash
 
     this.deviceFingerprint = fingerprint
@@ -409,7 +426,7 @@ export class AntiCheatManager {
     }
   }
 
-  private generateDeviceHash(fingerprint: DeviceFingerprint): string {
+  private async generateDeviceHash(fingerprint: DeviceFingerprint): Promise<string> {
     const data = JSON.stringify({
       ua: fingerprint.userAgent,
       screen: fingerprint.screen,
@@ -419,7 +436,7 @@ export class AntiCheatManager {
       fonts: fingerprint.fonts
     })
     
-    return CryptoJS.SHA256(data).toString()
+    return await sha256(data)
   }
 
   private async checkDeviceConsistency(): Promise<void> {
@@ -1258,12 +1275,12 @@ export class AntiCheatManager {
     }
   }
 
-  private addEvidence(type: Evidence['type'], data: any): void {
+  private async addEvidence(type: Evidence['type'], data: any): Promise<void> {
     const evidence: Evidence = {
       type,
       data,
       timestamp: new Date().toISOString(),
-      hash: CryptoJS.SHA256(JSON.stringify(data)).toString()
+      hash: await sha256(JSON.stringify(data))
     }
     
     this.evidence.push(evidence)
