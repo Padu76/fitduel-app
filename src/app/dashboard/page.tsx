@@ -407,7 +407,7 @@ export default function Dashboard() {
                     <Flame className="w-4 h-4 text-orange-400" />
                     <span className="text-slate-300">Streak:</span>
                     <span className="text-white font-bold">{stats?.currentStreak || 0}</span>
-                    {stats?.currentStreak > 0 && (
+                    {stats?.currentStreak && stats.currentStreak > 0 && (
                       <TrendingUp className="w-3 h-3 text-green-400" />
                     )}
                   </div>
