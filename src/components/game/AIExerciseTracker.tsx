@@ -793,6 +793,23 @@ export const AIExerciseTracker = ({
     }
   }, [])
 
+  // Additional effect to ensure video stays visible
+  useEffect(() => {
+    if (videoRef.current && streamRef.current) {
+      const video = videoRef.current
+      
+      // Ensure video has stream
+      if (video.srcObject !== streamRef.current) {
+        video.srcObject = streamRef.current
+        video.play().catch(e => console.error('Play error:', e))
+      }
+      
+      // Force visibility
+      video.style.opacity = '1'
+      video.style.display = 'block'
+    }
+  }, [isTracking, showVideo])
+
   const initializeAI = async () => {
     try {
       setIsLoading(true)
@@ -976,28 +993,66 @@ export const AIExerciseTracker = ({
       console.log('Camera stream obtained:', stream)
       streamRef.current = stream
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
+      // CRITICAL FIX: Ensure video element gets the stream properly
+      const setupVideo = async () => {
+        if (!videoRef.current) {
+          console.error('Video ref not available')
+          return
+        }
+
+        const video = videoRef.current
         
-        // Wait for video to be ready
+        // Set stream
+        video.srcObject = stream
+        
+        // Force visibility
+        video.style.opacity = '1'
+        video.style.display = 'block'
+        video.style.zIndex = '10'
+        
+        // Wait for metadata
         await new Promise((resolve) => {
-          if (videoRef.current) {
-            videoRef.current.onloadedmetadata = () => {
-              console.log('Video metadata loaded')
-              resolve(true)
-            }
+          video.onloadedmetadata = () => {
+            console.log('Video metadata loaded')
+            resolve(true)
           }
         })
         
-        // Play the video
-        await videoRef.current.play()
-        console.log('Video playing')
+        // Play video
+        try {
+          await video.play()
+          console.log('Video playing successfully')
+          
+          // Double check after a moment
+          setTimeout(() => {
+            if (video.srcObject !== stream) {
+              console.log('Reconnecting stream...')
+              video.srcObject = stream
+              video.play()
+            }
+            console.log('Video check - Width:', video.videoWidth, 'Height:', video.videoHeight)
+          }, 500)
+        } catch (playError) {
+          console.error('Error playing video:', playError)
+        }
         
-        // Start pose detection loop after a small delay
+        // Start pose detection after video is ready
         setTimeout(() => {
           detectPose()
         }, 1000)
       }
+      
+      await setupVideo()
+      
+      // Additional check to ensure video stays connected
+      setInterval(() => {
+        if (videoRef.current && streamRef.current && videoRef.current.srcObject !== streamRef.current) {
+          console.log('Reconnecting lost stream...')
+          videoRef.current.srcObject = streamRef.current
+          videoRef.current.play()
+        }
+      }, 2000)
+      
     } catch (error) {
       console.error('Error accessing camera:', error)
       throw error
@@ -1605,11 +1660,11 @@ export const AIExerciseTracker = ({
         <div className="aspect-video relative">
           <video
             ref={videoRef}
-            className={cn(
-              "absolute inset-0 w-full h-full object-cover",
-              "transform scale-x-[-1]", // Mirror the video
-              showVideo ? "opacity-100 z-10" : "opacity-0 z-0"  // Fix visibility and z-index
-            )}
+            className="absolute inset-0 w-full h-full object-cover transform scale-x-[-1] z-10"
+            style={{
+              opacity: showVideo ? 1 : 0,
+              display: 'block'
+            }}
             playsInline
             muted
             autoPlay
