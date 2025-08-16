@@ -764,6 +764,7 @@ export const AIExerciseTracker = ({
   const recorderRef = useRef<VideoRecorder | null>(null)
   const animationFrameRef = useRef<number | null>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const [realUserId, setRealUserId] = useState<string>('')
 
   // Supabase
   const supabase = createClientComponentClient()
@@ -776,6 +777,15 @@ export const AIExerciseTracker = ({
   // ====================================
 
   useEffect(() => {
+    // Get real user ID first
+    const getUserId = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setRealUserId(user.id)
+      }
+    }
+    getUserId()
+    
     console.log('🚀 Starting AI Tracker initialization...')
     initializeAI()
     return () => {
@@ -1040,9 +1050,11 @@ export const AIExerciseTracker = ({
 
   const saveCalibrationData = async () => {
     // Save calibration to Supabase
+    if (!realUserId) return // Skip if no real user ID
+    
     try {
       const calibrationData: CalibrationData = {
-        userId,
+        userId: realUserId, // Use real user ID
         exerciseId,
         baselineAngles: {}, // Would be filled with actual data
         baselineDistances: {},
@@ -1052,7 +1064,14 @@ export const AIExerciseTracker = ({
 
       const { error } = await supabase
         .from('user_calibrations')
-        .upsert(calibrationData)
+        .upsert({
+          user_id: realUserId,
+          exercise_id: exerciseId,
+          baseline_angles: calibrationData.baselineAngles,
+          baseline_distances: calibrationData.baselineDistances,
+          body_proportions: calibrationData.bodyProportions,
+          calibrated_at: calibrationData.calibratedAt
+        })
 
       if (error) throw error
     } catch (error) {
@@ -1061,11 +1080,13 @@ export const AIExerciseTracker = ({
   }
 
   const loadCalibrationData = async () => {
+    if (!realUserId) return // Skip if no real user ID
+    
     try {
       const { data, error } = await supabase
         .from('user_calibrations')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', realUserId) // Use real user ID
         .eq('exercise_id', exerciseId)
         .single()
 
@@ -1285,31 +1306,38 @@ export const AIExerciseTracker = ({
   // ====================================
 
   const savePerformance = async (videoBlob: Blob | undefined) => {
+    if (!realUserId) {
+      console.error('No user ID available for saving performance')
+      return
+    }
+    
     try {
       let videoUrl: string | undefined
 
       // Upload video to Supabase Storage if available
       if (videoBlob) {
-        const fileName = `${userId}_${exerciseId}_${Date.now()}.webm`
+        const fileName = `${realUserId}_${exerciseId}_${Date.now()}.webm`
         
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('performance-videos')
           .upload(fileName, videoBlob)
 
-        if (uploadError) throw uploadError
+        if (uploadError) {
+          console.error('Video upload error:', uploadError)
+        } else {
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('performance-videos')
+            .getPublicUrl(fileName)
 
-        // Get public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from('performance-videos')
-          .getPublicUrl(fileName)
-
-        videoUrl = publicUrl
+          videoUrl = publicUrl
+        }
       }
 
       // Prepare performance data
       const performanceData: PerformanceData = {
         exerciseId,
-        userId,
+        userId: realUserId, // Use real user ID
         duelId,
         missionId,
         formScore: analyzerRef.current?.getAverageFormScore() || 0,
@@ -1336,7 +1364,7 @@ export const AIExerciseTracker = ({
       const { error } = await supabase
         .from('performances')
         .insert({
-          user_id: userId,
+          user_id: realUserId, // Use real user ID
           exercise_id: exerciseId,
           duel_id: duelId,
           reps: currentReps,
@@ -1348,7 +1376,11 @@ export const AIExerciseTracker = ({
           performed_at: new Date().toISOString()
         })
 
-      if (error) throw error
+      if (error) {
+        console.error('Error saving performance to database:', error)
+      } else {
+        console.log('Performance saved successfully!')
+      }
 
       // Call completion callback
       if (onComplete) {
@@ -1361,7 +1393,7 @@ export const AIExerciseTracker = ({
   }
 
   const updateMissionProgress = async (reps: number) => {
-    if (!missionId) return
+    if (!missionId || !realUserId) return
 
     try {
       // Get current mission progress
@@ -1369,10 +1401,13 @@ export const AIExerciseTracker = ({
         .from('user_missions')
         .select('*')
         .eq('mission_id', missionId)
-        .eq('user_id', userId)
+        .eq('user_id', realUserId) // Use real user ID
         .single()
 
-      if (fetchError) throw fetchError
+      if (fetchError) {
+        console.error('Error fetching mission:', fetchError)
+        return
+      }
 
       // Update progress based on mission type
       let progressIncrement = 0
@@ -1391,9 +1426,11 @@ export const AIExerciseTracker = ({
           updated_at: new Date().toISOString()
         })
         .eq('mission_id', missionId)
-        .eq('user_id', userId)
+        .eq('user_id', realUserId) // Use real user ID
 
-      if (updateError) throw updateError
+      if (updateError) {
+        console.error('Error updating mission:', updateError)
+      }
 
     } catch (error) {
       console.error('Error updating mission progress:', error)
@@ -1571,7 +1608,7 @@ export const AIExerciseTracker = ({
             className={cn(
               "absolute inset-0 w-full h-full object-cover",
               "transform scale-x-[-1]", // Mirror the video
-              !showVideo && "opacity-0"
+              showVideo ? "opacity-100 z-10" : "opacity-0 z-0"  // Fix visibility and z-index
             )}
             playsInline
             muted
@@ -1580,7 +1617,7 @@ export const AIExerciseTracker = ({
           
           <canvas
             ref={canvasRef}
-            className="absolute inset-0 w-full h-full"
+            className="absolute inset-0 w-full h-full z-20 pointer-events-none"
             width={1280}
             height={720}
           />
