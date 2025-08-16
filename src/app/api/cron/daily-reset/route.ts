@@ -1,9 +1,14 @@
-// API Route per il reset giornaliero delle sfide
+// API Route per il reset giornaliero con AI Mission Generator
 // Percorso: /src/app/api/cron/daily-reset/route.ts
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { headers } from 'next/headers'
+import { MissionGeneratorAI } from '@/lib/ai/mission-generator'
+
+// ====================================
+// VALIDATION & SETUP
+// ====================================
 
 // Verifica che la richiesta venga da Vercel Cron
 function validateCronRequest(request: NextRequest) {
@@ -16,7 +21,15 @@ function validateCronRequest(request: NextRequest) {
     }
   }
   
-  return true
+  // In development, accetta richieste locali per test
+  if (process.env.NODE_ENV === 'development') {
+    const testSecret = request.headers.get('x-cron-secret')
+    if (testSecret === process.env.CRON_SECRET) {
+      return true
+    }
+  }
+  
+  return process.env.NODE_ENV === 'development' // Allow in dev mode
 }
 
 // Inizializza Supabase Admin Client
@@ -31,112 +44,186 @@ function getSupabaseAdmin() {
   return createClient(supabaseUrl, supabaseServiceKey)
 }
 
+// ====================================
+// MAIN CRON HANDLER
+// ====================================
+
 export async function GET(request: NextRequest) {
+  const startTime = Date.now()
+  
   try {
     // Valida che sia una richiesta autorizzata
     if (!validateCronRequest(request)) {
+      console.error('❌ Unauthorized cron request')
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
     }
 
-    console.log('🌅 Starting daily reset...')
+    console.log('🌅 Starting daily reset with AI Mission Generator...')
     
     const supabase = getSupabaseAdmin()
     const now = new Date()
     const resetTime = now.toISOString()
     
-    // 1. Reset missioni giornaliere
-    console.log('Resetting daily missions...')
+    // Stats per il report finale
+    const stats = {
+      expiredMissions: 0,
+      generatedMissions: 0,
+      processedUsers: 0,
+      resetStreaks: 0,
+      notifications: 0,
+      errors: []
+    }
+
+    // ====================================
+    // 1. EXPIRE OLD MISSIONS
+    // ====================================
     
-    // Marca tutte le missioni giornaliere come expired
-    const { error: expireError } = await supabase
-      .from('missions')
+    console.log('📝 Expiring old daily missions...')
+    
+    // Marca tutte le missioni giornaliere scadute
+    const { data: expiredData, error: expireError } = await supabase
+      .from('user_missions')
       .update({ 
-        status: 'expired',
+        is_completed: false,
         updated_at: resetTime 
       })
-      .eq('type', 'daily')
-      .eq('status', 'active')
+      .lt('expires_at', resetTime)
+      .eq('is_completed', false)
+      .select('id')
     
     if (expireError) {
       console.error('Error expiring missions:', expireError)
+      stats.errors.push(`Expire missions: ${expireError.message}`)
+    } else {
+      stats.expiredMissions = expiredData?.length || 0
+      console.log(`✅ Expired ${stats.expiredMissions} old missions`)
     }
 
-    // 2. Genera nuove sfide giornaliere
-    console.log('Generating new daily challenges...')
+    // ====================================
+    // 2. GET ACTIVE USERS
+    // ====================================
     
-    const dailyChallenges = [
-      {
-        exercise_id: 'squat',
-        exercise_name: 'Squat',
-        difficulty: 'medium',
-        target_reps: 50,
-        target_time: null,
-        xp_reward: 200,
-        coin_reward: 50,
-        description: 'Completa 50 squat con forma perfetta',
-        type: 'daily',
-        status: 'active',
-        expires_at: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
-        created_at: resetTime
-      },
-      {
-        exercise_id: 'plank',
-        exercise_name: 'Plank',
-        difficulty: 'hard',
-        target_reps: null,
-        target_time: 120,
-        xp_reward: 300,
-        coin_reward: 75,
-        description: 'Mantieni il plank per 2 minuti',
-        type: 'daily',
-        status: 'active',
-        expires_at: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
-        created_at: resetTime
-      },
-      {
-        exercise_id: 'pushup',
-        exercise_name: 'Push-Up',
-        difficulty: 'medium',
-        target_reps: 30,
-        target_time: null,
-        xp_reward: 250,
-        coin_reward: 60,
-        description: 'Esegui 30 push-up perfetti',
-        type: 'daily',
-        status: 'active',
-        expires_at: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
-        created_at: resetTime
-      }
-    ]
+    console.log('👥 Finding active users...')
     
-    const { error: insertError } = await supabase
-      .from('daily_challenges')
-      .insert(dailyChallenges)
+    // Ottieni utenti attivi negli ultimi 30 giorni
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
     
-    if (insertError) {
-      console.error('Error creating daily challenges:', insertError)
-    }
-
-    // 3. Reset streak per utenti inattivi
-    console.log('Checking user streaks...')
-    
-    // Ottieni tutti gli utenti con streak attivo
     const { data: activeUsers, error: usersError } = await supabase
+      .from('profiles')
+      .select('id, username, email, level, last_seen')
+      .or(`last_seen.gte.${thirtyDaysAgo.toISOString()},last_seen.is.null`)
+      .order('last_seen', { ascending: false, nullsFirst: false })
+    
+    if (usersError) {
+      console.error('Error fetching users:', usersError)
+      stats.errors.push(`Fetch users: ${usersError.message}`)
+      throw new Error('Cannot proceed without users')
+    }
+    
+    console.log(`📊 Found ${activeUsers?.length || 0} active users`)
+
+    // ====================================
+    // 3. GENERATE AI MISSIONS FOR EACH USER
+    // ====================================
+    
+    if (activeUsers && activeUsers.length > 0) {
+      console.log('🤖 Generating AI missions for all users...')
+      
+      // Inizializza AI Generator
+      const generator = new MissionGeneratorAI()
+      
+      // Process users in batches per non sovraccaricare
+      const batchSize = 10
+      const batches = []
+      
+      for (let i = 0; i < activeUsers.length; i += batchSize) {
+        batches.push(activeUsers.slice(i, i + batchSize))
+      }
+      
+      for (const [batchIndex, batch] of batches.entries()) {
+        console.log(`Processing batch ${batchIndex + 1}/${batches.length}...`)
+        
+        await Promise.all(
+          batch.map(async (user) => {
+            try {
+              console.log(`🎯 Generating missions for ${user.username || user.id}...`)
+              
+              // Genera 5 missioni giornaliere
+              const dailyResult = await generator.generateMissions({
+                userId: user.id,
+                type: 'daily',
+                count: 5,
+                userProfile: {
+                  level: user.level || 1,
+                  preferences: {},
+                  history: []
+                }
+              })
+              
+              if (dailyResult.success) {
+                stats.generatedMissions += dailyResult.missions?.length || 0
+                console.log(`✅ Generated ${dailyResult.missions?.length || 0} daily missions for ${user.username}`)
+              }
+              
+              // Genera 3 missioni settimanali (solo il lunedì)
+              if (now.getDay() === 1) { // 1 = Monday
+                const weeklyResult = await generator.generateMissions({
+                  userId: user.id,
+                  type: 'weekly',
+                  count: 3,
+                  userProfile: {
+                    level: user.level || 1,
+                    preferences: {},
+                    history: []
+                  }
+                })
+                
+                if (weeklyResult.success) {
+                  stats.generatedMissions += weeklyResult.missions?.length || 0
+                  console.log(`✅ Generated ${weeklyResult.missions?.length || 0} weekly missions for ${user.username}`)
+                }
+              }
+              
+              stats.processedUsers++
+              
+            } catch (userError) {
+              console.error(`Error processing user ${user.id}:`, userError)
+              stats.errors.push(`User ${user.username}: ${userError.message}`)
+            }
+          })
+        )
+        
+        // Small delay between batches to prevent rate limiting
+        if (batchIndex < batches.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
+      }
+    }
+
+    // ====================================
+    // 4. RESET INACTIVE STREAKS
+    // ====================================
+    
+    console.log('🔥 Checking user streaks...')
+    
+    const { data: streakUsers, error: streakError } = await supabase
       .from('user_stats')
       .select('user_id, daily_streak, last_activity')
       .gt('daily_streak', 0)
     
-    if (!usersError && activeUsers) {
-      for (const user of activeUsers) {
+    if (!streakError && streakUsers) {
+      for (const user of streakUsers) {
+        if (!user.last_activity) continue
+        
         const lastActivity = new Date(user.last_activity)
         const hoursSinceActivity = (now.getTime() - lastActivity.getTime()) / (1000 * 60 * 60)
         
         // Se non attivo da più di 48 ore, reset streak
         if (hoursSinceActivity > 48) {
-          await supabase
+          const { error: resetError } = await supabase
             .from('user_stats')
             .update({ 
               daily_streak: 0,
@@ -144,56 +231,64 @@ export async function GET(request: NextRequest) {
             })
             .eq('user_id', user.user_id)
           
-          console.log(`Reset streak for user ${user.user_id}`)
+          if (!resetError) {
+            stats.resetStreaks++
+            console.log(`🔄 Reset streak for user ${user.user_id}`)
+          }
         }
       }
     }
 
-    // 4. Crea notifiche per tutti gli utenti attivi
-    console.log('Creating daily reset notifications...')
+    // ====================================
+    // 5. CREATE NOTIFICATIONS
+    // ====================================
     
-    // Ottieni utenti attivi negli ultimi 7 giorni
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    console.log('📬 Creating daily notifications...')
     
-    const { data: recentUsers, error: recentError } = await supabase
-      .from('profiles')
-      .select('id, username')
-      .gte('last_seen', sevenDaysAgo.toISOString())
-    
-    if (!recentError && recentUsers) {
-      const notifications = recentUsers.map(user => ({
+    if (activeUsers && activeUsers.length > 0) {
+      const notifications = activeUsers.map(user => ({
         user_id: user.id,
         type: 'daily_reset',
-        title: '🌅 Nuove Sfide Giornaliere!',
-        message: '3 nuove sfide ti aspettano! Completale entro mezzanotte per bonus XP!',
+        title: '🌅 Nuove Missioni AI Disponibili!',
+        message: `${stats.generatedMissions > 0 ? 'Le tue missioni personalizzate sono pronte!' : 'Controlla le nuove sfide di oggi!'}`,
         priority: 'normal',
-        icon: '🌅',
-        action_url: '/dashboard#daily-challenges',
+        icon: '🎯',
+        action_url: '/dashboard',
         expires_at: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
         metadata: {
-          new_challenges: 3,
-          bonus_xp: 500
+          generated_missions: Math.floor(stats.generatedMissions / Math.max(stats.processedUsers, 1)),
+          reset_time: resetTime
         },
         is_read: false,
         created_at: resetTime
       }))
       
-      const { error: notifError } = await supabase
-        .from('notifications')
-        .insert(notifications)
-      
-      if (notifError) {
-        console.error('Error creating notifications:', notifError)
-      } else {
-        console.log(`Created ${notifications.length} daily reset notifications`)
+      // Insert notifications in batches
+      const notifBatchSize = 100
+      for (let i = 0; i < notifications.length; i += notifBatchSize) {
+        const batch = notifications.slice(i, i + notifBatchSize)
+        const { error: notifError } = await supabase
+          .from('notifications')
+          .insert(batch)
+        
+        if (notifError) {
+          console.error('Error creating notifications:', notifError)
+          stats.errors.push(`Notifications batch ${i}: ${notifError.message}`)
+        } else {
+          stats.notifications += batch.length
+        }
       }
+      
+      console.log(`✅ Created ${stats.notifications} notifications`)
     }
 
-    // 5. Pulisci vecchie notifiche (più di 30 giorni)
-    console.log('Cleaning old notifications...')
+    // ====================================
+    // 6. CLEANUP OLD DATA
+    // ====================================
     
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    console.log('🧹 Cleaning old data...')
     
+    // Pulisci notifiche vecchie (più di 30 giorni)
     const { error: cleanupError } = await supabase
       .from('notifications')
       .delete()
@@ -202,47 +297,68 @@ export async function GET(request: NextRequest) {
     
     if (cleanupError) {
       console.error('Error cleaning notifications:', cleanupError)
+      stats.errors.push(`Cleanup: ${cleanupError.message}`)
     }
 
-    // 6. Log del reset completato
+    // ====================================
+    // 7. LOG RESULTS
+    // ====================================
+    
+    const processingTime = Date.now() - startTime
+    
     await supabase
       .from('system_logs')
       .insert({
-        type: 'daily_reset',
-        status: 'success',
+        type: 'daily_reset_ai',
+        status: stats.errors.length === 0 ? 'success' : 'partial',
         metadata: {
           reset_time: resetTime,
-          challenges_created: dailyChallenges.length,
-          notifications_sent: recentUsers?.length || 0
+          expired_missions: stats.expiredMissions,
+          generated_missions: stats.generatedMissions,
+          processed_users: stats.processedUsers,
+          reset_streaks: stats.resetStreaks,
+          notifications_sent: stats.notifications,
+          processing_time_ms: processingTime,
+          errors: stats.errors
         },
         created_at: resetTime
       })
 
-    console.log('✅ Daily reset completed successfully!')
+    console.log('✅ Daily reset with AI completed!')
+    console.log('📊 Final Stats:', {
+      ...stats,
+      processingTime: `${(processingTime / 1000).toFixed(2)}s`
+    })
 
     return NextResponse.json({
       success: true,
-      message: 'Daily reset completed',
+      message: 'Daily reset with AI completed',
       data: {
         reset_time: resetTime,
-        challenges_created: dailyChallenges.length,
-        notifications_sent: recentUsers?.length || 0
+        expired_missions: stats.expiredMissions,
+        generated_missions: stats.generatedMissions,
+        processed_users: stats.processedUsers,
+        reset_streaks: stats.resetStreaks,
+        notifications_sent: stats.notifications,
+        processing_time: `${(processingTime / 1000).toFixed(2)}s`,
+        errors: stats.errors.length
       }
     })
 
   } catch (error) {
-    console.error('Daily reset error:', error)
+    console.error('❌ Daily reset error:', error)
     
-    // Log errore
+    // Log errore critico
     try {
       const supabase = getSupabaseAdmin()
       await supabase
         .from('system_logs')
         .insert({
-          type: 'daily_reset',
+          type: 'daily_reset_ai',
           status: 'error',
           metadata: {
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined
           },
           created_at: new Date().toISOString()
         })
@@ -257,6 +373,41 @@ export async function GET(request: NextRequest) {
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
+    )
+  }
+}
+
+// ====================================
+// POST HANDLER FOR MANUAL TRIGGER
+// ====================================
+
+export async function POST(request: NextRequest) {
+  try {
+    // Per test manuali in development
+    const body = await request.json()
+    
+    if (process.env.NODE_ENV === 'development' || body.testMode === true) {
+      console.log('🧪 Manual trigger in test mode')
+      
+      // Crea una fake GET request con auth header
+      const fakeRequest = new NextRequest(request.url, {
+        headers: {
+          'x-cron-secret': process.env.CRON_SECRET || ''
+        }
+      })
+      
+      return GET(fakeRequest)
+    }
+    
+    return NextResponse.json(
+      { error: 'Manual trigger not allowed in production' },
+      { status: 403 }
+    )
+    
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Invalid request' },
+      { status: 400 }
     )
   }
 }
