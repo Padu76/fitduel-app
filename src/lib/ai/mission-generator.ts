@@ -404,7 +404,7 @@ export class AIMissionGenerator {
   }
 
   // ====================================
-  // MAIN GENERATION METHODS
+  // MAIN GENERATION METHODS WITH DB SAVE
   // ====================================
   
   async generateDailyMissions(
@@ -435,7 +435,14 @@ export class AIMissionGenerator {
       }
     }
     
-    return this.ensureVariety(missions, userProfile)
+    const finalMissions = this.ensureVariety(missions, userProfile)
+    
+    // SAVE MISSIONS TO DATABASE
+    if (finalMissions.length > 0) {
+      await this.saveMissionsToDatabase(finalMissions, userId)
+    }
+    
+    return finalMissions
   }
 
   async generateWeeklyMissions(
@@ -466,6 +473,11 @@ export class AIMissionGenerator {
       }
     }
     
+    // SAVE MISSIONS TO DATABASE
+    if (missions.length > 0) {
+      await this.saveMissionsToDatabase(missions, userId)
+    }
+    
     return missions
   }
 
@@ -478,12 +490,19 @@ export class AIMissionGenerator {
     const specialTemplate = this.getSpecialTemplate(trigger, userProfile)
     if (!specialTemplate) return null
     
-    return await this.generateMissionFromTemplate(
+    const mission = await this.generateMissionFromTemplate(
       specialTemplate,
       userProfile,
       'special',
       []
     )
+    
+    // SAVE MISSION TO DATABASE
+    if (mission) {
+      await this.saveMissionsToDatabase([mission], userId)
+    }
+    
+    return mission
   }
 
   async generateProgressiveMission(
@@ -514,7 +533,103 @@ export class AIMissionGenerator {
       }
     }
     
+    // SAVE MISSIONS TO DATABASE
+    if (missions.length > 0) {
+      await this.saveMissionsToDatabase(missions, userId)
+    }
+    
     return missions
+  }
+
+  // ====================================
+  // DATABASE SAVE METHOD
+  // ====================================
+  
+  private async saveMissionsToDatabase(
+    missions: GeneratedMission[],
+    userId: string
+  ): Promise<void> {
+    try {
+      // First, save to daily_challenges table (if daily missions)
+      const dailyMissions = missions.filter(m => m.type === 'daily')
+      if (dailyMissions.length > 0) {
+        const dailyChallenges = dailyMissions.map(m => ({
+          id: m.mission_id, // Use the mission_id as the primary key
+          title: m.title,
+          description: m.description,
+          category: m.category,
+          difficulty: m.difficulty || 'medium',
+          target_value: m.target_value,
+          reward_xp: m.reward_xp,
+          reward_coins: m.reward_coins,
+          icon: this.getCategoryIcon(m.category),
+          is_active: true,
+          created_at: new Date().toISOString()
+        }))
+
+        const { error: dailyError } = await this.supabase
+          .from('daily_challenges')
+          .upsert(dailyChallenges, { onConflict: 'id' })
+
+        if (dailyError) {
+          console.error('Error saving daily challenges:', dailyError)
+        }
+      }
+
+      // Then, save all missions to user_missions table
+      const userMissions = missions.map(m => ({
+        user_id: userId,
+        mission_id: m.mission_id, // Foreign key to daily_challenges
+        mission_type: m.type, // 'daily', 'weekly', etc.
+        title: m.title,
+        description: m.description,
+        category: m.category,
+        difficulty: m.difficulty || 'medium',
+        target_value: m.target_value,
+        current_value: 0,
+        reward_xp: m.reward_xp,
+        reward_coins: m.reward_coins,
+        streak_bonus: m.streak_bonus || 0,
+        is_completed: false,
+        expires_at: m.expires_at,
+        completed_at: null,
+        metadata: m.metadata,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }))
+
+      const { data, error } = await this.supabase
+        .from('user_missions')
+        .insert(userMissions)
+        .select()
+
+      if (error) {
+        console.error('Error saving user missions:', error)
+        throw error
+      }
+
+      console.log(`✅ Saved ${missions.length} missions to database for user ${userId}`)
+      
+    } catch (error) {
+      console.error('Failed to save missions to database:', error)
+      throw error
+    }
+  }
+
+  // ====================================
+  // HELPER METHOD FOR ICONS
+  // ====================================
+  
+  private getCategoryIcon(category: MissionCategory): string {
+    const icons: Record<MissionCategory, string> = {
+      duels: '⚔️',
+      exercise: '💪',
+      social: '👥',
+      streak: '🔥',
+      performance: '📈',
+      exploration: '🔍'
+    }
+    return icons[category] || '🎯'
   }
 
   // ====================================
@@ -814,7 +929,7 @@ export class AIMissionGenerator {
     // Personalize based on user level and streak
     let titlePrefix = motivationalWords[Math.floor(Math.random() * motivationalWords.length)]
     if (profile.daily_streak > 5) {
-      titlePrefix = '🏅 Campione, ' + titlePrefix.toLowerCase()
+      titlePrefix = '🅱️ Campione, ' + titlePrefix.toLowerCase()
     } else if (profile.level > 15) {
       titlePrefix = '👑 Maestro, ' + titlePrefix.toLowerCase()
     }
