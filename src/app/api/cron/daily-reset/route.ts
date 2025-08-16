@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
     // 1. EXPIRE OLD MISSIONS
     // ====================================
     
-    console.log('📝 Expiring old daily missions...')
+    console.log('🔍 Expiring old daily missions...')
     
     // Marca tutte le missioni giornaliere scadute
     const { data: expiredData, error: expireError } = await supabase
@@ -152,34 +152,39 @@ export async function GET(request: NextRequest) {
               console.log(`🎯 Generating missions for ${user.username || user.id}...`)
               
               // Genera 5 missioni giornaliere
-              const dailyResult = await generator.generateDailyMissions(
+              // generateDailyMissions ritorna direttamente un array di GeneratedMission[]
+              const dailyMissions = await generator.generateDailyMissions(
                 user.id,
                 5
               )
               
-              if (dailyResult.success) {
-                stats.generatedMissions += dailyResult.missions?.length || 0
-                console.log(`✅ Generated ${dailyResult.missions?.length || 0} daily missions for ${user.username}`)
+              if (dailyMissions && dailyMissions.length > 0) {
+                stats.generatedMissions += dailyMissions.length
+                console.log(`✅ Generated ${dailyMissions.length} daily missions for ${user.username}`)
+              } else {
+                console.log(`⚠️ No daily missions generated for ${user.username}`)
               }
               
               // Genera 3 missioni settimanali (solo il lunedì)
               if (now.getDay() === 1) { // 1 = Monday
-                const weeklyResult = await generator.generateWeeklyMissions(
+                const weeklyMissions = await generator.generateWeeklyMissions(
                   user.id,
                   3
                 )
                 
-                if (weeklyResult.success) {
-                  stats.generatedMissions += weeklyResult.missions?.length || 0
-                  console.log(`✅ Generated ${weeklyResult.missions?.length || 0} weekly missions for ${user.username}`)
+                if (weeklyMissions && weeklyMissions.length > 0) {
+                  stats.generatedMissions += weeklyMissions.length
+                  console.log(`✅ Generated ${weeklyMissions.length} weekly missions for ${user.username}`)
+                } else {
+                  console.log(`⚠️ No weekly missions generated for ${user.username}`)
                 }
               }
               
               stats.processedUsers++
               
-            } catch (userError) {
+            } catch (userError: any) {
               console.error(`Error processing user ${user.id}:`, userError)
-              stats.errors.push(`User ${user.username}: ${userError.message}`)
+              stats.errors.push(`User ${user.username}: ${userError.message || 'Unknown error'}`)
             }
           })
         )
