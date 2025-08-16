@@ -398,7 +398,10 @@ export async function POST(request: NextRequest) {
       success: true,
       reportId: report.id,
       message: 'Report submitted successfully and will be reviewed',
-      trustImpact
+      trustImpact: {
+        reporter: trustImpact.reporterImpact,
+        reported: trustImpact.reportedImpact
+      }
     }
     
     return NextResponse.json(response, { status: 201 })
