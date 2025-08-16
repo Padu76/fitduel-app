@@ -152,16 +152,10 @@ export async function GET(request: NextRequest) {
               console.log(`🎯 Generating missions for ${user.username || user.id}...`)
               
               // Genera 5 missioni giornaliere
-              const dailyResult = await generator.generateMissions({
-                userId: user.id,
-                type: 'daily',
-                count: 5,
-                userProfile: {
-                  level: user.level || 1,
-                  preferences: {},
-                  history: []
-                }
-              })
+              const dailyResult = await generator.generateDailyMissions(
+                user.id,
+                5
+              )
               
               if (dailyResult.success) {
                 stats.generatedMissions += dailyResult.missions?.length || 0
@@ -170,16 +164,10 @@ export async function GET(request: NextRequest) {
               
               // Genera 3 missioni settimanali (solo il lunedì)
               if (now.getDay() === 1) { // 1 = Monday
-                const weeklyResult = await generator.generateMissions({
-                  userId: user.id,
-                  type: 'weekly',
-                  count: 3,
-                  userProfile: {
-                    level: user.level || 1,
-                    preferences: {},
-                    history: []
-                  }
-                })
+                const weeklyResult = await generator.generateWeeklyMissions(
+                  user.id,
+                  3
+                )
                 
                 if (weeklyResult.success) {
                   stats.generatedMissions += weeklyResult.missions?.length || 0
