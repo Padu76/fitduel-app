@@ -21,7 +21,7 @@ export default function HeroSection() {
   const floatingRef1 = useFloatingAnimation(4, 30)
   const floatingRef2 = useFloatingAnimation(5, 25)
   const floatingRef3 = useFloatingAnimation(3, 35)
-  const glowButtonRef = useGlowEffect()
+  const glowButtonRef = useGlowEffect<HTMLButtonElement>()
   
   const [stats, setStats] = useState<LiveStats>({
     onlineCount: 0,
