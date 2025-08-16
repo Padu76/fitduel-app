@@ -1,560 +1,532 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { 
-  Trophy, Target, Users, Activity, TrendingUp, 
-  Zap, Swords, Clock, ChevronRight, ArrowRight,
-  Flame, Crown, Star, Medal, Shield, Calendar
-} from 'lucide-react'
-import { cn } from '@/utils/cn'
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
-import { DuelCard, DuelData } from '@/components/game/DuelCard'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
-// ====================================
-// HERO SECTION
-// ====================================
-const HeroSection = () => {
+export default function LandingPage() {
   const router = useRouter()
-  
-  return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-gray-950 via-indigo-950 to-purple-950 py-20 px-4">
-      {/* Animated Background */}
-      <div className="absolute inset-0">
-        <div className="absolute top-20 left-20 w-72 h-72 bg-indigo-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
-        <div className="absolute bottom-20 right-20 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse delay-1000"></div>
-      </div>
+  const [onlineCount, setOnlineCount] = useState(0)
+  const [battlesCount, setBattlesCount] = useState(0)
+  const [dailyWins, setDailyWins] = useState(0)
 
-      <div className="container mx-auto relative z-10">
-        <div className="max-w-4xl mx-auto text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-              FitDuel Arena
-            </h1>
-            <p className="text-xl md:text-2xl text-gray-300 mb-8">
-              Sfida amici e atleti da tutto il mondo in duelli fitness epici
-            </p>
-          </motion.div>
+  // Animate counters on mount
+  useEffect(() => {
+    // Animate counters
+    const animateValue = (setter: Function, target: number, duration: number = 2000) => {
+      const increment = target / (duration / 16)
+      let current = 0
+      
+      const timer = setInterval(() => {
+        current += increment
+        if (current >= target) {
+          current = target
+          clearInterval(timer)
+        }
+        setter(Math.floor(current))
+      }, 16)
+    }
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center mb-12"
-          >
-            <Button 
-              variant="gradient" 
-              size="lg"
-              onClick={() => router.push('/register')}
-              className="group"
-            >
-              Inizia Ora
-              <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-            </Button>
-            <Button 
-              variant="secondary" 
-              size="lg"
-              onClick={() => router.push('/login')}
-            >
-              Accedi
-            </Button>
-          </motion.div>
+    animateValue(setOnlineCount, 2847)
+    animateValue(setBattlesCount, 142)
+    animateValue(setDailyWins, 8234)
 
-          {/* Stats */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            className="grid grid-cols-3 gap-4 max-w-2xl mx-auto"
-          >
-            <Card variant="glass" className="p-4">
-              <p className="text-3xl font-bold text-indigo-400">10K+</p>
-              <p className="text-sm text-gray-400">Atleti Attivi</p>
-            </Card>
-            <Card variant="glass" className="p-4">
-              <p className="text-3xl font-bold text-purple-400">50K+</p>
-              <p className="text-sm text-gray-400">Duelli Completati</p>
-            </Card>
-            <Card variant="glass" className="p-4">
-              <p className="text-3xl font-bold text-pink-400">1M+</p>
-              <p className="text-sm text-gray-400">XP Guadagnati</p>
-            </Card>
-          </motion.div>
-        </div>
-      </div>
-    </section>
-  )
-}
+    // Random updates for live feel
+    const interval = setInterval(() => {
+      setOnlineCount(prev => prev + Math.floor(Math.random() * 20) - 10)
+      setBattlesCount(prev => Math.max(100, prev + Math.floor(Math.random() * 10) - 5))
+    }, 5000)
 
-// ====================================
-// FEATURES SECTION
-// ====================================
-const FeaturesSection = () => {
-  const features = [
+    return () => clearInterval(interval)
+  }, [])
+
+  // Game modes data
+  const gameModes = [
     {
-      icon: Swords,
-      title: "Duelli in Tempo Reale",
-      description: "Sfida altri atleti in competizioni 1v1 intense",
-      color: "from-red-500 to-orange-500"
+      icon: '⚡',
+      title: 'SFIDA LAMPO',
+      players: '1 VS 1 • 30 SECONDI',
+      description: 'Sfida istantanea contro un amico. Chi fa più ripetizioni in 30 secondi vince!',
+      bgImage: '/images/mode-quick.jpg' // Placeholder path
     },
     {
-      icon: Activity,
-      title: "AI Form Validation",
-      description: "Tecnologia AI che valida la forma corretta degli esercizi",
-      color: "from-blue-500 to-cyan-500"
+      icon: '👥',
+      title: 'TEAM BATTLE',
+      players: '5 VS 5 • 5 MINUTI',
+      description: 'Crea il tuo team e domina. Punti doppi per le vittorie di squadra!',
+      bgImage: '/images/mode-team.jpg'
     },
     {
-      icon: Trophy,
-      title: "Sistema di Livelli",
-      description: "Sali di livello e sblocca nuove sfide e ricompense",
-      color: "from-yellow-500 to-amber-500"
+      icon: '🏆',
+      title: 'TORNEO DAILY',
+      players: '100 PLAYERS • TUTTO IL GIORNO',
+      description: 'Accumula punti durante il giorno. Top 3 vincono premi esclusivi!',
+      bgImage: '/images/mode-tournament.jpg'
     },
     {
-      icon: Users,
-      title: "Community Globale",
-      description: "Unisciti a migliaia di atleti da tutto il mondo",
-      color: "from-purple-500 to-pink-500"
-    },
-    {
-      icon: Shield,
-      title: "Anti-Cheat Avanzato",
-      description: "Sistema multi-livello per garantire competizioni eque",
-      color: "from-green-500 to-emerald-500"
-    },
-    {
-      icon: Zap,
-      title: "Missioni Giornaliere",
-      description: "Completa missioni per guadagnare XP e ricompense extra",
-      color: "from-indigo-500 to-purple-500"
+      icon: '🎯',
+      title: 'MISSIONI SOLO',
+      players: 'SINGLE PLAYER • QUANDO VUOI',
+      description: 'Completa missioni giornaliere e sblocca rewards. Nuovo contenuto ogni giorno!',
+      bgImage: '/images/mode-solo.jpg'
     }
   ]
 
+  // Battle pass rewards
+  const rewards = [
+    { tier: 1, icon: '💪', name: 'Avatar Base', premium: false },
+    { tier: 5, icon: '🎯', name: 'Emote Victory', premium: false },
+    { tier: 10, icon: '🔥', name: 'Skin Fire', premium: true },
+    { tier: 15, icon: '⚡', name: 'Boost XP', premium: false },
+    { tier: 20, icon: '🏆', name: 'Title Champion', premium: false },
+    { tier: 25, icon: '👑', name: 'Crown Effect', premium: true },
+    { tier: 30, icon: '💎', name: '1000 Coins', premium: false },
+    { tier: 50, icon: '🌟', name: 'Legendary Skin', premium: true }
+  ]
+
+  // Features data
+  const features = [
+    {
+      icon: '⚡',
+      title: 'Sfide Veloci',
+      description: '30 secondi per vincere. Niente allenamenti lunghi. Solo azione pura.'
+    },
+    {
+      icon: '🤖',
+      title: 'AI Tracking',
+      description: 'La nostra AI conta le tue ripetizioni e valuta la forma. Zero trucchi.'
+    },
+    {
+      icon: '🏆',
+      title: 'Rewards Reali',
+      description: 'Vinci skin, badge, titoli esclusivi. Mostra a tutti chi è il boss.'
+    },
+    {
+      icon: '👥',
+      title: 'Social Competition',
+      description: 'Sfida amici, crea team, domina le classifiche. Il fitness è più divertente insieme.'
+    },
+    {
+      icon: '📱',
+      title: 'Cross-Platform',
+      description: 'Gioca su telefono, tablet o PC. I tuoi progressi ti seguono ovunque.'
+    },
+    {
+      icon: '🎮',
+      title: 'Gaming Experience',
+      description: 'Interfaccia gaming, effetti epici, progression system. Il fitness diventa un gioco.'
+    }
+  ]
+
+  // Live feed data
+  const liveFeed = [
+    { avatar: 'M', name: 'Marco', action: 'ha battuto Luigi', detail: 'Push-ups +150 XP' },
+    { avatar: 'S', name: 'Sara', action: 'streak 7 giorni!', detail: '+500 XP' },
+    { avatar: 'T', name: 'Team Alpha', action: 'vince il torneo!', detail: '+1000 XP' },
+    { avatar: 'L', name: 'Luca', action: 'nuovo record!', detail: '45 squats +200 XP' },
+    { avatar: 'A', name: 'Anna', action: 'sblocca skin Epic!', detail: 'Level 25' }
+  ]
+
   return (
-    <section className="py-20 px-4 bg-gray-900/50">
-      <div className="container mx-auto">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-white mb-4">
-            Perché FitDuel?
-          </h2>
-          <p className="text-gray-400 text-lg">
-            La piattaforma definitiva per il fitness competitivo
-          </p>
+    <div className="min-h-screen bg-black text-white overflow-x-hidden">
+      {/* HERO SECTION */}
+      <section className="relative min-h-screen flex items-center justify-center">
+        {/* Background Image with Overlay */}
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1920&h=1080&fit=crop"
+            alt="Hero Background"
+            fill
+            className="object-cover opacity-30"
+            priority
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/70 to-black" />
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map((feature, index) => (
+        {/* Animated Particles */}
+        <div className="absolute inset-0 z-10">
+          {[...Array(30)].map((_, i) => (
             <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              viewport={{ once: true }}
-            >
-              <Card variant="glass" className="p-6 hover:bg-gray-800/50 transition-all">
-                <div className={cn(
-                  "w-12 h-12 rounded-lg bg-gradient-to-br flex items-center justify-center mb-4",
-                  feature.color
-                )}>
-                  <feature.icon className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-xl font-bold text-white mb-2">
-                  {feature.title}
-                </h3>
-                <p className="text-gray-400">
-                  {feature.description}
-                </p>
-              </Card>
-            </motion.div>
+              key={i}
+              className="absolute w-1 h-1 bg-orange-500 rounded-full"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+              }}
+              animate={{
+                y: [-20, 20],
+                x: [-20, 20],
+                opacity: [0, 1, 0],
+              }}
+              transition={{
+                duration: Math.random() * 5 + 5,
+                repeat: Infinity,
+                ease: "linear",
+              }}
+            />
           ))}
         </div>
-      </div>
-    </section>
-  )
-}
 
-// ====================================
-// LIVE DUELS SECTION
-// ====================================
-const LiveDuelsSection = () => {
-  const [duels, setDuels] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const supabase = createClientComponentClient()
+        {/* Hero Content */}
+        <div className="relative z-20 text-center px-4 max-w-6xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="inline-block bg-gradient-to-r from-orange-600 to-orange-500 px-6 py-2 rounded-full text-sm font-bold uppercase tracking-wider mb-8"
+          >
+            🔥 Season 1 Live Now
+          </motion.div>
 
-  useEffect(() => {
-    loadLiveDuels()
-  }, [])
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="text-6xl md:text-8xl font-black uppercase mb-6 tracking-tight"
+          >
+            FitDuel Arena
+          </motion.h1>
 
-  const loadLiveDuels = async () => {
-    try {
-      // Get recent active duels with proper joins
-      const { data, error } = await supabase
-        .from('duels')
-        .select(`
-          *,
-          challenger:profiles!challenger_id(
-            id,
-            username,
-            display_name,
-            avatar_url,
-            xp
-          ),
-          challenged:profiles!challenged_id(
-            id,
-            username,
-            display_name,
-            avatar_url,
-            xp
-          ),
-          exercise:exercises!exercise_id(
-            id,
-            name,
-            code,
-            icon
-          )
-        `)
-        .in('status', ['active', 'completed'])
-        .order('updated_at', { ascending: false })
-        .limit(3)
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="text-xl md:text-2xl text-gray-300 mb-12"
+          >
+            Sfida i tuoi amici. Vinci in 30 secondi. Domina la classifica.
+          </motion.p>
 
-      if (!error && data) {
-        setDuels(data)
-      }
-    } catch (err) {
-      console.error('Error loading live duels:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
+          <motion.button
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => router.push('/auth')}
+            className="bg-gradient-to-r from-orange-600 to-orange-500 text-white px-12 py-6 rounded-full text-2xl font-black uppercase tracking-wider shadow-2xl hover:shadow-orange-500/50 transition-all duration-300"
+          >
+            GIOCA ORA
+          </motion.button>
 
-  const calculateLevel = (xp: number) => {
-    return Math.floor(Math.sqrt(xp / 10)) || 1
-  }
-
-  if (loading) {
-    return (
-      <section className="py-20 px-4">
-        <div className="container mx-auto">
-          <div className="text-center">
-            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          </div>
+          {/* Live Stats */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="grid grid-cols-3 gap-8 mt-16 max-w-2xl mx-auto"
+          >
+            <div className="bg-gray-900/50 backdrop-blur-sm border border-orange-500/20 rounded-2xl p-6 hover:border-orange-500/50 transition-colors">
+              <div className="text-4xl font-black text-orange-500">
+                {onlineCount.toLocaleString()}
+              </div>
+              <div className="text-sm text-gray-400 uppercase tracking-wider mt-2">
+                Online Ora
+              </div>
+            </div>
+            <div className="bg-gray-900/50 backdrop-blur-sm border border-orange-500/20 rounded-2xl p-6 hover:border-orange-500/50 transition-colors">
+              <div className="text-4xl font-black text-orange-500">
+                {battlesCount.toLocaleString()}
+              </div>
+              <div className="text-sm text-gray-400 uppercase tracking-wider mt-2">
+                Sfide Live
+              </div>
+            </div>
+            <div className="bg-gray-900/50 backdrop-blur-sm border border-orange-500/20 rounded-2xl p-6 hover:border-orange-500/50 transition-colors">
+              <div className="text-4xl font-black text-orange-500">
+                {dailyWins.toLocaleString()}
+              </div>
+              <div className="text-sm text-gray-400 uppercase tracking-wider mt-2">
+                Vittorie Oggi
+              </div>
+            </div>
+          </motion.div>
         </div>
       </section>
-    )
-  }
 
-  if (duels.length === 0) {
-    return null
-  }
+      {/* GAME MODES SECTION */}
+      <section className="py-24 px-4 bg-gray-950">
+        <div className="max-w-7xl mx-auto">
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-5xl font-black text-center mb-16 uppercase"
+          >
+            Modalità di Gioco
+          </motion.h2>
 
-  return (
-    <section className="py-20 px-4">
-      <div className="container mx-auto">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-white mb-4">
-            Duelli Live
-          </h2>
-          <p className="text-gray-400 text-lg">
-            Guarda le sfide in corso in tempo reale
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {duels.map((duel, index) => (
-            <motion.div
-              key={duel.id}
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.1 }}
-              viewport={{ once: true }}
-            >
-              <DuelCard
-                duel={{
-                  id: duel.id,
-                  challengerId: duel.challenger_id,
-                  challengerName: duel.challenger?.username || 'Unknown',
-                  challengerLevel: Math.floor(Math.sqrt((duel.challenger as any)?.xp || 0) / 10) || 1,
-                  challengerXP: (duel.challenger as any)?.xp || 0,
-                  challengerAvatar: duel.challenger?.avatar_url || '/avatars/default.png',
-                  challengedId: duel.challenged_id,
-                  challengedName: duel.challenged?.username || null,
-                  challengedLevel: duel.challenged ? Math.floor(Math.sqrt((duel.challenged as any)?.xp || 0) / 10) || 1 : null,
-                  challengedXP: duel.challenged ? (duel.challenged as any)?.xp || 0 : null,
-                  challengedAvatar: duel.challenged?.avatar_url || null,
-                  exerciseId: duel.exercise_id,
-                  exerciseName: duel.exercise?.name || 'Unknown Exercise',
-                  exerciseIcon: duel.exercise?.icon || '💪',
-                  status: duel.status,
-                  type: duel.type,
-                  wagerCoins: duel.wager_coins,
-                  xpReward: duel.xp_reward,
-                  difficulty: duel.difficulty,
-                  targetReps: duel.metadata?.targetReps,
-                  targetTime: duel.metadata?.targetTime,
-                  challengerScore: duel.challenger_score,
-                  challengedScore: duel.challenged_score,
-                  winnerId: duel.winner_id,
-                  expiresAt: duel.expires_at,
-                  createdAt: duel.created_at
-                }}
-                isLive={duel.status === 'active'}
-              />
-            </motion.div>
-          ))}
-        </div>
-
-        <div className="text-center mt-8">
-          <Link href="/challenges">
-            <Button variant="secondary">
-              Vedi Tutte le Sfide
-              <ChevronRight className="w-5 h-5 ml-2" />
-            </Button>
-          </Link>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-// ====================================
-// LEADERBOARD PREVIEW
-// ====================================
-const LeaderboardPreview = () => {
-  const [leaders, setLeaders] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const supabase = createClientComponentClient()
-
-  useEffect(() => {
-    loadLeaders()
-  }, [])
-
-  const loadLeaders = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('xp', { ascending: false })
-        .limit(5)
-
-      if (!error && data) {
-        setLeaders(data)
-      }
-    } catch (err) {
-      console.error('Error loading leaderboard:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const getRankIcon = (rank: number) => {
-    switch (rank) {
-      case 1: return <Crown className="w-5 h-5 text-yellow-500" />
-      case 2: return <Medal className="w-5 h-5 text-gray-400" />
-      case 3: return <Medal className="w-5 h-5 text-orange-600" />
-      default: return <span className="text-gray-500 font-bold">#{rank}</span>
-    }
-  }
-
-  if (loading || leaders.length === 0) {
-    return null
-  }
-
-  return (
-    <section className="py-20 px-4 bg-gray-900/50">
-      <div className="container mx-auto max-w-4xl">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-white mb-4">
-            Top Atleti
-          </h2>
-          <p className="text-gray-400 text-lg">
-            I migliori competitori della settimana
-          </p>
-        </div>
-
-        <Card variant="glass" className="overflow-hidden">
-          <div className="divide-y divide-gray-800">
-            {leaders.map((leader, index) => (
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {gameModes.map((mode, index) => (
               <motion.div
-                key={leader.id}
-                initial={{ opacity: 0, x: -20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="p-4 hover:bg-gray-800/30 transition-colors"
+                transition={{ delay: index * 0.1 }}
+                whileHover={{ y: -10, scale: 1.02 }}
+                className="relative group cursor-pointer"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-8 h-8 flex items-center justify-center">
-                      {getRankIcon(index + 1)}
-                    </div>
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
-                      <span className="text-white font-bold">
-                        {leader.username?.charAt(0).toUpperCase() || '?'}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-white">
-                        {leader.display_name || leader.username || 'Anonimo'}
-                      </p>
-                      <p className="text-sm text-gray-400">
-                        Livello {Math.floor(Math.sqrt((leader.xp || 0) / 10)) || 1}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-indigo-400">
-                      {(leader.xp || 0).toLocaleString()}
+                <div className="relative h-80 rounded-2xl overflow-hidden">
+                  {/* Background Image */}
+                  <Image
+                    src={`https://images.unsplash.com/photo-${
+                      index === 0 ? '1549060279-7e168fcee0c2' :
+                      index === 1 ? '1552674605-db6894100b4f' :
+                      index === 2 ? '1571019613454-516006a1aa2' :
+                      '1581009146145-a5de890ff157'
+                    }?w=400&h=500&fit=crop`}
+                    alt={mode.title}
+                    fill
+                    className="object-cover group-hover:scale-110 transition-transform duration-500"
+                  />
+                  
+                  {/* Gradient Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
+                  
+                  {/* Content */}
+                  <div className="absolute inset-0 p-6 flex flex-col justify-end">
+                    <div className="text-5xl mb-4">{mode.icon}</div>
+                    <h3 className="text-2xl font-black text-orange-500 mb-2">
+                      {mode.title}
+                    </h3>
+                    <p className="text-xs text-orange-400 font-bold mb-3">
+                      {mode.players}
                     </p>
-                    <p className="text-xs text-gray-400">XP Totali</p>
+                    <p className="text-sm text-gray-300">
+                      {mode.description}
+                    </p>
                   </div>
+
+                  {/* Hover Border Effect */}
+                  <div className="absolute inset-0 border-2 border-orange-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 </div>
               </motion.div>
             ))}
           </div>
-        </Card>
-
-        <div className="text-center mt-8">
-          <Link href="/leaderboard">
-            <Button variant="secondary">
-              Classifica Completa
-              <ChevronRight className="w-5 h-5 ml-2" />
-            </Button>
-          </Link>
         </div>
-      </div>
-    </section>
-  )
-}
+      </section>
 
-// ====================================
-// CTA SECTION
-// ====================================
-const CTASection = () => {
-  const router = useRouter()
-  
-  return (
-    <section className="py-20 px-4 relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-purple-600 opacity-10"></div>
-      
-      <div className="container mx-auto max-w-4xl relative z-10">
-        <Card variant="glass" className="p-12 text-center border-indigo-500/20">
-          <motion.div
+      {/* BATTLE PASS SECTION */}
+      <section className="py-24 px-4 relative">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <Image
+            src="https://images.unsplash.com/photo-1557683316-973673baf926?w=1920&h=600&fit=crop"
+            alt="Battle Pass Background"
+            fill
+            className="object-cover"
+          />
+        </div>
+
+        <div className="relative z-10 max-w-7xl mx-auto">
+          <motion.h2
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
+            className="text-5xl font-black text-center mb-8 uppercase"
           >
-            <h2 className="text-4xl font-bold text-white mb-4">
-              Pronto a Dominare l'Arena?
-            </h2>
-            <p className="text-gray-300 text-lg mb-8 max-w-2xl mx-auto">
-              Unisciti a migliaia di atleti che stanno già trasformando il loro allenamento in competizioni epiche
-            </p>
-            
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button 
-                variant="gradient" 
-                size="lg"
-                onClick={() => router.push('/register')}
-                className="group"
-              >
-                Crea Account Gratis
-                <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-              </Button>
-              <Button 
-                variant="secondary" 
-                size="lg"
-                onClick={() => router.push('/login')}
-              >
-                Ho già un account
-              </Button>
-            </div>
+            Battle Pass
+          </motion.h2>
 
-            <p className="text-sm text-gray-400 mt-6">
-              Nessuna carta di credito richiesta • Setup in 30 secondi
-            </p>
-          </motion.div>
-        </Card>
-      </div>
-    </section>
-  )
-}
-
-// ====================================
-// MAIN COMPONENT
-// ====================================
-export default function HomePage() {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
-      {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-gray-900/80 backdrop-blur-md border-b border-gray-800">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center">
-                <Swords className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xl font-bold text-white">FitDuel</span>
+          {/* Season Header */}
+          <div className="flex flex-wrap justify-between items-center mb-12 gap-6">
+            <div className="bg-orange-600 px-8 py-3 rounded-full font-black text-xl">
+              SEASON 1 - ORIGINS
             </div>
             
-            <div className="flex items-center gap-4">
-              <Link href="/login">
-                <Button variant="ghost" size="sm">
-                  Accedi
-                </Button>
-              </Link>
-              <Link href="/register">
-                <Button variant="gradient" size="sm">
-                  Registrati
-                </Button>
-              </Link>
+            <div className="flex gap-4">
+              {[
+                { value: 28, label: 'Giorni' },
+                { value: 14, label: 'Ore' },
+                { value: 32, label: 'Min' }
+              ].map((time, i) => (
+                <div key={i} className="bg-gray-900 border border-orange-500/30 rounded-xl p-4 min-w-[80px] text-center">
+                  <div className="text-3xl font-black text-orange-500">{time.value}</div>
+                  <div className="text-xs text-gray-400 uppercase">{time.label}</div>
+                </div>
+              ))}
             </div>
           </div>
+
+          {/* Rewards Track */}
+          <div className="flex gap-4 overflow-x-auto pb-6 scrollbar-thin scrollbar-thumb-orange-500 scrollbar-track-gray-900">
+            {rewards.map((reward, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.05 }}
+                whileHover={{ y: -5 }}
+                className={`
+                  min-w-[140px] p-6 rounded-2xl text-center relative
+                  ${reward.premium 
+                    ? 'bg-gradient-to-br from-orange-600/30 to-orange-500/20 border-2 border-orange-500' 
+                    : 'bg-gray-900 border border-gray-800'
+                  }
+                `}
+              >
+                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-orange-600 px-3 py-1 rounded-full text-xs font-bold">
+                  LV {reward.tier}
+                </div>
+                <div className="text-4xl mb-3 mt-2">{reward.icon}</div>
+                <div className="text-sm font-medium">{reward.name}</div>
+                {reward.premium && (
+                  <div className="absolute top-2 right-2 text-xs bg-orange-500 px-2 py-1 rounded-full">
+                    PRO
+                  </div>
+                )}
+              </motion.div>
+            ))}
+          </div>
         </div>
-      </nav>
+      </section>
 
-      {/* Main Content */}
-      <main className="pt-16">
-        <HeroSection />
-        <FeaturesSection />
-        <LiveDuelsSection />
-        <LeaderboardPreview />
-        <CTASection />
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-gray-800 bg-gray-900/50 py-8 px-4">
-        <div className="container mx-auto">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
-                <Swords className="w-4 h-4 text-white" />
+      {/* LIVE FEED TICKER */}
+      <section className="py-8 bg-orange-600/10 border-y border-orange-600/30 overflow-hidden">
+        <div className="flex items-center gap-4">
+          <div className="px-6 font-black text-orange-500 whitespace-nowrap">
+            🔴 LIVE NOW
+          </div>
+          <div className="flex gap-8 animate-scroll">
+            {[...liveFeed, ...liveFeed].map((item, index) => (
+              <div key={index} className="flex items-center gap-3 bg-gray-900/50 px-6 py-3 rounded-full whitespace-nowrap">
+                <div className="w-10 h-10 bg-gradient-to-br from-orange-600 to-orange-500 rounded-full flex items-center justify-center font-bold">
+                  {item.avatar}
+                </div>
+                <div className="text-sm">
+                  <span className="text-orange-500 font-bold">{item.name}</span>
+                  {' '}{item.action} • {item.detail}
+                </div>
               </div>
-              <span className="text-sm text-gray-400">
-                © 2024 FitDuel. Tutti i diritti riservati.
-              </span>
-            </div>
-            
-            <div className="flex gap-6">
-              <Link href="/terms" className="text-sm text-gray-400 hover:text-white transition-colors">
-                Termini
-              </Link>
-              <Link href="/privacy" className="text-sm text-gray-400 hover:text-white transition-colors">
-                Privacy
-              </Link>
-              <a href="#" className="text-sm text-gray-400 hover:text-white transition-colors">
-                Supporto
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FEATURES SECTION */}
+      <section className="py-24 px-4 bg-gray-950">
+        <div className="max-w-7xl mx-auto">
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-5xl font-black text-center mb-16 uppercase"
+          >
+            Perché FitDuel?
+          </motion.h2>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {features.map((feature, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                className="text-center group"
+              >
+                <motion.div
+                  whileHover={{ rotate: 360, scale: 1.1 }}
+                  transition={{ duration: 0.5 }}
+                  className="w-24 h-24 bg-gradient-to-br from-orange-600 to-orange-500 rounded-3xl flex items-center justify-center text-5xl mx-auto mb-6 group-hover:shadow-2xl group-hover:shadow-orange-500/50 transition-shadow duration-300"
+                >
+                  {feature.icon}
+                </motion.div>
+                <h3 className="text-2xl font-black mb-4">{feature.title}</h3>
+                <p className="text-gray-400 leading-relaxed">{feature.description}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA SECTION */}
+      <section className="py-32 px-4 relative">
+        {/* Background Image */}
+        <div className="absolute inset-0">
+          <Image
+            src="https://images.unsplash.com/photo-1538805060514-97d9cc17730c?w=1920&h=800&fit=crop"
+            alt="CTA Background"
+            fill
+            className="object-cover opacity-20"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-black/50" />
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          className="relative z-10 max-w-4xl mx-auto text-center"
+        >
+          <h2 className="text-5xl md:text-7xl font-black mb-6 uppercase bg-gradient-to-r from-orange-600 to-orange-400 bg-clip-text text-transparent">
+            Pronto per la battaglia?
+          </h2>
+          <p className="text-xl md:text-2xl text-gray-300 mb-12">
+            Unisciti a migliaia di giocatori. Prima vittoria garantita in 60 secondi.
+          </p>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => router.push('/auth')}
+            className="bg-gradient-to-r from-orange-600 to-orange-500 text-white px-12 py-6 rounded-full text-2xl font-black uppercase tracking-wider shadow-2xl hover:shadow-orange-500/50 transition-all duration-300"
+          >
+            INIZIA GRATIS
+          </motion.button>
+        </motion.div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="py-12 px-4 bg-black border-t border-gray-900">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-wrap justify-center gap-8 mb-8">
+            {['Privacy', 'Termini', 'Supporto', 'Discord', 'Twitter'].map((link) => (
+              <a
+                key={link}
+                href="#"
+                className="text-gray-400 hover:text-orange-500 transition-colors"
+              >
+                {link}
               </a>
-            </div>
+            ))}
+          </div>
+          <div className="text-center text-gray-500 text-sm">
+            © 2024 FitDuel. Game on, fit on.
           </div>
         </div>
       </footer>
+
+      {/* Inline Styles for Animation */}
+      <style jsx>{`
+        @keyframes scroll {
+          0% {
+            transform: translateX(0);
+          }
+          100% {
+            transform: translateX(-50%);
+          }
+        }
+        
+        .animate-scroll {
+          animation: scroll 30s linear infinite;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+          height: 8px;
+        }
+
+        .scrollbar-thumb-orange-500::-webkit-scrollbar-thumb {
+          background-color: #ff6b35;
+          border-radius: 9999px;
+        }
+
+        .scrollbar-track-gray-900::-webkit-scrollbar-track {
+          background-color: #111827;
+          border-radius: 9999px;
+        }
+      `}</style>
     </div>
   )
 }
