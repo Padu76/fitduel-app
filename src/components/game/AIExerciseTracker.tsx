@@ -6,7 +6,8 @@ import {
   Camera, Play, Pause, StopCircle, RotateCcw, Volume2, VolumeX,
   Trophy, Target, Activity, AlertCircle, CheckCircle, Zap,
   Download, Upload, Eye, EyeOff, Settings, Info, X,
-  Loader2, Star, TrendingUp, Award, Flame, Timer
+  Loader2, Star, TrendingUp, Award, Flame, Timer,
+  CameraOff, Wifi, AlertTriangle
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/Button'
@@ -734,6 +735,13 @@ export const AIExerciseTracker = ({
   const [voiceEnabled, setVoiceEnabled] = useState(true)
   const [isRecording, setIsRecording] = useState(false)
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null)
+  
+  // Error states
+  const [cameraError, setCameraError] = useState<string | null>(null)
+  const [mediaPipeError, setMediaPipeError] = useState<string | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
+  const [isMediaPipeLoaded, setIsMediaPipeLoaded] = useState(false)
+  const [cameraActive, setCameraActive] = useState(false)
 
   // Performance state
   const [currentReps, setCurrentReps] = useState(0)
@@ -768,6 +776,7 @@ export const AIExerciseTracker = ({
   // ====================================
 
   useEffect(() => {
+    console.log('🚀 Starting AI Tracker initialization...')
     initializeAI()
     return () => {
       cleanup()
@@ -777,43 +786,124 @@ export const AIExerciseTracker = ({
   const initializeAI = async () => {
     try {
       setIsLoading(true)
+      setCameraError(null)
+      setMediaPipeError(null)
+      setPermissionDenied(false)
 
+      console.log('📢 Initializing voice feedback...')
       // Initialize voice feedback
       voiceRef.current = new VoiceFeedbackSystem()
 
+      console.log('🎥 Initializing video recorder...')
       // Initialize video recorder
       recorderRef.current = new VideoRecorder()
 
+      console.log('🏋️ Initializing exercise analyzer...')
       // Initialize exercise analyzer
       analyzerRef.current = new ExerciseAnalyzer(exerciseId)
 
-      // Load MediaPipe Pose
-      await loadMediaPipe()
+      console.log('🤖 Loading MediaPipe...')
+      // Load MediaPipe Pose - with error handling
+      try {
+        await loadMediaPipe()
+        setIsMediaPipeLoaded(true)
+        console.log('✅ MediaPipe loaded successfully')
+      } catch (error) {
+        console.error('❌ MediaPipe loading failed:', error)
+        setMediaPipeError('Impossibile caricare il sistema di riconoscimento pose. Ricarica la pagina.')
+        setIsLoading(false)
+        return
+      }
 
-      // Initialize camera
-      await initializeCamera()
+      console.log('📷 Initializing camera...')
+      // Initialize camera - with better error handling
+      try {
+        await initializeCamera()
+        setCameraActive(true)
+        console.log('✅ Camera initialized successfully')
+      } catch (error: any) {
+        console.error('❌ Camera initialization failed:', error)
+        handleCameraError(error)
+        setIsLoading(false)
+        return
+      }
 
+      console.log('💾 Loading calibration data...')
       // Load calibration data if exists
       await loadCalibrationData()
 
+      console.log('✅ AI Tracker initialization complete!')
       setIsLoading(false)
     } catch (error) {
-      console.error('Error initializing AI:', error)
+      console.error('❌ Error initializing AI:', error)
+      setCameraError('Errore generale di inizializzazione. Ricarica la pagina.')
       setIsLoading(false)
     }
   }
 
-  const loadMediaPipe = async () => {
-    const script = document.createElement('script')
-    script.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js'
-    script.async = true
+  const handleCameraError = (error: any) => {
+    console.error('Camera error details:', error)
     
-    await new Promise((resolve, reject) => {
-      script.onload = resolve
-      script.onerror = reject
+    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+      setPermissionDenied(true)
+      setCameraError('Permesso fotocamera negato. Clicca sul lucchetto nella barra degli indirizzi per dare il permesso.')
+    } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+      setCameraError('Nessuna fotocamera trovata. Assicurati che il dispositivo abbia una webcam funzionante.')
+    } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+      setCameraError('La fotocamera è già in uso da un\'altra applicazione. Chiudi le altre app che usano la webcam.')
+    } else if (error.name === 'OverconstrainedError' || error.name === 'ConstraintNotSatisfiedError') {
+      setCameraError('La fotocamera non supporta la risoluzione richiesta. Prova con un altro dispositivo.')
+    } else if (error.name === 'TypeError' || !navigator.mediaDevices) {
+      setCameraError('Il tuo browser non supporta l\'accesso alla fotocamera. Usa Chrome, Firefox o Safari.')
+    } else {
+      setCameraError(`Errore fotocamera: ${error.message || 'Errore sconosciuto'}. Ricarica la pagina.`)
+    }
+  }
+
+  const loadMediaPipe = async () => {
+    return new Promise((resolve, reject) => {
+      // Check if already loaded
+      if (window.Pose) {
+        console.log('MediaPipe already loaded')
+        initializePose()
+        resolve(true)
+        return
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js'
+      script.async = true
+      
+      const timeout = setTimeout(() => {
+        reject(new Error('MediaPipe loading timeout'))
+      }, 15000) // 15 second timeout
+      
+      script.onload = () => {
+        clearTimeout(timeout)
+        console.log('MediaPipe script loaded')
+        
+        // Wait a bit for the library to initialize
+        setTimeout(() => {
+          if (window.Pose) {
+            initializePose()
+            resolve(true)
+          } else {
+            reject(new Error('MediaPipe Pose not available after loading'))
+          }
+        }, 500)
+      }
+      
+      script.onerror = (error) => {
+        clearTimeout(timeout)
+        console.error('Failed to load MediaPipe script:', error)
+        reject(error)
+      }
+      
       document.body.appendChild(script)
     })
+  }
 
+  const initializePose = () => {
     const { Pose } = window as any
     
     poseRef.current = new Pose({
@@ -835,38 +925,98 @@ export const AIExerciseTracker = ({
       }
     })
 
-    await poseRef.current.initialize()
+    poseRef.current.initialize()
   }
 
   const initializeCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: 1280,
-          height: 720,
-          facingMode: 'user'
-        },
-        audio: false
-      })
+      // Check if getUserMedia is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('getUserMedia non supportato dal browser')
+      }
 
+      console.log('Requesting camera permissions...')
+      
+      // Try to get camera with fallback options
+      let stream: MediaStream | null = null
+      
+      // First try with ideal constraints
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: 'user'
+          },
+          audio: false
+        })
+      } catch (e) {
+        console.log('Failed with ideal constraints, trying basic...')
+        // Fallback to basic constraints
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        })
+      }
+
+      if (!stream) {
+        throw new Error('Impossibile ottenere lo stream video')
+      }
+
+      console.log('Camera stream obtained:', stream)
       streamRef.current = stream
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream
-        videoRef.current.play()
+        
+        // Wait for video to be ready
+        await new Promise((resolve) => {
+          if (videoRef.current) {
+            videoRef.current.onloadedmetadata = () => {
+              console.log('Video metadata loaded')
+              resolve(true)
+            }
+          }
+        })
+        
+        // Play the video
+        await videoRef.current.play()
+        console.log('Video playing')
+        
+        // Start pose detection loop after a small delay
+        setTimeout(() => {
+          detectPose()
+        }, 1000)
       }
-
-      // Start pose detection loop
-      detectPose()
     } catch (error) {
       console.error('Error accessing camera:', error)
-      voiceRef.current?.speak('Errore nell\'accesso alla fotocamera', 'high')
+      throw error
+    }
+  }
+
+  const retryCamera = async () => {
+    setCameraError(null)
+    setPermissionDenied(false)
+    setCameraActive(false)
+    setIsLoading(true)
+    
+    try {
+      await initializeCamera()
+      setCameraActive(true)
+      setIsLoading(false)
+    } catch (error: any) {
+      handleCameraError(error)
+      setIsLoading(false)
     }
   }
 
   const detectPose = async () => {
     if (videoRef.current && poseRef.current && videoRef.current.readyState === 4) {
-      await poseRef.current.send({ image: videoRef.current })
+      try {
+        await poseRef.current.send({ image: videoRef.current })
+      } catch (error) {
+        console.error('Error sending frame to MediaPipe:', error)
+      }
     }
     animationFrameRef.current = requestAnimationFrame(detectPose)
   }
@@ -932,6 +1082,11 @@ export const AIExerciseTracker = ({
   // ====================================
 
   const startTracking = () => {
+    if (!cameraActive || !isMediaPipeLoaded) {
+      setCameraError('Sistema non pronto. Assicurati che la fotocamera sia attiva.')
+      return
+    }
+    
     setIsTracking(true)
     setIsPaused(false)
     analyzerRef.current?.reset()
@@ -1275,12 +1430,80 @@ export const AIExerciseTracker = ({
   // RENDER
   // ====================================
 
+  // Error state render
+  if (cameraError || mediaPipeError) {
+    return (
+      <Card className="p-8">
+        <div className="flex flex-col items-center justify-center space-y-4">
+          <div className="p-4 bg-red-500/10 rounded-full">
+            {permissionDenied ? (
+              <CameraOff className="w-12 h-12 text-red-500" />
+            ) : (
+              <AlertTriangle className="w-12 h-12 text-red-500" />
+            )}
+          </div>
+          
+          <h3 className="text-xl font-bold text-white">Problema con la Fotocamera</h3>
+          
+          <p className="text-gray-400 text-center max-w-md">
+            {cameraError || mediaPipeError}
+          </p>
+
+          {permissionDenied && (
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 max-w-md">
+              <h4 className="font-semibold text-yellow-400 mb-2">Come dare il permesso:</h4>
+              <ol className="text-sm text-gray-300 space-y-1">
+                <li>1. Clicca sull'icona del lucchetto nella barra degli indirizzi</li>
+                <li>2. Trova "Fotocamera" nelle impostazioni</li>
+                <li>3. Cambia da "Blocca" a "Consenti"</li>
+                <li>4. Ricarica la pagina</li>
+              </ol>
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <Button
+              variant="gradient"
+              onClick={retryCamera}
+              className="gap-2"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Riprova
+            </Button>
+            
+            <Button
+              variant="secondary"
+              onClick={() => window.location.reload()}
+              className="gap-2"
+            >
+              Ricarica Pagina
+            </Button>
+          </div>
+
+          <div className="text-xs text-gray-500 text-center">
+            <p>Browser supportati: Chrome, Firefox, Safari, Edge</p>
+            <p>Assicurati di usare HTTPS (fitduel-app.vercel.app)</p>
+          </div>
+        </div>
+      </Card>
+    )
+  }
+
+  // Loading state
   if (isLoading) {
     return (
       <Card className="p-8">
         <div className="flex flex-col items-center justify-center space-y-4">
           <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
           <p className="text-gray-400">Inizializzazione AI Tracker...</p>
+          <div className="text-xs text-gray-500 space-y-1">
+            <p className={cn(isMediaPipeLoaded ? "text-green-400" : "")}>
+              {isMediaPipeLoaded ? "✓" : "○"} Caricamento MediaPipe
+            </p>
+            <p className={cn(cameraActive ? "text-green-400" : "")}>
+              {cameraActive ? "✓" : "○"} Attivazione fotocamera
+            </p>
+          </div>
         </div>
       </Card>
     )
@@ -1305,6 +1528,13 @@ export const AIExerciseTracker = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {cameraActive && (
+              <div className="flex items-center gap-2 px-3 py-1 bg-green-500/20 rounded-full">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                <span className="text-xs text-green-400">Camera Attiva</span>
+              </div>
+            )}
+            
             <Button
               variant="ghost"
               size="sm"
@@ -1339,11 +1569,13 @@ export const AIExerciseTracker = ({
           <video
             ref={videoRef}
             className={cn(
-              "absolute inset-0 w-full h-full object-cover mirror",
+              "absolute inset-0 w-full h-full object-cover",
+              "transform scale-x-[-1]", // Mirror the video
               !showVideo && "opacity-0"
             )}
             playsInline
             muted
+            autoPlay
           />
           
           <canvas
@@ -1444,6 +1676,7 @@ export const AIExerciseTracker = ({
               size="lg"
               onClick={startTracking}
               className="gap-2"
+              disabled={!cameraActive || !isMediaPipeLoaded}
             >
               <Play className="w-5 h-5" />
               Inizia
@@ -1586,3 +1819,4 @@ export const AIExerciseTracker = ({
 }
 
 export default AIExerciseTracker
+            
