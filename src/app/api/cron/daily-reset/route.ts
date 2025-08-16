@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       processedUsers: 0,
       resetStreaks: 0,
       notifications: 0,
-      errors: []
+      errors: [] as string[]
     }
 
     // ====================================
