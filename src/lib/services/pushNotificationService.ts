@@ -53,9 +53,11 @@ export interface NotificationPreferences {
   quiet_hours_end: string
 }
 
-// Extended NotificationOptions type to include image
+// Extended NotificationOptions type to include additional properties
 interface ExtendedNotificationOptions extends NotificationOptions {
   image?: string
+  actions?: NotificationAction[]
+  vibrate?: number[]
 }
 
 // ================================================
@@ -368,8 +370,8 @@ class PushNotificationService {
 
     const { title, message, icon, badge, image, actionUrl, data, requireInteraction } = payload
 
-    // Create options object without image first
-    const options: NotificationOptions = {
+    // Create options object with extended type to include all properties
+    const options: ExtendedNotificationOptions = {
       body: message,
       icon: icon || '/icons/icon-192x192.png',
       badge: badge || '/icons/badge-72x72.png',
@@ -382,16 +384,12 @@ class PushNotificationService {
         timestamp: Date.now()
       },
       actions: this.getNotificationActions(payload.type),
-      vibrate: [200, 100, 200]
-    }
-
-    // Add image property if provided (using type assertion to avoid TypeScript error)
-    if (image) {
-      (options as ExtendedNotificationOptions).image = image
+      vibrate: [200, 100, 200],
+      image: image
     }
 
     try {
-      await this.registration.showNotification(title, options)
+      await this.registration.showNotification(title, options as NotificationOptions)
     } catch (error) {
       console.error('Error showing notification:', error)
     }
