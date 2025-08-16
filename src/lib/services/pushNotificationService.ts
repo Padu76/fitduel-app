@@ -4,6 +4,7 @@
 // ================================================
 
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { useState, useEffect } from 'react'
 
 // ================================================
 // TYPES
@@ -50,6 +51,11 @@ export interface NotificationPreferences {
   quiet_hours_enabled: boolean
   quiet_hours_start: string
   quiet_hours_end: string
+}
+
+// Extended NotificationOptions type to include image
+interface ExtendedNotificationOptions extends NotificationOptions {
+  image?: string
 }
 
 // ================================================
@@ -362,11 +368,11 @@ class PushNotificationService {
 
     const { title, message, icon, badge, image, actionUrl, data, requireInteraction } = payload
 
+    // Create options object without image first
     const options: NotificationOptions = {
       body: message,
       icon: icon || '/icons/icon-192x192.png',
       badge: badge || '/icons/badge-72x72.png',
-      image: image,
       tag: data?.tag || `notification-${Date.now()}`,
       requireInteraction: requireInteraction || false,
       silent: payload.silent || false,
@@ -377,6 +383,11 @@ class PushNotificationService {
       },
       actions: this.getNotificationActions(payload.type),
       vibrate: [200, 100, 200]
+    }
+
+    // Add image property if provided (using type assertion to avoid TypeScript error)
+    if (image) {
+      (options as ExtendedNotificationOptions).image = image
     }
 
     try {
@@ -657,7 +668,7 @@ class PushNotificationService {
           console.log('New notification:', payload.new)
           
           // Show local notification
-          const notif = payload.new
+          const notif = payload.new as any
           this.showLocalNotification({
             title: notif.title,
             message: notif.message,
