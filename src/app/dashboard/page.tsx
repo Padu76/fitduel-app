@@ -197,54 +197,70 @@ export default function Dashboard() {
       </div>
 
       {/* Main Content */}
-      <div className="relative z-10 p-8 max-w-7xl mx-auto">
-        {/* Header with Notifications */}
-        <div className="flex justify-between items-center mb-8">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="relative"
-          >
-            <button
-              onClick={() => setShowNotifications(true)}
-              className="relative p-3 bg-slate-800/50 backdrop-blur rounded-xl border border-green-500/20
-                hover:border-green-500/50 transition-all duration-300 group"
-            >
-              <Bell className="w-6 h-6 text-green-400 group-hover:scale-110 transition-transform" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full 
-                  w-5 h-5 flex items-center justify-center animate-pulse">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-          </motion.div>
+      <div className="relative z-10 p-4 md:p-8 max-w-7xl mx-auto">
 
-          {/* Total Online Counter */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-3 bg-slate-800/50 backdrop-blur px-6 py-3 rounded-xl
-              border border-green-500/20"
-          >
-            <Circle className="w-3 h-3 fill-green-400 text-green-400 animate-pulse" />
-            <span className="text-green-400 font-bold text-lg">{totalOnline.toLocaleString()}</span>
-            <span className="text-slate-400">giocatori online</span>
-          </motion.div>
-        </div>
-
-        {/* Hero Profile Card */}
+        {/* Hero Profile Card with integrated header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="relative bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl 
-            rounded-3xl p-8 mb-8 border border-green-500/20 overflow-hidden group"
+            rounded-3xl p-6 md:p-8 mb-8 border border-green-500/20 overflow-hidden group"
         >
           {/* Animated border glow */}
           <div className="absolute inset-0 bg-gradient-to-r from-green-500/20 via-blue-500/20 to-green-500/20 
             opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl" />
           
-          <div className="relative flex items-center justify-between">
+          <div className="relative">
+            {/* Top bar with notifications and online counter */}
+            <div className="absolute -top-2 right-0 flex items-center gap-3">
+              {/* Online Counter */}
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-2 bg-slate-800/50 backdrop-blur px-4 py-2 rounded-xl
+                  border border-green-500/20"
+              >
+                <Circle className="w-2 h-2 fill-green-400 text-green-400 animate-pulse" />
+                <span className="text-green-400 font-bold text-sm">{totalOnline.toLocaleString()}</span>
+                <span className="text-slate-400 text-xs hidden sm:inline">giocatori online</span>
+              </motion.div>
+
+              {/* Notifications */}
+              <motion.div
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="relative"
+              >
+                <button
+                  onClick={() => setShowNotifications(true)}
+                  className="relative p-2.5 bg-slate-800/50 backdrop-blur rounded-xl border border-green-500/20
+                    hover:border-green-500/50 transition-all duration-300 group"
+                >
+                  <Bell className="w-5 h-5 text-green-400 group-hover:scale-110 transition-transform" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full 
+                      w-5 h-5 flex items-center justify-center animate-pulse">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+              </motion.div>
+
+              {/* Settings Button */}
+              <Link href="/profile">
+                <motion.button
+                  className="p-2.5 bg-slate-700/50 rounded-xl hover:bg-slate-700 
+                    transition-all duration-300 border border-slate-600/50 hover:border-green-500/50"
+                  whileHover={{ scale: 1.1, rotate: 90 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Settings className="w-5 h-5 text-slate-400 hover:text-green-400 transition-colors" />
+                </motion.button>
+              </Link>
+            </div>
+
+            {/* Main profile content */}
+            <div className="flex items-center gap-4 md:gap-6">
             <div className="flex items-center gap-6">
               {/* Avatar with level */}
               <div className="relative">
@@ -286,9 +302,9 @@ export default function Dashboard() {
               </div>
 
               {/* User Info */}
-              <div className="space-y-3">
+              <div className="space-y-3 flex-1">
                 <div className="flex items-center gap-4">
-                  <h2 className="text-2xl font-bold text-white">PlayerOne</h2>
+                  <h2 className="text-xl md:text-2xl font-bold text-white">PlayerOne</h2>
                   <button className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 
                     rounded-lg text-white font-bold text-sm hover:shadow-lg hover:shadow-green-500/25 
                     transition-all duration-300 hover:scale-105">
@@ -306,7 +322,7 @@ export default function Dashboard() {
                 </div>
                 
                 {/* XP Bar */}
-                <div className="w-96">
+                <div className="w-full md:w-96">
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-green-400">XP: 8,450 / 10,000</span>
                     <span className="text-slate-400">Prossimo: Gladiatore</span>
@@ -323,7 +339,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Stats */}
-                <div className="flex gap-6 text-sm">
+                <div className="flex flex-wrap gap-4 md:gap-6 text-sm">
                   <div className="flex items-center gap-2">
                     <Trophy className="w-4 h-4 text-yellow-400" />
                     <span className="text-slate-300">Vittorie:</span>
@@ -345,18 +361,6 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-
-            {/* Settings Button */}
-            <Link href="/profile">
-              <motion.button
-                className="p-3 bg-slate-700/50 rounded-xl hover:bg-slate-700 
-                  transition-all duration-300 border border-slate-600/50 hover:border-green-500/50"
-                whileHover={{ scale: 1.1, rotate: 90 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Settings className="w-6 h-6 text-slate-400 hover:text-green-400 transition-colors" />
-              </motion.button>
-            </Link>
           </div>
         </motion.div>
 
@@ -376,7 +380,7 @@ export default function Dashboard() {
                 <Link href={mode.link}>
                   <div className={`relative bg-gradient-to-br from-slate-800/50 to-slate-900/50 
                     backdrop-blur-xl rounded-2xl p-6 border border-green-500/20 
-                    hover:border-green-500/50 transition-all duration-500 h-48
+                    hover:border-green-500/50 transition-all duration-500 h-52
                     overflow-hidden cursor-pointer`}>
                     
                     {/* Background gradient */}
@@ -398,14 +402,14 @@ export default function Dashboard() {
                     )}
                     
                     {/* Content */}
-                    <div className="relative z-10">
+                    <div className="relative z-10 h-full flex flex-col">
                       <div className="text-5xl mb-3">{mode.icon}</div>
-                      <h3 className="text-2xl font-bold text-white mb-1">{mode.title}</h3>
+                      <h3 className="text-xl md:text-2xl font-bold text-white mb-1">{mode.title}</h3>
                       <p className="text-slate-400 text-sm mb-2">{mode.subtitle}</p>
-                      <p className="text-slate-500 text-xs mb-4">{mode.description}</p>
+                      <p className="text-slate-500 text-xs mb-3 hidden md:block">{mode.description}</p>
                       
-                      {/* Stats */}
-                      <div className="flex items-center gap-4 text-sm">
+                      {/* Stats - always visible */}
+                      <div className="mt-auto flex items-center gap-3 text-sm">
                         <div className="flex items-center gap-1">
                           <Circle className="w-2 h-2 fill-green-400 text-green-400" />
                           <span className="text-green-400 font-bold">{mode.players}</span>
@@ -426,13 +430,13 @@ export default function Dashboard() {
                     {/* Hover Action Button */}
                     <motion.div
                       className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 
-                        transition-opacity duration-300"
+                        transition-opacity duration-300 z-20"
                       initial={{ x: 20 }}
                       whileHover={{ x: 0 }}
                     >
-                      <button className="px-6 py-2 bg-gradient-to-r from-green-500 to-blue-500 
+                      <button className="px-4 md:px-6 py-2 bg-gradient-to-r from-green-500 to-blue-500 
                         rounded-lg text-white font-bold flex items-center gap-2 shadow-lg
-                        hover:shadow-green-500/25 transition-all">
+                        hover:shadow-green-500/25 transition-all text-sm md:text-base">
                         {mode.id === 'missions' ? 'CLAIM REWARDS' : 'GIOCA ORA'}
                         <ChevronRight className="w-4 h-4" />
                       </button>
