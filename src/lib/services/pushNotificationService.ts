@@ -53,6 +53,13 @@ export interface NotificationPreferences {
   quiet_hours_end: string
 }
 
+// Define NotificationAction type (missing from standard TypeScript definitions)
+interface NotificationAction {
+  action: string
+  title: string
+  icon?: string
+}
+
 // Extended NotificationOptions type to include additional properties
 interface ExtendedNotificationOptions extends NotificationOptions {
   image?: string
