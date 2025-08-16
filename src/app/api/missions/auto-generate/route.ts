@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { headers } from 'next/headers'
-import { MissionGeneratorAI } from '@/lib/ai/mission-generator'
+import { AIMissionGenerator } from '@/lib/ai/mission-generator'
 
 // ====================================
 // CONFIGURATION
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
     // ====================================
     
     console.log('🤖 Initializing AI Mission Generator...')
-    const generator = new MissionGeneratorAI()
+    const generator = new AIMissionGenerator()
     
     // Process users in batches
     const batches = []
