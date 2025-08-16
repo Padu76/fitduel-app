@@ -123,10 +123,11 @@ export async function POST(request: NextRequest) {
     // Get users active in last 30 days OR recently created
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
     
-    // First attempt: get ALL users for debugging
+    // First attempt: get active users
     let userQuery = supabase
       .from('profiles')
-      .select('id, username, email, level, last_seen, created_at')
+      .select('id, username, email, level, updated_at, created_at, is_active')
+      .eq('is_active', true)  // Only get active users
     
     // In test mode, limit results
     if (testMode) {
@@ -142,18 +143,17 @@ export async function POST(request: NextRequest) {
       throw new Error(`Cannot fetch users: ${allUsersError.message}`)
     }
     
-    console.log(`📊 Total users in database: ${allUsers?.length || 0}`)
+    console.log(`📊 Total active users in database: ${allUsers?.length || 0}`)
     
-    // Filter active users manually
+    // Filter users based on activity
     // Consider a user active if:
-    // 1. They have been seen in the last 30 days
+    // 1. They have been updated in the last 30 days
     // 2. OR they were created in the last 30 days
-    // 3. OR they have no last_seen (new users)
     const users = allUsers?.filter(user => {
-      // If last_seen exists, check if it's recent
-      if (user.last_seen) {
-        const lastSeenDate = new Date(user.last_seen)
-        if (lastSeenDate >= thirtyDaysAgo) {
+      // If updated_at exists and is recent
+      if (user.updated_at) {
+        const updatedDate = new Date(user.updated_at)
+        if (updatedDate >= thirtyDaysAgo) {
           return true
         }
       }
@@ -164,11 +164,6 @@ export async function POST(request: NextRequest) {
         if (createdDate >= thirtyDaysAgo) {
           return true
         }
-      }
-      
-      // If no last_seen and created_at is not available, include them (new users)
-      if (!user.last_seen && !user.created_at) {
-        return true
       }
       
       return false
@@ -182,7 +177,8 @@ export async function POST(request: NextRequest) {
       
       const { data: anyUsers, error: anyError } = await supabase
         .from('profiles')
-        .select('id, username, email, level, last_seen, created_at')
+        .select('id, username, email, level, updated_at, created_at, is_active')
+        .eq('is_active', true)
         .limit(testMode ? CONFIG.MAX_USERS_TEST : 1)
       
       if (anyError) {
@@ -446,19 +442,19 @@ export async function GET(request: NextRequest) {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     const { data: activeUsersData } = await supabase
       .from('profiles')
-      .select('id, last_seen, created_at')
+      .select('id, updated_at, created_at, is_active')
+      .eq('is_active', true)
     
     // Count active users manually with same logic as POST
     const activeUsers = activeUsersData?.filter(user => {
-      if (user.last_seen) {
-        const lastSeenDate = new Date(user.last_seen)
-        if (lastSeenDate >= thirtyDaysAgo) return true
+      if (user.updated_at) {
+        const updatedDate = new Date(user.updated_at)
+        if (updatedDate >= thirtyDaysAgo) return true
       }
       if (user.created_at) {
         const createdDate = new Date(user.created_at)
         if (createdDate >= thirtyDaysAgo) return true
       }
-      if (!user.last_seen && !user.created_at) return true
       return false
     }).length || 0
     
