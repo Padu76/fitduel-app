@@ -198,7 +198,6 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <div className="relative z-10 p-4 md:p-8 max-w-7xl mx-auto">
-
         {/* Hero Profile Card with integrated header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -261,7 +260,6 @@ export default function Dashboard() {
 
             {/* Main profile content */}
             <div className="flex items-center gap-4 md:gap-6">
-            <div className="flex items-center gap-6">
               {/* Avatar with level */}
               <div className="relative">
                 <motion.div
