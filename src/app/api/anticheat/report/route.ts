@@ -27,6 +27,10 @@ interface ReportResponse {
   }
 }
 
+interface ReportHistoryItem {
+  status: string
+}
+
 // ====================================
 // VALIDATION FUNCTIONS
 // ====================================
@@ -74,7 +78,7 @@ async function validateReporter(
       .limit(10)
     
     if (reportHistory && reportHistory.length >= 5) {
-      const falsePositives = reportHistory.filter(r => r.status === 'rejected').length
+      const falsePositives = reportHistory.filter((r: ReportHistoryItem) => r.status === 'rejected').length
       const falsePositiveRate = falsePositives / reportHistory.length
       
       if (falsePositiveRate > 0.6) {
@@ -127,7 +131,7 @@ function analyzeReportSeverity(reportType: string): {
   severity: 'low' | 'medium' | 'high' | 'critical'
   trustImpact: number
 } {
-  const severityMap = {
+  const severityMap: Record<string, { severity: 'low' | 'medium' | 'high' | 'critical'; trustImpact: number }> = {
     'cheating': { severity: 'high' as const, trustImpact: 15 },
     'macro': { severity: 'high' as const, trustImpact: 20 },
     'bot': { severity: 'critical' as const, trustImpact: 30 },
