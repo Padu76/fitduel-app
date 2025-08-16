@@ -1,13 +1,32 @@
 {
   "crons": [
     {
-      "path": "/api/cron/daily-reset",
+      "path": "/api/missions/auto-generate",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/missions/auto-generate", 
+      "schedule": "0 0 * * 1"
     }
   ],
   "functions": {
-    "app/api/cron/daily-reset/route.ts": {
+    "app/api/missions/auto-generate/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/missions/generate/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/missions/generate-event/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/duels/create/route.ts": {
+      "maxDuration": 10
+    },
+    "app/api/duels/accept/route.ts": {
+      "maxDuration": 10
+    },
+    "app/api/duels/complete/route.ts": {
+      "maxDuration": 10
     }
   }
 }
