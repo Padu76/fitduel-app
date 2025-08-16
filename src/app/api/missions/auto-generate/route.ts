@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     // 1. EXPIRE OLD MISSIONS
     // ====================================
     
-    console.log('📝 Expiring old missions...')
+    console.log('🔍 Expiring old missions...')
     
     const { data: expired } = await supabase
       .from('user_missions')
@@ -185,22 +185,23 @@ export async function POST(request: NextRequest) {
               .limit(1)
             
             if (existingMissions && existingMissions.length > 0 && !body.forceRegenerate) {
-              console.log(`    ⏭️ Skipping ${user.username} - already has missions today`)
+              console.log(`    ⭐️ Skipping ${user.username} - already has missions today`)
               stats.skipped++
               return
             }
             
             // Generate daily missions
+            // generateDailyMissions returns GeneratedMission[] directly
             console.log(`    📅 Generating ${CONFIG.DAILY_MISSIONS} daily missions...`)
-            const dailyResult = await generator.generateDailyMissions(
+            const dailyMissions = await generator.generateDailyMissions(
               user.id,
               CONFIG.DAILY_MISSIONS
             )
             
-            if (dailyResult.success && dailyResult.missions) {
-              stats.dailyMissions += dailyResult.missions.length
-              stats.missionsGenerated += dailyResult.missions.length
-              console.log(`    ✅ Generated ${dailyResult.missions.length} daily missions`)
+            if (dailyMissions && dailyMissions.length > 0) {
+              stats.dailyMissions += dailyMissions.length
+              stats.missionsGenerated += dailyMissions.length
+              console.log(`    ✅ Generated ${dailyMissions.length} daily missions`)
             } else {
               console.log(`    ⚠️ Failed to generate daily missions`)
             }
@@ -209,15 +210,17 @@ export async function POST(request: NextRequest) {
             if (isMonday || body.type === 'weekly_reset') {
               console.log(`    📅 Generating ${CONFIG.WEEKLY_MISSIONS} weekly missions...`)
               
-              const weeklyResult = await generator.generateWeeklyMissions(
+              const weeklyMissions = await generator.generateWeeklyMissions(
                 user.id,
                 CONFIG.WEEKLY_MISSIONS
               )
               
-              if (weeklyResult.success && weeklyResult.missions) {
-                stats.weeklyMissions += weeklyResult.missions.length
-                stats.missionsGenerated += weeklyResult.missions.length
-                console.log(`    ✅ Generated ${weeklyResult.missions.length} weekly missions`)
+              if (weeklyMissions && weeklyMissions.length > 0) {
+                stats.weeklyMissions += weeklyMissions.length
+                stats.missionsGenerated += weeklyMissions.length
+                console.log(`    ✅ Generated ${weeklyMissions.length} weekly missions`)
+              } else {
+                console.log(`    ⚠️ Failed to generate weekly missions`)
               }
             }
             
