@@ -10,9 +10,13 @@ import {
   TrendingUp, Award, Sparkles, Timer,
   Swords, Heart, ChevronRight, Circle
 } from 'lucide-react'
+import { useUserStore } from '@/stores/useUserStore'
+import { calculateLevel, calculateProgress } from '@/utils/helpers'
 
 export default function Dashboard() {
   const router = useRouter()
+  const { user, stats, isAuthenticated, notifications: userNotifications } = useUserStore()
+  
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [notifications, setNotifications] = useState([
     { id: 1, type: 'challenge', message: 'Marco ti ha sfidato!', time: '5m fa', read: false },
@@ -29,6 +33,20 @@ export default function Dashboard() {
     teamBattle: 156,
     training: 67
   })
+
+  // Check authentication
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push('/auth')
+    }
+  }, [isAuthenticated, router])
+
+  // Calculate user level and progress from XP
+  const userLevel = user ? calculateLevel(user.totalXp || 0) : 1
+  const levelProgress = user ? calculateProgress(user.totalXp || 0) : { current: 0, next: 100, progress: 0 }
+  const xpForNextLevel = levelProgress.next - levelProgress.current
+  const currentLevelXp = (user?.totalXp || 0) - levelProgress.current
+  const progressPercentage = (currentLevelXp / xpForNextLevel) * 100
 
   // Simula aggiornamento real-time dei counter
   useEffect(() => {
@@ -72,6 +90,15 @@ export default function Dashboard() {
     }
   }, [notifications])
 
+  // Update notifications from user store
+  useEffect(() => {
+    if (userNotifications > 0) {
+      setShowToast(true)
+      const timer = setTimeout(() => setShowToast(false), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [userNotifications])
+
   const markAsRead = (id: number) => {
     setNotifications(prev => 
       prev.map(n => n.id === id ? { ...n, read: true } : n)
@@ -80,6 +107,7 @@ export default function Dashboard() {
 
   const markAllAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+    useUserStore.getState().clearNotifications()
   }
 
   const unreadCount = notifications.filter(n => !n.read).length
@@ -160,6 +188,18 @@ export default function Dashboard() {
       isLarge: false
     }
   ]
+
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (!user) return 'G'
+    if (user.username) {
+      return user.username.charAt(0).toUpperCase()
+    }
+    if (user.email) {
+      return user.email.charAt(0).toUpperCase()
+    }
+    return 'U'
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 relative overflow-hidden">
@@ -246,7 +286,7 @@ export default function Dashboard() {
               </motion.div>
 
               {/* Settings Button */}
-              <Link href="/profile">
+              <Link href="/profile?tab=settings">
                 <motion.button
                   className="p-2.5 bg-slate-700/50 rounded-xl hover:bg-slate-700 
                     transition-all duration-300 border border-slate-600/50 hover:border-green-500/50"
@@ -262,13 +302,22 @@ export default function Dashboard() {
             <div className="flex items-center gap-4 md:gap-6">
               {/* Avatar with level */}
               <div className="relative">
-                <motion.div
-                  className="w-24 h-24 rounded-2xl bg-gradient-to-br from-green-400 to-blue-500 
-                    flex items-center justify-center text-4xl font-bold text-white shadow-2xl"
-                  whileHover={{ scale: 1.05, rotate: 5 }}
-                >
-                  P
-                </motion.div>
+                {user?.avatar ? (
+                  <motion.img
+                    src={user.avatar}
+                    alt={user.username}
+                    className="w-24 h-24 rounded-2xl object-cover shadow-2xl"
+                    whileHover={{ scale: 1.05, rotate: 5 }}
+                  />
+                ) : (
+                  <motion.div
+                    className="w-24 h-24 rounded-2xl bg-gradient-to-br from-green-400 to-blue-500 
+                      flex items-center justify-center text-4xl font-bold text-white shadow-2xl"
+                    whileHover={{ scale: 1.05, rotate: 5 }}
+                  >
+                    {getUserInitials()}
+                  </motion.div>
+                )}
                 
                 {/* Level Badge */}
                 <motion.div
@@ -277,7 +326,7 @@ export default function Dashboard() {
                   animate={{ scale: [1, 1.1, 1] }}
                   transition={{ duration: 2, repeat: Infinity }}
                 >
-                  LV 42
+                  LV {user?.level || userLevel}
                 </motion.div>
 
                 {/* Progress Ring */}
@@ -287,7 +336,7 @@ export default function Dashboard() {
                     stroke="url(#progress-gradient)"
                     strokeWidth="2"
                     fill="none"
-                    strokeDasharray={`${2 * Math.PI * 46 * 0.7} ${2 * Math.PI * 46 * 0.3}`}
+                    strokeDasharray={`${2 * Math.PI * 46 * (progressPercentage / 100)} ${2 * Math.PI * 46 * (1 - progressPercentage / 100)}`}
                     className="animate-spin-slow"
                   />
                   <defs>
@@ -302,7 +351,9 @@ export default function Dashboard() {
               {/* User Info */}
               <div className="space-y-3 flex-1">
                 <div className="flex items-center gap-4">
-                  <h2 className="text-xl md:text-2xl font-bold text-white">PlayerOne</h2>
+                  <h2 className="text-xl md:text-2xl font-bold text-white">
+                    {user?.username || user?.email?.split('@')[0] || 'Guest'}
+                  </h2>
                   <button className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 
                     rounded-lg text-white font-bold text-sm hover:shadow-lg hover:shadow-green-500/25 
                     transition-all duration-300 hover:scale-105">
@@ -322,15 +373,19 @@ export default function Dashboard() {
                 {/* XP Bar */}
                 <div className="w-full md:w-96">
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-green-400">XP: 8,450 / 10,000</span>
-                    <span className="text-slate-400">Prossimo: Gladiatore</span>
+                    <span className="text-green-400">
+                      XP: {currentLevelXp.toLocaleString()} / {xpForNextLevel.toLocaleString()}
+                    </span>
+                    <span className="text-slate-400">
+                      Prossimo: {user?.rank || calculateRank(userLevel)}
+                    </span>
                   </div>
                   <div className="h-3 bg-slate-700/50 rounded-full overflow-hidden">
                     <motion.div 
                       className="h-full bg-gradient-to-r from-green-400 to-blue-400 rounded-full
                         shadow-lg shadow-green-500/50"
                       initial={{ width: 0 }}
-                      animate={{ width: '84.5%' }}
+                      animate={{ width: `${progressPercentage}%` }}
                       transition={{ duration: 1.5, ease: "easeOut" }}
                     />
                   </div>
@@ -341,20 +396,27 @@ export default function Dashboard() {
                   <div className="flex items-center gap-2">
                     <Trophy className="w-4 h-4 text-yellow-400" />
                     <span className="text-slate-300">Vittorie:</span>
-                    <span className="text-white font-bold">234</span>
-                    <span className="text-green-400 text-xs">+12%</span>
+                    <span className="text-white font-bold">{stats?.wins || 0}</span>
+                    {stats && stats.totalDuels > 0 && (
+                      <span className="text-green-400 text-xs">
+                        {Math.round((stats.wins / stats.totalDuels) * 100)}%
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Flame className="w-4 h-4 text-orange-400" />
                     <span className="text-slate-300">Streak:</span>
-                    <span className="text-white font-bold">7</span>
-                    <TrendingUp className="w-3 h-3 text-green-400" />
+                    <span className="text-white font-bold">{stats?.currentStreak || 0}</span>
+                    {stats?.currentStreak > 0 && (
+                      <TrendingUp className="w-3 h-3 text-green-400" />
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Zap className="w-4 h-4 text-blue-400" />
                     <span className="text-slate-300">Coins:</span>
-                    <span className="text-white font-bold">12.5K</span>
-                    <span className="text-green-400 text-xs">+5%</span>
+                    <span className="text-white font-bold">
+                      {(user?.coins || 0).toLocaleString()}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -770,4 +832,17 @@ export default function Dashboard() {
       </AnimatePresence>
     </div>
   )
+}
+
+// Helper function to calculate rank from level
+function calculateRank(level: number): string {
+  if (level >= 50) return 'Legend'
+  if (level >= 40) return 'Master'
+  if (level >= 30) return 'Diamond'
+  if (level >= 25) return 'Platinum'
+  if (level >= 20) return 'Gold'
+  if (level >= 15) return 'Silver'
+  if (level >= 10) return 'Bronze'
+  if (level >= 5) return 'Iron'
+  return 'Rookie'
 }
