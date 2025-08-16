@@ -15,7 +15,13 @@ import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
-import { AIExerciseTracker, type PerformanceData } from '@/components/game/AIExerciseTracker'
+
+// ====================================
+// UPDATED IMPORT - NEW MODULAR AIEXERCISETRACKER
+// ====================================
+import { AIExerciseTracker } from '@/components/game/ai-tracker/AIExerciseTracker'
+import type { PerformanceData } from '@/components/game/ai-tracker/types'
+
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { RealtimeChannel, RealtimePresenceState } from '@supabase/supabase-js'
 
@@ -497,6 +503,9 @@ export default function DuelLivePage() {
   const [performanceResult, setPerformanceResult] = useState<PerformanceData | null>(null)
   const [myLivePerformance, setMyLivePerformance] = useState<LivePerformance | null>(null)
 
+  // Tournament mode flag
+  const [isTournament, setIsTournament] = useState(false)
+
   // Realtime hook
   const {
     isConnected,
@@ -593,6 +602,9 @@ export default function DuelLivePage() {
       }
 
       setDuel(duelData)
+      
+      // Check if it's a tournament duel
+      setIsTournament(duelData.type === 'tournament')
 
       // Load performances if duel is active or completed
       if (['active', 'completed'].includes(duelData.status)) {
@@ -821,6 +833,8 @@ export default function DuelLivePage() {
             difficulty: duel.difficulty,
             calories_burned: performanceResult.caloriesBurned,
             ai_feedback: performanceResult.feedback,
+            trust_score: performanceResult.trustScore,
+            is_valid: performanceResult.validationResult?.isValid,
             performed_at: new Date().toISOString()
           })
           .select()
@@ -954,6 +968,12 @@ export default function DuelLivePage() {
                 <CircleDot className="w-4 h-4 text-red-500 animate-pulse" />
                 <span className="text-sm text-red-500 font-medium">LIVE</span>
               </div>
+              {isTournament && (
+                <div className="flex items-center gap-2 px-3 py-1 bg-purple-500/20 rounded-full">
+                  <Shield className="w-4 h-4 text-purple-500" />
+                  <span className="text-sm text-purple-500 font-medium">TOURNAMENT MODE</span>
+                </div>
+              )}
             </div>
             <Button variant="ghost" onClick={handleExerciseCancel}>
               <X className="w-5 h-5" />
@@ -966,7 +986,7 @@ export default function DuelLivePage() {
             <LivePerformanceCard performance={opponentLive} isUser={false} />
           </div>
 
-          {/* AI Tracker */}
+          {/* AI Tracker with strictMode for tournaments */}
           <AIExerciseTracker
             exerciseId={duel.exercise?.code || 'push_up'}
             userId={currentUser?.id || 'demo_user'}
@@ -975,6 +995,7 @@ export default function DuelLivePage() {
             targetTime={duel.metadata?.targetTime}
             onComplete={handleExerciseComplete}
             onProgress={handleExerciseProgress}
+            strictMode={isTournament} // Enable anti-cheat for tournaments
           />
         </div>
       </div>
@@ -1000,6 +1021,14 @@ export default function DuelLivePage() {
             </div>
 
             <div className="flex items-center gap-4">
+              {/* Tournament badge */}
+              {isTournament && (
+                <div className="flex items-center gap-2 px-3 py-1 bg-purple-500/20 rounded-full">
+                  <Trophy className="w-4 h-4 text-purple-400" />
+                  <span className="text-sm text-purple-400 font-medium">TORNEO</span>
+                </div>
+              )}
+
               {/* Connection status */}
               <div className={cn(
                 "flex items-center gap-2 px-3 py-1 rounded-full text-sm",
@@ -1098,6 +1127,12 @@ export default function DuelLivePage() {
                   <div className="flex items-center gap-3 mb-3">
                     <Radio className="w-5 h-5 text-indigo-400" />
                     <span className="font-bold text-white">Duello Live con Realtime</span>
+                    {isTournament && (
+                      <div className="ml-auto flex items-center gap-2 px-3 py-1 bg-purple-500/20 rounded-full">
+                        <Shield className="w-4 h-4 text-purple-400" />
+                        <span className="text-sm text-purple-400">Anti-Cheat Attivo</span>
+                      </div>
+                    )}
                   </div>
                   <div className="grid md:grid-cols-3 gap-3 text-sm">
                     <div className="flex items-center gap-2">
@@ -1171,6 +1206,11 @@ export default function DuelLivePage() {
                   <p className="text-sm text-gray-400">
                     Form: {Math.round(performanceResult?.formScore || myPerformance?.form_score || 0)}%
                   </p>
+                  {performanceResult?.trustScore && (
+                    <p className="text-sm text-purple-400 mt-1">
+                      Trust Score: {performanceResult.trustScore}%
+                    </p>
+                  )}
                 </div>
 
                 {/* Opponent status */}
@@ -1249,6 +1289,11 @@ export default function DuelLivePage() {
                       {performanceResult?.repsCompleted || myPerformance?.reps || duel.challenger_score || 0}
                     </p>
                     <p className="text-sm text-gray-400">Tu</p>
+                    {performanceResult?.trustScore && (
+                      <p className="text-xs text-purple-400 mt-1">
+                        Trust: {performanceResult.trustScore}%
+                      </p>
+                    )}
                   </div>
                   <div className="text-center">
                     <p className="text-4xl font-bold text-white">
@@ -1260,6 +1305,31 @@ export default function DuelLivePage() {
                     </p>
                   </div>
                 </div>
+
+                {/* Anti-cheat validation result for tournaments */}
+                {isTournament && performanceResult?.validationResult && (
+                  <div className={cn(
+                    "p-4 rounded-lg mb-4",
+                    performanceResult.validationResult.isValid 
+                      ? "bg-green-500/10 border border-green-500/20"
+                      : "bg-red-500/10 border border-red-500/20"
+                  )}>
+                    <div className="flex items-center gap-2">
+                      <Shield className={cn(
+                        "w-5 h-5",
+                        performanceResult.validationResult.isValid ? "text-green-400" : "text-red-400"
+                      )} />
+                      <span className={cn(
+                        "font-medium",
+                        performanceResult.validationResult.isValid ? "text-green-400" : "text-red-400"
+                      )}>
+                        {performanceResult.validationResult.isValid 
+                          ? "Performance Verificata" 
+                          : "Performance Sotto Revisione"}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </Card>
 
               {/* Actions */}
