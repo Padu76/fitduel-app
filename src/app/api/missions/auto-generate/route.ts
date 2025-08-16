@@ -115,42 +115,100 @@ export async function POST(request: NextRequest) {
     console.log(`✅ Expired ${expired?.length || 0} old missions`)
     
     // ====================================
-    // 2. GET ACTIVE USERS
+    // 2. GET ACTIVE USERS - IMPROVED QUERY
     // ====================================
     
     console.log('👥 Finding active users...')
     
-    // Get users active in last 30 days
+    // Get users active in last 30 days OR recently created
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
     
+    // First attempt: get ALL users for debugging
     let userQuery = supabase
       .from('profiles')
-      .select('id, username, email, level')
-      .or(`last_seen.gte.${thirtyDaysAgo.toISOString()},created_at.gte.${thirtyDaysAgo.toISOString()}`)
-      .order('last_seen', { ascending: false, nullsFirst: false })
+      .select('id, username, email, level, last_seen, created_at')
     
-    // Limit users in test mode
+    // In test mode, limit results
     if (testMode) {
       userQuery = userQuery.limit(CONFIG.MAX_USERS_TEST)
     }
     
-    const { data: users, error: usersError } = await userQuery
+    const { data: allUsers, error: allUsersError } = await userQuery
     
-    if (usersError) {
-      console.error('Error fetching users:', usersError)
-      throw new Error('Cannot fetch users')
+    if (allUsersError) {
+      console.error('Error fetching all users:', allUsersError)
+      console.error('Error details:', allUsersError.message)
+      console.error('Error code:', allUsersError.code)
+      throw new Error(`Cannot fetch users: ${allUsersError.message}`)
     }
     
-    if (!users || users.length === 0) {
-      console.log('⚠️ No active users found')
-      return NextResponse.json({
-        success: true,
-        message: 'No active users to process',
-        stats
-      })
+    console.log(`📊 Total users in database: ${allUsers?.length || 0}`)
+    
+    // Filter active users manually
+    // Consider a user active if:
+    // 1. They have been seen in the last 30 days
+    // 2. OR they were created in the last 30 days
+    // 3. OR they have no last_seen (new users)
+    const users = allUsers?.filter(user => {
+      // If last_seen exists, check if it's recent
+      if (user.last_seen) {
+        const lastSeenDate = new Date(user.last_seen)
+        if (lastSeenDate >= thirtyDaysAgo) {
+          return true
+        }
+      }
+      
+      // If created_at is recent, include the user
+      if (user.created_at) {
+        const createdDate = new Date(user.created_at)
+        if (createdDate >= thirtyDaysAgo) {
+          return true
+        }
+      }
+      
+      // If no last_seen and created_at is not available, include them (new users)
+      if (!user.last_seen && !user.created_at) {
+        return true
+      }
+      
+      return false
+    }) || []
+    
+    console.log(`📊 Active users (last 30 days): ${users.length}`)
+    
+    if (users.length === 0) {
+      // If still no users, get ANY user for testing
+      console.log('⚠️ No active users found, trying to get ANY user for testing...')
+      
+      const { data: anyUsers, error: anyError } = await supabase
+        .from('profiles')
+        .select('id, username, email, level')
+        .limit(testMode ? CONFIG.MAX_USERS_TEST : 1)
+      
+      if (anyError) {
+        console.error('Cannot get any users:', anyError)
+        return NextResponse.json({
+          success: false,
+          message: 'No users found in database',
+          error: anyError.message,
+          stats
+        })
+      }
+      
+      if (anyUsers && anyUsers.length > 0) {
+        users.push(...anyUsers)
+        console.log(`📊 Found ${users.length} users for testing`)
+      } else {
+        console.log('⚠️ No users in database at all')
+        return NextResponse.json({
+          success: true,
+          message: 'No users to process',
+          stats
+        })
+      }
     }
     
-    console.log(`📊 Found ${users.length} active users`)
+    console.log(`🎯 Processing ${users.length} users...`)
     
     // ====================================
     // 3. GENERATE MISSIONS WITH AI
@@ -379,19 +437,38 @@ export async function GET(request: NextRequest) {
       .select('*', { count: 'exact', head: true })
       .gte('created_at', today)
     
-    // Get active users count
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-    const { count: activeUsers } = await supabase
+    // Get ALL users first for debugging
+    const { count: totalUsers } = await supabase
       .from('profiles')
       .select('*', { count: 'exact', head: true })
-      .gte('last_seen', thirtyDaysAgo.toISOString())
+    
+    // Get active users count (with better logic)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    const { data: activeUsersData } = await supabase
+      .from('profiles')
+      .select('id, last_seen, created_at')
+    
+    // Count active users manually with same logic as POST
+    const activeUsers = activeUsersData?.filter(user => {
+      if (user.last_seen) {
+        const lastSeenDate = new Date(user.last_seen)
+        if (lastSeenDate >= thirtyDaysAgo) return true
+      }
+      if (user.created_at) {
+        const createdDate = new Date(user.created_at)
+        if (createdDate >= thirtyDaysAgo) return true
+      }
+      if (!user.last_seen && !user.created_at) return true
+      return false
+    }).length || 0
     
     return NextResponse.json({
       success: true,
       status: {
         lastRun: lastRun || null,
         todayMissions: todayMissions || 0,
-        activeUsers: activeUsers || 0,
+        totalUsers: totalUsers || 0,
+        activeUsers: activeUsers,
         nextRun: getNextCronExecution(),
         isMonday: new Date().getDay() === 1
       }
