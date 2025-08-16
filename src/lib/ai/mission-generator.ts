@@ -63,6 +63,7 @@ export interface MissionTemplate {
 
 export interface GeneratedMission {
   id: string
+  mission_id: string // UUID per foreign key
   type: MissionType
   category: MissionCategory
   difficulty: MissionDifficulty
@@ -81,6 +82,23 @@ export interface GeneratedMission {
     estimated_completion_time: number
     fun_factor: number
   }
+}
+
+// ====================================
+// UTILITY: Generate UUID v4
+// ====================================
+function generateUUID(): string {
+  // Use crypto API if available (browser/Node 16+)
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  
+  // Fallback UUID v4 generation
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
 }
 
 // ====================================
@@ -128,6 +146,26 @@ const AI_MISSION_TEMPLATES: Record<MissionCategory, MissionTemplate[]> = {
         description_generation: 'Emphasize both winning and perfect form execution',
         creative_twist: 'Add motivational phrase about excellence'
       }
+    },
+    {
+      id: 'duels_participate',
+      category: 'duels',
+      difficulty: 'easy',
+      title_pattern: 'Partecipa a {target} duelli',
+      description_pattern: 'L\'importante è partecipare e migliorarsi ogni giorno',
+      target_formula: 'Math.max(1, Math.min(3, Math.floor(user.level / 2)))',
+      reward_formula: {
+        xp: 'target * 20',
+        coins: 'target * 7'
+      },
+      requirements: ['duels'],
+      conditions: {},
+      variations: [],
+      ai_prompts: {
+        title_generation: 'Create a participation-focused title',
+        description_generation: 'Encourage trying and improving',
+        creative_twist: 'Add themes of practice and growth'
+      }
     }
   ],
 
@@ -171,6 +209,26 @@ const AI_MISSION_TEMPLATES: Record<MissionCategory, MissionTemplate[]> = {
         title_generation: 'Create an endurance-focused title',
         description_generation: 'Motivate extended workout sessions',
         creative_twist: 'Reference building stamina and persistence'
+      }
+    },
+    {
+      id: 'exercise_push_ups',
+      category: 'exercise',
+      difficulty: 'medium',
+      title_pattern: 'Completa {target} push-ups',
+      description_pattern: 'Rafforza la parte superiore del corpo',
+      target_formula: 'Math.max(10, Math.min(user.level * 5, 100))',
+      reward_formula: {
+        xp: 'target * 2',
+        coins: 'Math.floor(target / 5)'
+      },
+      requirements: ['exercises'],
+      conditions: {},
+      variations: [],
+      ai_prompts: {
+        title_generation: 'Create a push-up challenge title',
+        description_generation: 'Motivate upper body strength',
+        creative_twist: 'Add power and strength themes'
       }
     }
   ],
@@ -342,7 +400,7 @@ export class AIMissionGenerator {
 
   constructor(openaiApiKey?: string) {
     this.supabase = createClientComponentClient()
-    this.openaiApiKey = openaiApiKey
+    this.openaiApiKey = openaiApiKey || process.env.ANTHROPIC_API_KEY
   }
 
   // ====================================
@@ -465,6 +523,18 @@ export class AIMissionGenerator {
   
   private async getUserProfile(userId: string): Promise<UserProfile> {
     try {
+      // First check if user exists in profiles
+      const { data: profile, error: profileError } = await this.supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+
+      if (profileError || !profile) {
+        console.log('Profile not found, using default')
+        return this.getDefaultProfile(userId)
+      }
+
       // Get user stats
       const { data: stats, error: statsError } = await this.supabase
         .from('user_stats')
@@ -472,43 +542,40 @@ export class AIMissionGenerator {
         .eq('user_id', userId)
         .single()
 
-      if (statsError) throw statsError
-
       // Get user preferences and history
-      const { data: missions, error: missionsError } = await this.supabase
+      const { data: missions } = await this.supabase
         .from('user_missions')
-        .select('*, daily_missions(*)')
+        .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(50)
 
-      const profile: UserProfile = {
+      const userProfile: UserProfile = {
         id: userId,
-        level: stats?.level || 1,
-        total_xp: stats?.total_xp || 0,
-        total_duels: stats?.total_duels || 0,
-        duels_won: stats?.duels_won || 0,
-        win_rate: stats?.total_duels > 0 ? (stats?.duels_won / stats?.total_duels) * 100 : 0,
-        daily_streak: stats?.daily_streak || 0,
-        max_daily_streak: stats?.max_daily_streak || 0,
+        level: profile.level || stats?.level || 1,
+        total_xp: profile.xp || stats?.total_xp || 0,
+        total_duels: stats?.total_duels_completed || 0,
+        duels_won: stats?.total_wins || 0,
+        win_rate: stats?.total_duels_completed > 0 ? (stats?.total_wins / stats?.total_duels_completed) * 100 : 0,
+        daily_streak: stats?.current_win_streak || 0,
+        max_daily_streak: stats?.max_win_streak || 0,
         favorite_exercises: this.analyzeFavoriteExercises(missions || []),
-        preferred_difficulty: this.analyzePreferredDifficulty(stats),
+        preferred_difficulty: this.analyzePreferredDifficulty(profile, stats),
         activity_patterns: {
-          most_active_time: '18:00', // Default, could be analyzed from data
-          avg_session_duration: 15, // Default minutes
-          weekly_frequency: 4 // Default days per week
+          most_active_time: '18:00',
+          avg_session_duration: 15,
+          weekly_frequency: 4
         },
         completion_history: {
-          daily_completed: missions?.filter((m: any) => m.is_completed)?.length || 0,
-          weekly_completed: 0, // Could be calculated
+          daily_completed: missions?.filter((m: any) => m.is_completed && m.mission_type === 'daily')?.length || 0,
+          weekly_completed: missions?.filter((m: any) => m.is_completed && m.mission_type === 'weekly')?.length || 0,
           preferred_categories: this.analyzePreferredCategories(missions || [])
         }
       }
 
-      return profile
+      return userProfile
     } catch (error) {
       console.error('Error getting user profile:', error)
-      // Return default profile
       return this.getDefaultProfile(userId)
     }
   }
@@ -542,9 +609,11 @@ export class AIMissionGenerator {
     try {
       const { data, error } = await this.supabase
         .from('user_missions')
-        .select('*, daily_missions(*)')
+        .select('*')
         .eq('user_id', userId)
+        .eq('mission_type', type)
         .eq('is_completed', false)
+        .gte('expires_at', new Date().toISOString())
 
       if (error) throw error
       return data || []
@@ -564,10 +633,10 @@ export class AIMissionGenerator {
     profile: UserProfile
   ): MissionCategory[] {
     const weights: Record<MissionCategory, number> = {
-      streak: type === 'daily' ? 0.3 : 0.1, // Higher weight for daily
+      streak: type === 'daily' ? 0.3 : 0.1,
       exercise: 0.25,
-      duels: 0.25,
-      performance: type === 'weekly' ? 0.3 : 0.15, // Higher weight for weekly
+      duels: profile.level >= 3 ? 0.25 : 0.1, // Require level 3 for duels
+      performance: type === 'weekly' ? 0.3 : 0.15,
       social: profile.level > 5 ? 0.15 : 0.05,
       exploration: profile.level < 10 ? 0.1 : 0.02
     }
@@ -654,19 +723,23 @@ export class AIMissionGenerator {
       } else if (type === 'weekly') {
         expiresAt.setDate(expiresAt.getDate() + 7)
       } else {
-        expiresAt.setDate(expiresAt.getDate() + 30) // Special/Progressive
+        expiresAt.setDate(expiresAt.getDate() + 30)
       }
 
+      // Generate UUIDs for both id and mission_id
+      const missionUUID = generateUUID()
+      
       const mission: GeneratedMission = {
-        id: `ai_${type}_${template.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: generateUUID(), // UUID for the record
+        mission_id: missionUUID, // UUID for foreign key to daily_missions
         type,
         category: template.category,
         difficulty: template.difficulty,
         title: title || template.title_pattern.replace('{target}', target.toString()),
         description: description || template.description_pattern.replace('{target}', target.toString()),
         target_value: target,
-        reward_xp: Math.max(10, Math.floor(xp)), // Minimum 10 XP
-        reward_coins: Math.max(5, Math.floor(coins)), // Minimum 5 coins
+        reward_xp: Math.max(10, Math.floor(xp)),
+        reward_coins: Math.max(5, Math.floor(coins)),
         streak_bonus: streakBonus ? Math.floor(streakBonus) : undefined,
         expires_at: expiresAt.toISOString(),
         conditions: template.conditions,
@@ -695,8 +768,8 @@ export class AIMissionGenerator {
     profile: UserProfile,
     target: number
   ): Promise<{ title: string; description: string }> {
-    // If OpenAI API is available, use it for creative content
-    if (this.openaiApiKey) {
+    // Use Anthropic API if available
+    if (this.openaiApiKey && process.env.AI_ENABLED === 'true') {
       try {
         return await this.generateAIContent(template, profile, target)
       } catch (error) {
@@ -718,7 +791,7 @@ export class AIMissionGenerator {
     profile: UserProfile,
     target: number
   ): Promise<{ title: string; description: string }> {
-    // This would integrate with OpenAI API
+    // TODO: Integrate with Anthropic API when needed
     // For now, return enhanced template-based content
     return this.generateVariations(template, profile, target)
   }
@@ -729,8 +802,8 @@ export class AIMissionGenerator {
     target: number
   ): { title: string; description: string } {
     const motivationalWords = [
-      'Conquista', 'Domina', 'Supera', 'Raggiungi', 'Ottieni', 'Sfida',
-      'Sprigiona', 'Sblocca', 'Massimizza', 'Perfeziona'
+      '💪 Conquista', '🔥 Domina', '⚡ Supera', '🎯 Raggiungi', '🏆 Ottieni', '⚔️ Sfida',
+      '✨ Sprigiona', '🔓 Sblocca', '📈 Massimizza', '💎 Perfeziona'
     ]
 
     const encouragementPhrases = [
@@ -741,9 +814,9 @@ export class AIMissionGenerator {
     // Personalize based on user level and streak
     let titlePrefix = motivationalWords[Math.floor(Math.random() * motivationalWords.length)]
     if (profile.daily_streak > 5) {
-      titlePrefix = 'Campione, ' + titlePrefix.toLowerCase()
+      titlePrefix = '🏅 Campione, ' + titlePrefix.toLowerCase()
     } else if (profile.level > 15) {
-      titlePrefix = 'Maestro, ' + titlePrefix.toLowerCase()
+      titlePrefix = '👑 Maestro, ' + titlePrefix.toLowerCase()
     }
 
     const baseTitle = template.title_pattern.replace('{target}', target.toString())
@@ -763,7 +836,7 @@ export class AIMissionGenerator {
   private evaluateFormula(formula: string, context: Record<string, any>): number {
     try {
       // Simple formula evaluation with safety checks
-      const sanitizedFormula = formula.replace(/[^0-9+\-*/().\w]/g, '')
+      const sanitizedFormula = formula.replace(/[^0-9+\-*/().\w\s=<>]/g, '')
       
       // Replace context variables
       let evaluatedFormula = sanitizedFormula
@@ -806,8 +879,8 @@ export class AIMissionGenerator {
 
   private isDuplicate(mission: GeneratedMission, existingMissions: any[]): boolean {
     return existingMissions.some(existing => 
-      existing.daily_missions?.name === mission.title ||
-      existing.daily_missions?.description === mission.description
+      existing.title === mission.title ||
+      existing.description === mission.description
     )
   }
 
@@ -831,7 +904,7 @@ export class AIMissionGenerator {
         id: 'special_level_up',
         category: 'performance',
         difficulty: 'medium',
-        title_pattern: 'Celebra il Level {level}!',
+        title_pattern: '🎉 Celebra il Level {level}!',
         description_pattern: 'Festeggia il tuo nuovo livello con una sfida speciale',
         target_formula: 'user.level',
         reward_formula: {
@@ -846,8 +919,27 @@ export class AIMissionGenerator {
           description_generation: 'Write a congratulatory mission description',
           creative_twist: 'Add achievement and milestone themes'
         }
+      },
+      weekend: {
+        id: 'special_weekend',
+        category: 'duels',
+        difficulty: 'hard',
+        title_pattern: '🎊 Weekend Warrior Challenge',
+        description_pattern: 'Domina il weekend con sfide epiche',
+        target_formula: '5',
+        reward_formula: {
+          xp: '200',
+          coins: '50'
+        },
+        requirements: [],
+        conditions: {},
+        variations: [],
+        ai_prompts: {
+          title_generation: 'Create an exciting weekend challenge',
+          description_generation: 'Motivate weekend warriors',
+          creative_twist: 'Add weekend party themes'
+        }
       }
-      // Add more special templates...
     }
 
     return specialTemplates[trigger] || null
@@ -858,26 +950,28 @@ export class AIMissionGenerator {
     const exerciseCount: Record<string, number> = {}
     
     missions.forEach(mission => {
-      if (mission.is_completed && mission.daily_missions?.code) {
-        const code = mission.daily_missions.code
-        if (code.includes('push')) exerciseCount['push-ups'] = (exerciseCount['push-ups'] || 0) + 1
-        if (code.includes('squat')) exerciseCount['squats'] = (exerciseCount['squats'] || 0) + 1
-        if (code.includes('plank')) exerciseCount['planks'] = (exerciseCount['planks'] || 0) + 1
+      if (mission.is_completed && mission.category === 'exercise') {
+        const exercises = ['push-ups', 'squats', 'planks', 'burpees']
+        exercises.forEach(ex => {
+          if (mission.title?.toLowerCase().includes(ex.replace('-', ''))) {
+            exerciseCount[ex] = (exerciseCount[ex] || 0) + 1
+          }
+        })
       }
     })
 
-    return Object.entries(exerciseCount)
+    const sorted = Object.entries(exerciseCount)
       .sort(([,a], [,b]) => b - a)
       .slice(0, 3)
       .map(([exercise]) => exercise)
+
+    return sorted.length > 0 ? sorted : ['push-ups', 'squats']
   }
 
-  private analyzePreferredDifficulty(stats: any): MissionDifficulty {
-    if (!stats) return 'easy'
-    
-    const level = stats.level || 1
-    const winRate = stats.duels_won && stats.total_duels 
-      ? (stats.duels_won / stats.total_duels) * 100 
+  private analyzePreferredDifficulty(profile: any, stats: any): MissionDifficulty {
+    const level = profile?.level || stats?.level || 1
+    const winRate = stats?.total_wins && stats?.total_duels_completed 
+      ? (stats.total_wins / stats.total_duels_completed) * 100 
       : 50
 
     if (level >= 15 && winRate >= 75) return 'extreme'
@@ -890,30 +984,28 @@ export class AIMissionGenerator {
     const categoryCount: Record<string, number> = {}
     
     missions.forEach(mission => {
-      if (mission.is_completed && mission.daily_missions?.code) {
-        const code = mission.daily_missions.code
-        if (code.includes('streak')) categoryCount['streak'] = (categoryCount['streak'] || 0) + 1
-        if (code.includes('duel')) categoryCount['duels'] = (categoryCount['duels'] || 0) + 1
-        if (code.includes('exercise')) categoryCount['exercise'] = (categoryCount['exercise'] || 0) + 1
-        if (code.includes('social')) categoryCount['social'] = (categoryCount['social'] || 0) + 1
+      if (mission.is_completed && mission.category) {
+        categoryCount[mission.category] = (categoryCount[mission.category] || 0) + 1
       }
     })
 
-    return Object.entries(categoryCount)
+    const sorted = Object.entries(categoryCount)
       .sort(([,a], [,b]) => b - a)
       .slice(0, 3)
       .map(([category]) => category as MissionCategory)
+
+    return sorted.length > 0 ? sorted : ['streak', 'exercise']
   }
 
   private estimateCompletionTime(mission: GeneratedMission, profile: UserProfile): number {
     // Estimate completion time in minutes based on mission type and user profile
     const baseTime: Record<MissionCategory, number> = {
-      streak: 1, // Just logging in
-      exercise: 10, // Average workout time
-      duels: 15, // Multiple duels
-      social: 20, // Finding and challenging friends
-      performance: 25, // Focused improvement
-      exploration: 5 // Checking new features
+      streak: 1,
+      exercise: 10,
+      duels: 15,
+      social: 20,
+      performance: 25,
+      exploration: 5
     }
 
     const difficultyMultiplier: Record<MissionDifficulty, number> = {
@@ -932,7 +1024,7 @@ export class AIMissionGenerator {
 
   private calculateFunFactor(template: MissionTemplate, profile: UserProfile): number {
     // Calculate how fun this mission will be for the user (0-100)
-    let funFactor = 50 // Base
+    let funFactor = 50
 
     // Prefer user's favorite categories
     if (profile.completion_history.preferred_categories.includes(template.category)) {
