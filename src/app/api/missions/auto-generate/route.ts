@@ -192,16 +192,10 @@ export async function POST(request: NextRequest) {
             
             // Generate daily missions
             console.log(`    📅 Generating ${CONFIG.DAILY_MISSIONS} daily missions...`)
-            const dailyResult = await generator.generateMissions({
-              userId: user.id,
-              type: 'daily',
-              count: CONFIG.DAILY_MISSIONS,
-              userProfile: {
-                level: user.level || 1,
-                preferences: {},
-                history: []
-              }
-            })
+            const dailyResult = await generator.generateDailyMissions(
+              user.id,
+              CONFIG.DAILY_MISSIONS
+            )
             
             if (dailyResult.success && dailyResult.missions) {
               stats.dailyMissions += dailyResult.missions.length
@@ -215,16 +209,10 @@ export async function POST(request: NextRequest) {
             if (isMonday || body.type === 'weekly_reset') {
               console.log(`    📅 Generating ${CONFIG.WEEKLY_MISSIONS} weekly missions...`)
               
-              const weeklyResult = await generator.generateMissions({
-                userId: user.id,
-                type: 'weekly',
-                count: CONFIG.WEEKLY_MISSIONS,
-                userProfile: {
-                  level: user.level || 1,
-                  preferences: {},
-                  history: []
-                }
-              })
+              const weeklyResult = await generator.generateWeeklyMissions(
+                user.id,
+                CONFIG.WEEKLY_MISSIONS
+              )
               
               if (weeklyResult.success && weeklyResult.missions) {
                 stats.weeklyMissions += weeklyResult.missions.length
