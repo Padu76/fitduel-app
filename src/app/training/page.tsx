@@ -712,6 +712,7 @@ export default function TrainingPage() {
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0)
   const [showInstructions, setShowInstructions] = useState(false)
   const [userLevel, setUserLevel] = useState(5) // Mock user level
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [userStats, setUserStats] = useState<UserStats>({
     totalWorkouts: 42,
     totalCalories: 3250,
@@ -752,6 +753,8 @@ export default function TrainingPage() {
       const { data: { user } } = await supabase.auth.getUser()
       
       if (user) {
+        setCurrentUserId(user.id)
+        
         // Load user stats from database
         const { data: stats } = await supabase
           .from('user_stats')
@@ -884,7 +887,7 @@ export default function TrainingPage() {
         </div>
 
         {/* AI Tracker Active */}
-        {isTracking && selectedExercise && (
+        {isTracking && selectedExercise && currentUserId && (
           <div className="fixed inset-0 z-50 bg-black/90 p-4 overflow-y-auto">
             <div className="max-w-4xl mx-auto">
               <div className="flex items-center justify-between mb-4">
@@ -899,7 +902,7 @@ export default function TrainingPage() {
 
               <AIExerciseTracker
                 exerciseId={selectedExercise.id}
-                userId="demo_user" // In produzione usa l'ID reale
+                userId={currentUserId} // Use real user ID
                 targetReps={
                   selectedMode === 'challenge' && dailyChallenge.targetReps 
                     ? dailyChallenge.targetReps 
