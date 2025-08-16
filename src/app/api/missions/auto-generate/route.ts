@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       missionsGenerated: 0,
       dailyMissions: 0,
       weeklyMissions: 0,
-      errors: [],
+      errors: [] as Array<{user: string, error: string}>,
       skipped: 0
     }
     
