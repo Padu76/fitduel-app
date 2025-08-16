@@ -123,34 +123,39 @@ export async function POST(request: NextRequest) {
     // Get users active in last 30 days OR recently created
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
     
-    // First attempt: get active users
+    // Get ALL users first, then filter by date
+    // This is more robust as it doesn't depend on specific field values
     let userQuery = supabase
       .from('profiles')
       .select('id, username, email, level, updated_at, created_at, is_active')
-      .eq('is_active', true)  // Only get active users
+      .order('created_at', { ascending: false })  // Order by most recent first
     
-    // In test mode, limit results
+    // In test mode, limit results before filtering
     if (testMode) {
-      userQuery = userQuery.limit(CONFIG.MAX_USERS_TEST)
+      userQuery = userQuery.limit(CONFIG.MAX_USERS_TEST * 2)  // Get more initially since we'll filter
     }
     
     const { data: allUsers, error: allUsersError } = await userQuery
     
     if (allUsersError) {
-      console.error('Error fetching all users:', allUsersError)
+      console.error('Error fetching users:', allUsersError)
       console.error('Error details:', allUsersError.message)
       console.error('Error code:', allUsersError.code)
       throw new Error(`Cannot fetch users: ${allUsersError.message}`)
     }
     
-    console.log(`📊 Total active users in database: ${allUsers?.length || 0}`)
+    console.log(`📊 Total users in database: ${allUsers?.length || 0}`)
     
-    // Filter users based on activity
-    // Consider a user active if:
-    // 1. They have been updated in the last 30 days
-    // 2. OR they were created in the last 30 days
+    // Filter users based on recent activity
+    // Be very permissive to ensure we get some users
     const users = allUsers?.filter(user => {
-      // If updated_at exists and is recent
+      // Skip if explicitly inactive (only if is_active is false, not null)
+      if (user.is_active === false) {
+        console.log(`⏭️ Skipping inactive user: ${user.username || user.id}`)
+        return false
+      }
+      
+      // Include if updated recently
       if (user.updated_at) {
         const updatedDate = new Date(user.updated_at)
         if (updatedDate >= thirtyDaysAgo) {
@@ -158,7 +163,7 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      // If created_at is recent, include the user
+      // Include if created recently
       if (user.created_at) {
         const createdDate = new Date(user.created_at)
         if (createdDate >= thirtyDaysAgo) {
@@ -166,19 +171,29 @@ export async function POST(request: NextRequest) {
         }
       }
       
+      // If no dates available, include them anyway (shouldn't happen but be safe)
+      if (!user.updated_at && !user.created_at) {
+        return true
+      }
+      
       return false
     }) || []
+    
+    // In test mode, limit to configured amount
+    if (testMode && users.length > CONFIG.MAX_USERS_TEST) {
+      users.length = CONFIG.MAX_USERS_TEST
+    }
     
     console.log(`📊 Active users (last 30 days): ${users.length}`)
     
     if (users.length === 0) {
-      // If still no users, get ANY user for testing
-      console.log('⚠️ No active users found, trying to get ANY user for testing...')
+      // If still no active users, get ANY user for testing
+      console.log('⚠️ No recently active users found, getting ANY users for testing...')
       
       const { data: anyUsers, error: anyError } = await supabase
         .from('profiles')
         .select('id, username, email, level, updated_at, created_at, is_active')
-        .eq('is_active', true)
+        .neq('is_active', false)  // Exclude only explicitly inactive users
         .limit(testMode ? CONFIG.MAX_USERS_TEST : 1)
       
       if (anyError) {
@@ -193,7 +208,7 @@ export async function POST(request: NextRequest) {
       
       if (anyUsers && anyUsers.length > 0) {
         users.push(...anyUsers)
-        console.log(`📊 Found ${users.length} users for testing`)
+        console.log(`📊 Found ${anyUsers.length} users for testing`)
       } else {
         console.log('⚠️ No users in database at all')
         return NextResponse.json({
@@ -438,15 +453,17 @@ export async function GET(request: NextRequest) {
       .from('profiles')
       .select('*', { count: 'exact', head: true })
     
-    // Get active users count (with better logic)
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-    const { data: activeUsersData } = await supabase
+    // Get ALL users first for counting
+    const { data: allUsersData } = await supabase
       .from('profiles')
       .select('id, updated_at, created_at, is_active')
-      .eq('is_active', true)
     
-    // Count active users manually with same logic as POST
-    const activeUsers = activeUsersData?.filter(user => {
+    // Count active users with permissive logic
+    const activeUsers = allUsersData?.filter(user => {
+      // Exclude only explicitly inactive
+      if (user.is_active === false) return false
+      
+      // Check if active in last 30 days
       if (user.updated_at) {
         const updatedDate = new Date(user.updated_at)
         if (updatedDate >= thirtyDaysAgo) return true
