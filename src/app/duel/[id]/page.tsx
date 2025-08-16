@@ -8,7 +8,8 @@ import {
   Play, Pause, Square, RotateCcw, Upload, CheckCircle,
   Camera, Video, Zap, Target, Award, Coins, Star,
   AlertCircle, Loader2, Plus, Minus, Volume2, VolumeX,
-  Info, Send, XCircle, Activity, Shield, Eye, Download, X
+  Info, Send, XCircle, Activity, Shield, Eye, Download, X,
+  Wifi, WifiOff, Radio, Swords, CircleDot, RefreshCw
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/Button'
@@ -16,9 +17,10 @@ import { Card } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
 import { AIExerciseTracker, type PerformanceData } from '@/components/game/AIExerciseTracker'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { RealtimeChannel, RealtimePresenceState } from '@supabase/supabase-js'
 
 // ====================================
-// TYPES - UPDATED TO MATCH DATABASE
+// TYPES - REALTIME ENHANCED
 // ====================================
 interface Duel {
   id: string
@@ -59,12 +61,417 @@ interface Performance {
   calories_burned?: number
 }
 
-type DuelPhase = 'overview' | 'ai_exercise' | 'uploading' | 'results'
+// Realtime types
+interface LiveUpdate {
+  type: 'reps' | 'form' | 'status' | 'complete' | 'presence'
+  userId: string
+  data: any
+  timestamp: number
+}
+
+interface UserPresence {
+  userId: string
+  username: string
+  status: 'online' | 'exercising' | 'idle' | 'offline'
+  currentReps?: number
+  currentFormScore?: number
+  lastUpdate: number
+}
+
+interface LivePerformance {
+  userId: string
+  username: string
+  avatar?: string
+  reps: number
+  formScore: number
+  duration: number
+  isActive: boolean
+  isCompleted: boolean
+  lastUpdate: number
+}
+
+type DuelPhase = 'overview' | 'waiting' | 'countdown' | 'live_exercise' | 'uploading' | 'results'
 
 // ====================================
-// MAIN COMPONENT
+// REALTIME HOOK
 // ====================================
-export default function DuelPage() {
+function useRealtimeDuel(duelId: string, userId: string) {
+  const supabase = createClientComponentClient()
+  const [channel, setChannel] = useState<RealtimeChannel | null>(null)
+  const [isConnected, setIsConnected] = useState(false)
+  const [presence, setPresence] = useState<RealtimePresenceState>({})
+  const [opponentLive, setOpponentLive] = useState<LivePerformance | null>(null)
+  const [liveUpdates, setLiveUpdates] = useState<LiveUpdate[]>([])
+
+  // Initialize realtime channel
+  useEffect(() => {
+    if (!duelId || !userId) return
+
+    // Create channel for this duel
+    const duelChannel = supabase.channel(`duel:${duelId}`, {
+      config: {
+        presence: {
+          key: userId,
+        },
+        broadcast: {
+          self: true,
+          ack: true
+        }
+      }
+    })
+
+    // Track presence
+    duelChannel
+      .on('presence', { event: 'sync' }, () => {
+        const state = duelChannel.presenceState()
+        setPresence(state)
+        console.log('Presence sync:', state)
+      })
+      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        console.log('User joined:', key, newPresences)
+      })
+      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        console.log('User left:', key, leftPresences)
+      })
+
+    // Listen for broadcast events
+    duelChannel
+      .on('broadcast', { event: 'live_update' }, ({ payload }) => {
+        if (payload.userId !== userId) {
+          console.log('Received live update:', payload)
+          handleLiveUpdate(payload)
+        }
+      })
+      .on('broadcast', { event: 'exercise_start' }, ({ payload }) => {
+        if (payload.userId !== userId) {
+          console.log('Opponent started exercise:', payload)
+          handleOpponentStart(payload)
+        }
+      })
+      .on('broadcast', { event: 'exercise_complete' }, ({ payload }) => {
+        if (payload.userId !== userId) {
+          console.log('Opponent completed exercise:', payload)
+          handleOpponentComplete(payload)
+        }
+      })
+
+    // Listen for database changes
+    duelChannel
+      .on('postgres_changes', 
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'duels',
+          filter: `id=eq.${duelId}`
+        }, 
+        (payload) => {
+          console.log('Duel updated:', payload)
+        }
+      )
+      .on('postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'performances',
+          filter: `duel_id=eq.${duelId}`
+        },
+        (payload) => {
+          console.log('New performance:', payload)
+        }
+      )
+
+    // Subscribe to channel
+    duelChannel.subscribe((status) => {
+      setIsConnected(status === 'SUBSCRIBED')
+      console.log('Channel status:', status)
+    })
+
+    setChannel(duelChannel)
+
+    // Cleanup
+    return () => {
+      duelChannel.unsubscribe()
+      supabase.removeChannel(duelChannel)
+    }
+  }, [duelId, userId])
+
+  // Handle live updates
+  const handleLiveUpdate = (update: LiveUpdate) => {
+    setLiveUpdates(prev => [...prev, update])
+    
+    // Update opponent live performance
+    if (update.type === 'reps' || update.type === 'form') {
+      setOpponentLive(prev => ({
+        userId: update.userId,
+        username: update.data.username || 'Opponent',
+        avatar: update.data.avatar,
+        reps: update.type === 'reps' ? update.data.reps : (prev?.reps || 0),
+        formScore: update.type === 'form' ? update.data.formScore : (prev?.formScore || 0),
+        duration: update.data.duration || (prev?.duration || 0),
+        isActive: true,
+        isCompleted: false,
+        lastUpdate: update.timestamp
+      }))
+    }
+  }
+
+  const handleOpponentStart = (data: any) => {
+    setOpponentLive({
+      userId: data.userId,
+      username: data.username || 'Opponent',
+      avatar: data.avatar,
+      reps: 0,
+      formScore: 0,
+      duration: 0,
+      isActive: true,
+      isCompleted: false,
+      lastUpdate: Date.now()
+    })
+  }
+
+  const handleOpponentComplete = (data: any) => {
+    setOpponentLive(prev => prev ? {
+      ...prev,
+      reps: data.reps || prev.reps,
+      formScore: data.formScore || prev.formScore,
+      duration: data.duration || prev.duration,
+      isActive: false,
+      isCompleted: true,
+      lastUpdate: Date.now()
+    } : null)
+  }
+
+  // Send updates
+  const sendLiveUpdate = useCallback((type: LiveUpdate['type'], data: any) => {
+    if (!channel) return
+
+    const update: LiveUpdate = {
+      type,
+      userId,
+      data,
+      timestamp: Date.now()
+    }
+
+    channel.send({
+      type: 'broadcast',
+      event: 'live_update',
+      payload: update
+    })
+  }, [channel, userId])
+
+  const sendExerciseStart = useCallback((username: string, avatar?: string) => {
+    if (!channel) return
+
+    channel.send({
+      type: 'broadcast',
+      event: 'exercise_start',
+      payload: {
+        userId,
+        username,
+        avatar,
+        timestamp: Date.now()
+      }
+    })
+  }, [channel, userId])
+
+  const sendExerciseComplete = useCallback((performance: PerformanceData) => {
+    if (!channel) return
+
+    channel.send({
+      type: 'broadcast',
+      event: 'exercise_complete',
+      payload: {
+        userId,
+        reps: performance.repsCompleted,
+        formScore: performance.formScore,
+        duration: performance.duration,
+        timestamp: Date.now()
+      }
+    })
+  }, [channel, userId])
+
+  // Track presence
+  const updatePresence = useCallback((status: UserPresence['status'], data?: any) => {
+    if (!channel) return
+
+    channel.track({
+      status,
+      lastUpdate: Date.now(),
+      ...data
+    })
+  }, [channel])
+
+  return {
+    isConnected,
+    presence,
+    opponentLive,
+    liveUpdates,
+    sendLiveUpdate,
+    sendExerciseStart,
+    sendExerciseComplete,
+    updatePresence
+  }
+}
+
+// ====================================
+// LIVE PERFORMANCE COMPONENT
+// ====================================
+function LivePerformanceCard({ 
+  performance, 
+  isUser = false 
+}: { 
+  performance: LivePerformance | null
+  isUser?: boolean 
+}) {
+  if (!performance) {
+    return (
+      <Card variant="glass" className="p-4 opacity-50">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gray-800 rounded-full mx-auto mb-2 animate-pulse" />
+          <p className="text-gray-400 text-sm">In attesa...</p>
+        </div>
+      </Card>
+    )
+  }
+
+  return (
+    <Card variant={isUser ? 'gradient' : 'glass'} className="p-4 relative overflow-hidden">
+      {/* Live indicator */}
+      {performance.isActive && (
+        <div className="absolute top-2 right-2 flex items-center gap-1">
+          <CircleDot className="w-3 h-3 text-red-500 animate-pulse" />
+          <span className="text-xs text-red-500 font-medium">LIVE</span>
+        </div>
+      )}
+
+      {/* Avatar and name */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative">
+          <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center">
+            {performance.avatar ? (
+              <img src={performance.avatar} alt={performance.username} className="w-full h-full rounded-full" />
+            ) : (
+              <span className="text-xl">💪</span>
+            )}
+          </div>
+          {performance.isActive && (
+            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-gray-900" />
+          )}
+        </div>
+        <div>
+          <p className="font-bold text-white">{performance.username}</p>
+          <p className="text-xs text-gray-400">
+            {performance.isCompleted ? 'Completato' : performance.isActive ? 'In esercizio' : 'Pronto'}
+          </p>
+        </div>
+      </div>
+
+      {/* Live stats */}
+      <div className="space-y-3">
+        {/* Reps counter */}
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-400">Ripetizioni</span>
+          <motion.span 
+            key={performance.reps}
+            initial={{ scale: 1.2 }}
+            animate={{ scale: 1 }}
+            className="text-2xl font-bold text-white"
+          >
+            {performance.reps}
+          </motion.span>
+        </div>
+
+        {/* Form score */}
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm text-gray-400">Form Score</span>
+            <span className="text-sm font-medium text-white">{Math.round(performance.formScore)}%</span>
+          </div>
+          <div className="w-full bg-gray-800 rounded-full h-2">
+            <motion.div
+              className={cn(
+                "h-2 rounded-full transition-all",
+                performance.formScore >= 80 ? "bg-green-500" :
+                performance.formScore >= 60 ? "bg-yellow-500" : "bg-red-500"
+              )}
+              initial={{ width: 0 }}
+              animate={{ width: `${performance.formScore}%` }}
+              transition={{ duration: 0.3 }}
+            />
+          </div>
+        </div>
+
+        {/* Timer */}
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-400">Tempo</span>
+          <span className="text-sm font-medium text-white">
+            {formatTime(performance.duration)}
+          </span>
+        </div>
+      </div>
+
+      {/* Completed badge */}
+      {performance.isCompleted && (
+        <div className="mt-4 p-2 bg-green-500/20 rounded-lg flex items-center justify-center gap-2">
+          <CheckCircle className="w-4 h-4 text-green-400" />
+          <span className="text-sm text-green-400 font-medium">Esercizio Completato!</span>
+        </div>
+      )}
+    </Card>
+  )
+}
+
+// ====================================
+// COUNTDOWN COMPONENT
+// ====================================
+function CountdownTimer({ onComplete }: { onComplete: () => void }) {
+  const [count, setCount] = useState(3)
+
+  useEffect(() => {
+    if (count > 0) {
+      const timer = setTimeout(() => setCount(count - 1), 1000)
+      return () => clearTimeout(timer)
+    } else {
+      onComplete()
+    }
+  }, [count, onComplete])
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.5 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 1.5 }}
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center"
+    >
+      <div className="text-center">
+        {count > 0 ? (
+          <motion.div
+            key={count}
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 1.5, opacity: 0 }}
+            className="text-9xl font-bold text-white"
+          >
+            {count}
+          </motion.div>
+        ) : (
+          <motion.div
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="text-6xl font-bold text-green-500"
+          >
+            GO!
+          </motion.div>
+        )}
+      </div>
+    </motion.div>
+  )
+}
+
+// ====================================
+// MAIN COMPONENT - ENHANCED WITH REALTIME
+// ====================================
+export default function DuelLivePage() {
   const params = useParams()
   const router = useRouter()
   const supabase = createClientComponentClient()
@@ -81,17 +488,45 @@ export default function DuelPage() {
   
   // Phase state
   const [duelPhase, setDuelPhase] = useState<DuelPhase>('overview')
+  const [showCountdown, setShowCountdown] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
   const [showAITracker, setShowAITracker] = useState(false)
   
   // Performance data from AI
   const [performanceResult, setPerformanceResult] = useState<PerformanceData | null>(null)
+  const [myLivePerformance, setMyLivePerformance] = useState<LivePerformance | null>(null)
+
+  // Realtime hook
+  const {
+    isConnected,
+    presence,
+    opponentLive,
+    liveUpdates,
+    sendLiveUpdate,
+    sendExerciseStart,
+    sendExerciseComplete,
+    updatePresence
+  } = useRealtimeDuel(duelId, currentUser?.id || '')
 
   // Load duel data
   useEffect(() => {
     loadDuelData()
   }, [duelId])
+
+  // Update presence when phase changes
+  useEffect(() => {
+    if (!currentUser) return
+
+    let status: UserPresence['status'] = 'online'
+    if (duelPhase === 'live_exercise') status = 'exercising'
+    if (duelPhase === 'waiting') status = 'idle'
+    
+    updatePresence(status, {
+      username: currentUser.username || currentUser.email,
+      phase: duelPhase
+    })
+  }, [duelPhase, currentUser, updatePresence])
 
   const loadDuelData = async () => {
     try {
@@ -101,13 +536,11 @@ export default function DuelPage() {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser()
       
-      // If no Supabase user, check localStorage for demo user
       if (!user) {
         const savedUser = localStorage.getItem('fitduel_user')
         if (savedUser) {
           const userData = JSON.parse(savedUser)
           setCurrentUser(userData)
-          // Load mock data for demo user
           loadMockData()
           return
         } else {
@@ -155,7 +588,6 @@ export default function DuelPage() {
 
       if (duelError) {
         console.error('Error loading duel:', duelError)
-        // Fallback to mock data
         loadMockData()
         return
       }
@@ -176,16 +608,16 @@ export default function DuelPage() {
           if (myPerf) setMyPerformance(myPerf)
           if (oppPerf) setOpponentPerformance(oppPerf)
           
-          // If already completed, go to results
-          if (myPerf) {
+          if (myPerf && oppPerf) {
             setDuelPhase('results')
+          } else if (myPerf) {
+            setDuelPhase('waiting')
           }
         }
       }
     } catch (err: any) {
       console.error('Error loading duel:', err)
       setError('Errore nel caricamento del duello')
-      // Fallback to mock data
       loadMockData()
     } finally {
       setLoading(false)
@@ -193,7 +625,6 @@ export default function DuelPage() {
   }
 
   const loadMockData = () => {
-    // Mock duel data for demo mode
     setDuel({
       id: duelId,
       type: '1v1',
@@ -241,17 +672,85 @@ export default function DuelPage() {
     setLoading(false)
   }
 
-  // Start exercise with AI
+  // Start exercise with countdown
   const startExercise = () => {
-    setDuelPhase('ai_exercise')
-    setShowAITracker(true)
+    setShowCountdown(true)
+    sendExerciseStart(
+      currentUser?.username || currentUser?.email || 'Player',
+      currentUser?.avatar_url
+    )
   }
 
-  // Handle AI exercise completion - FIXED TYPE
+  // After countdown, start AI tracker
+  const onCountdownComplete = () => {
+    setShowCountdown(false)
+    setDuelPhase('live_exercise')
+    setShowAITracker(true)
+    
+    // Initialize my live performance
+    setMyLivePerformance({
+      userId: currentUser?.id || 'demo',
+      username: currentUser?.username || currentUser?.email || 'Player',
+      avatar: currentUser?.avatar_url,
+      reps: 0,
+      formScore: 0,
+      duration: 0,
+      isActive: true,
+      isCompleted: false,
+      lastUpdate: Date.now()
+    })
+  }
+
+  // Handle AI exercise progress - send live updates
+  const handleExerciseProgress = useCallback((progress: any) => {
+    console.log('Exercise progress:', progress)
+    
+    // Update my live performance
+    setMyLivePerformance(prev => prev ? {
+      ...prev,
+      reps: progress.reps || prev.reps,
+      formScore: progress.formScore || prev.formScore,
+      duration: progress.duration || prev.duration,
+      lastUpdate: Date.now()
+    } : null)
+
+    // Send live update to opponent
+    if (progress.reps !== undefined) {
+      sendLiveUpdate('reps', {
+        reps: progress.reps,
+        username: currentUser?.username || 'Player',
+        avatar: currentUser?.avatar_url
+      })
+    }
+    
+    if (progress.formScore !== undefined) {
+      sendLiveUpdate('form', {
+        formScore: progress.formScore,
+        duration: progress.duration
+      })
+    }
+  }, [currentUser, sendLiveUpdate])
+
+  // Handle AI exercise completion
   const handleExerciseComplete = (result: PerformanceData) => {
     console.log('Exercise completed:', result)
     setPerformanceResult(result)
     setShowAITracker(false)
+    
+    // Update my live performance as completed
+    setMyLivePerformance(prev => prev ? {
+      ...prev,
+      reps: result.repsCompleted,
+      formScore: result.formScore,
+      duration: result.duration,
+      isActive: false,
+      isCompleted: true,
+      lastUpdate: Date.now()
+    } : null)
+
+    // Send completion to opponent
+    sendExerciseComplete(result)
+    
     setDuelPhase('uploading')
     simulateUpload()
   }
@@ -259,7 +758,9 @@ export default function DuelPage() {
   // Handle AI exercise cancel
   const handleExerciseCancel = () => {
     setShowAITracker(false)
+    setShowCountdown(false)
     setDuelPhase('overview')
+    updatePresence('online', { phase: 'overview' })
   }
 
   const simulateUpload = () => {
@@ -285,7 +786,6 @@ export default function DuelPage() {
       setIsSaving(true)
       setError(null)
 
-      // Check if we have a real Supabase user
       const { data: { user } } = await supabase.auth.getUser()
       
       if (user) {
@@ -358,7 +858,6 @@ export default function DuelPage() {
           } else if (updatedDuel.challenged_score > updatedDuel.challenger_score) {
             winnerId = updatedDuel.challenged_id
           }
-          // If scores are equal, it's a draw (winner_id remains null)
 
           // Update duel status
           await supabase
@@ -370,23 +869,13 @@ export default function DuelPage() {
             })
             .eq('id', duel.id)
 
-          // Award XP
-          if (winnerId === user.id) {
-            // Winner gets full XP
-            await awardXP(user.id, duel.xp_reward)
-          } else {
-            // Loser gets partial XP (1/3)
-            await awardXP(user.id, Math.round(duel.xp_reward / 3))
-          }
+          setDuelPhase('results')
+        } else {
+          // Wait for opponent
+          setDuelPhase('waiting')
         }
-
-        // Update missions progress if missionId is present
-        if (performanceResult.missionId) {
-          await updateMissionProgress(performanceResult.missionId, performanceResult.repsCompleted)
-        }
-
       } else {
-        // Demo mode - just save locally
+        // Demo mode
         setMyPerformance({
           user_id: currentUser.id,
           duel_id: duel.id,
@@ -397,88 +886,18 @@ export default function DuelPage() {
           performed_at: new Date().toISOString(),
           calories_burned: performanceResult.caloriesBurned
         })
+        setDuelPhase('results')
       }
-
-      setDuelPhase('results')
     } catch (err: any) {
       console.error('Error saving performance:', err)
       setError('Errore nel salvare la performance')
-      // Continue to results anyway
       setDuelPhase('results')
     } finally {
       setIsSaving(false)
     }
   }
 
-  // Award XP to user
-  const awardXP = async (userId: string, xpAmount: number) => {
-    try {
-      // Update user_stats table
-      const { data: stats } = await supabase
-        .from('user_stats')
-        .select('total_xp')
-        .eq('user_id', userId)
-        .single()
-
-      if (stats) {
-        const newXP = (stats.total_xp || 0) + xpAmount
-
-        await supabase
-          .from('user_stats')
-          .update({
-            total_xp: newXP
-          })
-          .eq('user_id', userId)
-
-        // Log XP transaction
-        await supabase
-          .from('xp_transactions')
-          .insert({
-            user_id: userId,
-            amount: xpAmount,
-            reason: `Duel ${duel?.id} reward`,
-            reference_type: 'duel',
-            reference_id: duel?.id
-          })
-      }
-    } catch (err) {
-      console.error('Error awarding XP:', err)
-    }
-  }
-
-  // Update mission progress
-  const updateMissionProgress = async (missionId: string, progress: number) => {
-    try {
-      const { data: mission } = await supabase
-        .from('user_missions')
-        .select('*')
-        .eq('mission_id', missionId)
-        .eq('user_id', currentUser?.id)
-        .single()
-
-      if (mission && !mission.is_completed) {
-        const newValue = mission.current_value + progress
-        
-        await supabase
-          .from('user_missions')
-          .update({
-            current_value: newValue
-          })
-          .eq('mission_id', missionId)
-          .eq('user_id', currentUser?.id)
-      }
-    } catch (err) {
-      console.error('Error updating mission:', err)
-    }
-  }
-
   // Utility functions
-  const calculateScore = (perf: Performance) => {
-    const baseScore = perf.reps * (perf.form_score / 100)
-    const timeBonus = Math.max(0, 300 - perf.duration) * 0.1
-    return Math.round(baseScore + timeBonus)
-  }
-
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
@@ -493,29 +912,6 @@ export default function DuelPage() {
       case 'extreme': return 'text-red-400'
       default: return 'text-gray-400'
     }
-  }
-
-  const getWinner = () => {
-    if (!duel || !myPerformance) return null
-    
-    if (duel.winner_id) {
-      const userId = currentUser.id || currentUser.email
-      if (duel.winner_id === userId) return 'user'
-      if (duel.winner_id === null && duel.status === 'completed') return 'tie'
-      return 'opponent'
-    }
-    
-    // Calculate based on scores
-    const myScore = calculateScore(myPerformance)
-    const oppScore = opponentPerformance ? calculateScore(opponentPerformance) : 0
-    
-    if (myScore > oppScore) return 'user'
-    if (oppScore > myScore) return 'opponent'
-    return 'tie'
-  }
-
-  const getDisplayName = (user: any) => {
-    return user?.display_name || user?.username || 'Giocatore'
   }
 
   // Loading state
@@ -546,17 +942,31 @@ export default function DuelPage() {
   }
 
   // Show AI Exercise Tracker in full screen when active
-  if (showAITracker && duelPhase === 'ai_exercise') {
+  if (showAITracker && duelPhase === 'live_exercise') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-950 via-indigo-950 to-purple-950">
         <div className="container mx-auto px-4 py-8">
+          {/* Live header */}
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold text-white">{duel.exercise?.name || 'Esercizio'}</h1>
+            <div className="flex items-center gap-4">
+              <h1 className="text-2xl font-bold text-white">{duel.exercise?.name || 'Esercizio'}</h1>
+              <div className="flex items-center gap-2 px-3 py-1 bg-red-500/20 rounded-full">
+                <CircleDot className="w-4 h-4 text-red-500 animate-pulse" />
+                <span className="text-sm text-red-500 font-medium">LIVE</span>
+              </div>
+            </div>
             <Button variant="ghost" onClick={handleExerciseCancel}>
               <X className="w-5 h-5" />
             </Button>
           </div>
 
+          {/* Live performances side by side */}
+          <div className="grid md:grid-cols-2 gap-6 mb-6">
+            <LivePerformanceCard performance={myLivePerformance} isUser={true} />
+            <LivePerformanceCard performance={opponentLive} isUser={false} />
+          </div>
+
+          {/* AI Tracker */}
           <AIExerciseTracker
             exerciseId={duel.exercise?.code || 'push_up'}
             userId={currentUser?.id || 'demo_user'}
@@ -564,7 +974,7 @@ export default function DuelPage() {
             targetReps={duel.metadata?.targetReps}
             targetTime={duel.metadata?.targetTime}
             onComplete={handleExerciseComplete}
-            onProgress={(progress) => console.log('Progress:', progress)}
+            onProgress={handleExerciseProgress}
           />
         </div>
       </div>
@@ -573,7 +983,7 @@ export default function DuelPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-indigo-950 to-purple-950">
-      {/* Header */}
+      {/* Header with connection status */}
       <header className="border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm sticky top-0 z-40">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -584,17 +994,39 @@ export default function DuelPage() {
               <div>
                 <h1 className="text-xl font-bold text-white">{duel.exercise?.name || 'Duello'}</h1>
                 <p className="text-sm text-gray-400">
-                  {getDisplayName(duel.challenger)} vs {getDisplayName(duel.challenged) || 'In attesa'}
+                  {duel.challenger?.username} vs {duel.challenged?.username || 'In attesa'}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className={cn('text-sm font-medium px-2 py-1 rounded', getDifficultyColor(duel.difficulty))}>
-                {duel.difficulty === 'easy' ? 'Facile' :
-                 duel.difficulty === 'medium' ? 'Media' :
-                 duel.difficulty === 'hard' ? 'Difficile' : 'Estrema'}
-              </span>
+            <div className="flex items-center gap-4">
+              {/* Connection status */}
+              <div className={cn(
+                "flex items-center gap-2 px-3 py-1 rounded-full text-sm",
+                isConnected 
+                  ? "bg-green-500/20 text-green-400" 
+                  : "bg-red-500/20 text-red-400"
+              )}>
+                {isConnected ? (
+                  <>
+                    <Wifi className="w-4 h-4" />
+                    <span>Connesso</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="w-4 h-4" />
+                    <span>Disconnesso</span>
+                  </>
+                )}
+              </div>
+
+              {/* Online users */}
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-gray-400" />
+                <span className="text-sm text-gray-400">
+                  {Object.keys(presence).length} online
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -631,7 +1063,7 @@ export default function DuelPage() {
                       {duel.exercise?.icon && <span className="text-3xl">{duel.exercise.icon}</span>}
                       {duel.exercise?.name}
                     </h2>
-                    <p className="text-gray-400">{duel.exercise?.description || 'Completa l\'esercizio per vincere il duello!'}</p>
+                    <p className="text-gray-400">{duel.exercise?.description}</p>
                   </div>
                   <div className="text-center">
                     <p className="text-3xl font-bold text-yellow-500">+{duel.xp_reward}</p>
@@ -639,152 +1071,49 @@ export default function DuelPage() {
                   </div>
                 </div>
 
-                {/* Competitors */}
-                <div className="grid md:grid-cols-3 gap-6 mb-6">
-                  {/* Challenger */}
-                  <div className="text-center">
-                    <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                      {duel.challenger?.avatar_url ? (
-                        <img 
-                          src={duel.challenger.avatar_url} 
-                          alt={getDisplayName(duel.challenger)}
-                          className="w-full h-full rounded-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-3xl">💪</span>
-                      )}
-                    </div>
-                    <h3 className="font-bold text-white">{getDisplayName(duel.challenger)}</h3>
-                    {duel.challenger?.level && (
-                      <p className="text-xs text-gray-400">Livello {duel.challenger.level}</p>
-                    )}
-                    {duel.challenger_score !== null && (
-                      <div className="mt-2">
-                        <p className="text-2xl font-bold text-white">{duel.challenger_score}</p>
-                        <p className="text-xs text-gray-400">reps</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* VS */}
-                  <div className="flex items-center justify-center">
-                    <span className="text-4xl font-bold text-gray-600">VS</span>
-                  </div>
-
-                  {/* Challenged */}
-                  <div className="text-center">
-                    <div className="w-20 h-20 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                      {duel.challenged?.avatar_url ? (
-                        <img 
-                          src={duel.challenged.avatar_url} 
-                          alt={getDisplayName(duel.challenged)}
-                          className="w-full h-full rounded-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-3xl">🏋️</span>
-                      )}
-                    </div>
-                    <h3 className="font-bold text-white">{getDisplayName(duel.challenged) || 'In attesa...'}</h3>
-                    {duel.challenged?.level && (
-                      <p className="text-xs text-gray-400">Livello {duel.challenged.level}</p>
-                    )}
-                    {duel.challenged_score !== null && (
-                      <div className="mt-2">
-                        <p className="text-2xl font-bold text-white">{duel.challenged_score}</p>
-                        <p className="text-xs text-gray-400">reps</p>
-                      </div>
-                    )}
-                  </div>
+                {/* Live Competitors */}
+                <div className="grid md:grid-cols-2 gap-6 mb-6">
+                  <LivePerformanceCard 
+                    performance={myLivePerformance || {
+                      userId: currentUser?.id || 'user',
+                      username: currentUser?.username || 'Tu',
+                      avatar: currentUser?.avatar_url,
+                      reps: 0,
+                      formScore: 0,
+                      duration: 0,
+                      isActive: false,
+                      isCompleted: false,
+                      lastUpdate: Date.now()
+                    }} 
+                    isUser={true} 
+                  />
+                  <LivePerformanceCard 
+                    performance={opponentLive} 
+                    isUser={false} 
+                  />
                 </div>
 
-                {/* Target Info */}
-                <div className="grid grid-cols-3 gap-4 p-4 bg-gray-800/30 rounded-lg">
-                  {duel.metadata?.targetReps && (
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-white">{duel.metadata.targetReps}</p>
-                      <p className="text-xs text-gray-400">Target Reps</p>
+                {/* Realtime Features */}
+                <Card variant="gradient" className="p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Radio className="w-5 h-5 text-indigo-400" />
+                    <span className="font-bold text-white">Duello Live con Realtime</span>
+                  </div>
+                  <div className="grid md:grid-cols-3 gap-3 text-sm">
+                    <div className="flex items-center gap-2">
+                      <CircleDot className="w-4 h-4 text-green-400" />
+                      <span className="text-gray-300">Vedi l'avversario in tempo reale</span>
                     </div>
-                  )}
-                  {duel.metadata?.targetTime && (
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-white">{formatTime(duel.metadata.targetTime)}</p>
-                      <p className="text-xs text-gray-400">Tempo Max</p>
+                    <div className="flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4 text-blue-400" />
+                      <span className="text-gray-300">Aggiornamenti istantanei</span>
                     </div>
-                  )}
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-white">🪙 {duel.wager_coins}</p>
-                    <p className="text-xs text-gray-400">Coins Puntata</p>
-                  </div>
-                </div>
-              </Card>
-
-              {/* AI Features Info */}
-              <Card variant="gradient" className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-indigo-500/20 rounded-lg">
-                    <Activity className="w-6 h-6 text-indigo-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-white">Sistema AI Avanzato</h3>
-                    <p className="text-sm text-gray-300">MediaPipe per il conteggio automatico</p>
-                  </div>
-                </div>
-                
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div className="flex items-start gap-3">
-                    <Camera className="w-5 h-5 text-green-400 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-white">Auto-Count</p>
-                      <p className="text-xs text-gray-400">Conta automaticamente le ripetizioni</p>
+                    <div className="flex items-center gap-2">
+                      <Swords className="w-4 h-4 text-yellow-400" />
+                      <span className="text-gray-300">Competizione dal vivo</span>
                     </div>
                   </div>
-                  
-                  <div className="flex items-start gap-3">
-                    <Shield className="w-5 h-5 text-blue-400 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-white">Form Score</p>
-                      <p className="text-xs text-gray-400">Valutazione forma in tempo reale</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start gap-3">
-                    <Zap className="w-5 h-5 text-yellow-400 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-white">Feedback Live</p>
-                      <p className="text-xs text-gray-400">Correzioni postura istantanee</p>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-
-              {/* Instructions */}
-              <Card variant="glass" className="p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Info className="w-5 h-5 text-indigo-400" />
-                  <h3 className="font-bold text-white">Come funziona con l'AI</h3>
-                </div>
-                <ul className="space-y-2 text-sm text-gray-400">
-                  <li className="flex items-start gap-2">
-                    <span className="text-indigo-400">1.</span>
-                    <span>Clicca "Inizia con AI" e consenti l'accesso alla camera</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-indigo-400">2.</span>
-                    <span>Posizionati al centro dello schermo per la calibrazione</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-indigo-400">3.</span>
-                    <span>L'AI conterà automaticamente le ripetizioni e valuterà la forma</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-indigo-400">4.</span>
-                    <span>Riceverai feedback vocale e visivo in tempo reale</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-indigo-400">5.</span>
-                    <span>Il video verrà salvato automaticamente per la verifica</span>
-                  </li>
-                </ul>
+                </Card>
               </Card>
 
               {/* Start Button */}
@@ -806,14 +1135,69 @@ export default function DuelPage() {
                       className="px-12 py-4 text-lg gap-3"
                     >
                       <Activity className="w-6 h-6" />
-                      Inizia con AI
+                      Inizia Duello Live
                     </Button>
                     <p className="text-sm text-gray-400">
-                      Completa l'esercizio per registrare il tuo punteggio
+                      Il tuo avversario vedrà i tuoi progressi in tempo reale
                     </p>
                   </div>
                 )}
               </div>
+            </motion.div>
+          )}
+
+          {/* WAITING PHASE */}
+          {duelPhase === 'waiting' && (
+            <motion.div
+              key="waiting"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex items-center justify-center min-h-[60vh]"
+            >
+              <Card variant="glass" className="p-8 text-center max-w-md">
+                <Clock className="w-16 h-16 text-indigo-500 mx-auto mb-4 animate-pulse" />
+                <h3 className="text-xl font-bold text-white mb-2">In attesa dell'avversario...</h3>
+                <p className="text-gray-400 mb-6">
+                  Hai completato la tua performance. Aspettiamo che {duel.challenged?.username || 'l\'avversario'} finisca.
+                </p>
+                
+                {/* Your score */}
+                <div className="p-4 bg-gray-800/50 rounded-lg mb-4">
+                  <p className="text-sm text-gray-400 mb-1">Il tuo punteggio</p>
+                  <p className="text-3xl font-bold text-white">
+                    {performanceResult?.repsCompleted || myPerformance?.reps || 0} reps
+                  </p>
+                  <p className="text-sm text-gray-400">
+                    Form: {Math.round(performanceResult?.formScore || myPerformance?.form_score || 0)}%
+                  </p>
+                </div>
+
+                {/* Opponent status */}
+                {opponentLive && (
+                  <div className="p-4 bg-indigo-500/10 rounded-lg">
+                    <p className="text-sm text-indigo-400 mb-2">
+                      {opponentLive.isActive ? 'Avversario in esercizio...' : 'Avversario online'}
+                    </p>
+                    {opponentLive.isActive && (
+                      <div className="flex items-center justify-center gap-4">
+                        <div>
+                          <p className="text-2xl font-bold text-white">{opponentLive.reps}</p>
+                          <p className="text-xs text-gray-400">reps</p>
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold text-white">{Math.round(opponentLive.formScore)}%</p>
+                          <p className="text-xs text-gray-400">form</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <Button variant="secondary" onClick={() => router.push('/dashboard')} className="mt-6">
+                  Torna alla Dashboard
+                </Button>
+              </Card>
             </motion.div>
           )}
 
@@ -829,7 +1213,7 @@ export default function DuelPage() {
               <Card variant="glass" className="p-8 text-center max-w-md">
                 <Upload className="w-16 h-16 text-indigo-500 mx-auto mb-4" />
                 <h3 className="text-xl font-bold text-white mb-2">Salvataggio in corso...</h3>
-                <p className="text-gray-400 mb-6">Stiamo elaborando la tua performance AI</p>
+                <p className="text-gray-400 mb-6">Stiamo elaborando la tua performance</p>
                 
                 <div className="w-full bg-gray-800 rounded-full h-3 mb-4">
                   <motion.div
@@ -841,25 +1225,6 @@ export default function DuelPage() {
                 </div>
                 
                 <p className="text-sm text-gray-400">{Math.round(uploadProgress)}% completato</p>
-                
-                {performanceResult && (
-                  <div className="mt-6 p-4 bg-gray-800/50 rounded-lg">
-                    <div className="grid grid-cols-3 gap-2 text-sm">
-                      <div>
-                        <p className="text-gray-400">Reps</p>
-                        <p className="text-white font-bold">{performanceResult.repsCompleted}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-400">Form</p>
-                        <p className="text-white font-bold">{Math.round(performanceResult.formScore)}%</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-400">Tempo</p>
-                        <p className="text-white font-bold">{formatTime(performanceResult.duration)}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </Card>
             </motion.div>
           )}
@@ -875,46 +1240,15 @@ export default function DuelPage() {
             >
               {/* Result Header */}
               <Card variant="glass" className="p-8 text-center">
-                <div className="mb-6">
-                  {getWinner() === 'user' ? (
-                    <>
-                      <Trophy className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-                      <h2 className="text-3xl font-bold text-white mb-2">Vittoria! 🎉</h2>
-                      <p className="text-gray-400">Hai vinto il duello!</p>
-                    </>
-                  ) : getWinner() === 'tie' ? (
-                    <>
-                      <Users className="w-16 h-16 text-blue-500 mx-auto mb-4" />
-                      <h2 className="text-3xl font-bold text-white mb-2">Pareggio! 🤝</h2>
-                      <p className="text-gray-400">Entrambi avete dato il massimo!</p>
-                    </>
-                  ) : getWinner() === 'opponent' ? (
-                    <>
-                      <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-                      <h2 className="text-3xl font-bold text-white mb-2">Sconfitta 😔</h2>
-                      <p className="text-gray-400">Riprova, sarai più fortunato!</p>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-                      <h2 className="text-3xl font-bold text-white mb-2">Completato! ✅</h2>
-                      <p className="text-gray-400">In attesa del risultato dell'avversario</p>
-                    </>
-                  )}
-                </div>
-
+                <h2 className="text-3xl font-bold text-white mb-6">Risultati Duello Live</h2>
+                
                 {/* Final Scores */}
                 <div className="grid grid-cols-2 gap-6 mb-6">
                   <div className="text-center">
                     <p className="text-4xl font-bold text-white">
                       {performanceResult?.repsCompleted || myPerformance?.reps || duel.challenger_score || 0}
                     </p>
-                    <p className="text-sm text-gray-400">
-                      {currentUser?.id === duel.challenger_id ? 'Il tuo score' : getDisplayName(duel.challenger)}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {formatTime(performanceResult?.duration || myPerformance?.duration || 0)}
-                    </p>
+                    <p className="text-sm text-gray-400">Tu</p>
                   </div>
                   <div className="text-center">
                     <p className="text-4xl font-bold text-white">
@@ -922,87 +1256,10 @@ export default function DuelPage() {
                        opponentPerformance ? opponentPerformance.reps : '?'}
                     </p>
                     <p className="text-sm text-gray-400">
-                      {currentUser?.id === duel.challenged_id ? 'Il tuo score' : getDisplayName(duel.challenged) || 'Avversario'}
+                      {duel.challenged?.username || 'Avversario'}
                     </p>
-                    {opponentPerformance && (
-                      <p className="text-xs text-gray-500">{formatTime(opponentPerformance.duration)}</p>
-                    )}
                   </div>
                 </div>
-
-                {/* Stats */}
-                <div className="grid grid-cols-3 gap-4 p-4 bg-gray-800/30 rounded-lg">
-                  <div className="text-center">
-                    <p className="text-xl font-bold text-white">
-                      {Math.round(performanceResult?.formScore || myPerformance?.form_score || 0)}%
-                    </p>
-                    <p className="text-xs text-gray-400">Form Score</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xl font-bold text-white">
-                      {performanceResult?.caloriesBurned || myPerformance?.calories_burned || 0}
-                    </p>
-                    <p className="text-xs text-gray-400">Calorie</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xl font-bold text-yellow-500">
-                      +{getWinner() === 'user' ? duel.xp_reward : Math.round(duel.xp_reward / 3)} XP
-                    </p>
-                    <p className="text-xs text-gray-400">Guadagnati</p>
-                  </div>
-                </div>
-
-                {/* AI Stats */}
-                {performanceResult && (
-                  <div className="mt-4 p-4 bg-indigo-500/10 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Activity className="w-5 h-5 text-indigo-400" />
-                      <span className="text-sm font-medium text-indigo-400">Statistiche AI</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      {performanceResult.feedback.perfectReps > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Reps Perfette:</span>
-                          <span className="text-green-400 font-medium">{performanceResult.feedback.perfectReps}</span>
-                        </div>
-                      )}
-                      {performanceResult.feedback.goodReps > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Reps Buone:</span>
-                          <span className="text-yellow-400 font-medium">{performanceResult.feedback.goodReps}</span>
-                        </div>
-                      )}
-                      {performanceResult.feedback.mistakes.length > 0 && (
-                        <div className="col-span-2">
-                          <p className="text-gray-400 mb-1">Suggerimenti:</p>
-                          <ul className="text-xs text-gray-500 space-y-1">
-                            {performanceResult.feedback.suggestions.slice(0, 2).map((s, i) => (
-                              <li key={i}>• {s}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Video Download */}
-                {(performanceResult?.videoUrl || myPerformance?.video_url) && (
-                  <div className="mt-4">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => {
-                        const url = performanceResult?.videoUrl || myPerformance?.video_url
-                        if (url) window.open(url, '_blank')
-                      }}
-                    >
-                      <Eye className="w-4 h-4" />
-                      Guarda Video Performance
-                    </Button>
-                  </div>
-                )}
               </Card>
 
               {/* Actions */}
@@ -1012,7 +1269,7 @@ export default function DuelPage() {
                   onClick={() => router.push('/dashboard')}
                   className="flex-1"
                 >
-                  Torna alla Dashboard
+                  Dashboard
                 </Button>
                 <Button
                   variant="gradient"
@@ -1025,7 +1282,21 @@ export default function DuelPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Countdown overlay */}
+        <AnimatePresence>
+          {showCountdown && (
+            <CountdownTimer onComplete={onCountdownComplete} />
+          )}
+        </AnimatePresence>
       </main>
     </div>
   )
+}
+
+// Helper function for time formatting
+function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins}:${secs.toString().padStart(2, '0')}`
 }
