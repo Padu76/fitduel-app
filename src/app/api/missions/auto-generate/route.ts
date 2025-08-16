@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
       
       const { data: anyUsers, error: anyError } = await supabase
         .from('profiles')
-        .select('id, username, email, level')
+        .select('id, username, email, level, last_seen, created_at')
         .limit(testMode ? CONFIG.MAX_USERS_TEST : 1)
       
       if (anyError) {
