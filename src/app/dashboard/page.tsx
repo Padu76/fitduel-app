@@ -3,13 +3,13 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { 
-  Flame, Trophy, Zap, Users, Bell, Plus, 
-  TrendingUp, Star, Crown, Swords, Timer,
+  Flame, Trophy, Zap, Users, Bell, X,
+  Star, Crown, Swords, Timer,
   Target, ChevronRight, Settings, LogOut,
-  Activity, Heart, Shield, Loader2, Play,
-  Gamepad2, Sparkles, Coins, ChevronUp
+  Activity, Loader2, CheckCircle,
+  Gamepad2, Coins
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/Button'
@@ -20,14 +20,6 @@ import { useMousePosition, useFloatingAnimation } from '@/hooks/useParallaxEffec
 // ====================================
 // TYPES
 // ====================================
-interface QuickStat {
-  icon: React.ReactNode
-  value: string | number
-  label: string
-  color: string
-  trend?: number
-}
-
 interface GameMode {
   id: string
   title: string
@@ -55,6 +47,16 @@ interface Friend {
   avatar: string
   status: 'online' | 'in-game' | 'offline'
   level: number
+}
+
+interface Notification {
+  id: string
+  type: 'challenge' | 'achievement' | 'friend_request' | 'tournament' | 'daily_mission'
+  title: string
+  message: string
+  icon: string
+  isRead: boolean
+  createdAt: Date
 }
 
 // ====================================
@@ -118,6 +120,249 @@ const AnimatedBackground = () => {
         />
       ))}
     </div>
+  )
+}
+
+// Notification System Component
+const NotificationSystem = () => {
+  const [showModal, setShowModal] = useState(false)
+  const [showToast, setShowToast] = useState(false)
+  const [notifications, setNotifications] = useState<Notification[]>([
+    {
+      id: '1',
+      type: 'challenge',
+      title: 'Nuova Sfida!',
+      message: 'Marco ti ha sfidato a Push-ups',
+      icon: '⚔️',
+      isRead: false,
+      createdAt: new Date(Date.now() - 1000 * 60 * 5)
+    },
+    {
+      id: '2',
+      type: 'achievement',
+      title: 'Achievement Sbloccato!',
+      message: 'Hai completato 10 sfide consecutive',
+      icon: '🏆',
+      isRead: false,
+      createdAt: new Date(Date.now() - 1000 * 60 * 30)
+    },
+    {
+      id: '3',
+      type: 'friend_request',
+      title: 'Richiesta Amicizia',
+      message: 'Luigi vuole essere tuo amico',
+      icon: '👥',
+      isRead: true,
+      createdAt: new Date(Date.now() - 1000 * 60 * 60)
+    }
+  ])
+
+  const unreadCount = notifications.filter(n => !n.isRead).length
+
+  const markAsRead = (id: string) => {
+    setNotifications(prev => 
+      prev.map(n => n.id === id ? { ...n, isRead: true } : n)
+    )
+  }
+
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
+  }
+
+  const getNotificationColor = (type: string) => {
+    switch (type) {
+      case 'challenge': return 'border-red-500/30 bg-red-500/10'
+      case 'achievement': return 'border-yellow-500/30 bg-yellow-500/10'
+      case 'friend_request': return 'border-blue-500/30 bg-blue-500/10'
+      case 'tournament': return 'border-purple-500/30 bg-purple-500/10'
+      default: return 'border-gray-500/30 bg-gray-500/10'
+    }
+  }
+
+  const formatTime = (date: Date) => {
+    const now = new Date()
+    const diff = now.getTime() - date.getTime()
+    const minutes = Math.floor(diff / 60000)
+    const hours = Math.floor(diff / 3600000)
+    const days = Math.floor(diff / 86400000)
+
+    if (minutes < 1) return 'Ora'
+    if (minutes < 60) return `${minutes}m fa`
+    if (hours < 24) return `${hours}h fa`
+    return `${days}g fa`
+  }
+
+  // Auto show toast for new notifications
+  useEffect(() => {
+    if (unreadCount > 0 && !showModal) {
+      setShowToast(true)
+      const timer = setTimeout(() => setShowToast(false), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [unreadCount, showModal])
+
+  return (
+    <>
+      {/* Notification Bell Button */}
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setShowModal(true)}
+        className="relative p-2 bg-gray-800/50 rounded-lg border border-gray-700 hover:border-green-400/50 transition-colors"
+      >
+        <Bell className="w-5 h-5 text-gray-400" />
+        {unreadCount > 0 && (
+          <motion.span 
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="absolute -top-1 -right-1 min-w-[20px] h-5 bg-red-500 rounded-full flex items-center justify-center text-xs text-white font-bold px-1"
+          >
+            {unreadCount}
+          </motion.span>
+        )}
+      </motion.button>
+
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {showToast && unreadCount > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -50, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: -50, x: '-50%' }}
+            className="fixed top-20 left-1/2 z-50 max-w-sm"
+          >
+            <div className="bg-gray-900/95 backdrop-blur-xl rounded-xl p-4 border border-green-400/30 shadow-2xl">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">{notifications.find(n => !n.isRead)?.icon}</span>
+                <div className="flex-1">
+                  <p className="font-bold text-white text-sm">
+                    {notifications.find(n => !n.isRead)?.title}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {notifications.find(n => !n.isRead)?.message}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setShowToast(false)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Notification Modal */}
+      <AnimatePresence>
+        {showModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setShowModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-gray-900 rounded-2xl p-6 max-w-md w-full max-h-[80vh] flex flex-col border border-gray-800"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-black text-white">NOTIFICHE</h3>
+                  <p className="text-sm text-gray-400">
+                    {unreadCount > 0 ? `${unreadCount} non lette` : 'Tutte lette'}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setShowModal(false)} 
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Mark all as read button */}
+              {unreadCount > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mb-4"
+                  onClick={markAllAsRead}
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Segna tutte come lette
+                </Button>
+              )}
+
+              {/* Notifications List */}
+              <div className="flex-1 overflow-y-auto space-y-2">
+                {notifications.length > 0 ? (
+                  notifications.map((notification) => (
+                    <motion.button
+                      key={notification.id}
+                      onClick={() => markAsRead(notification.id)}
+                      className={cn(
+                        'w-full p-4 rounded-xl text-left transition-all border',
+                        getNotificationColor(notification.type),
+                        notification.isRead ? 'opacity-60' : ''
+                      )}
+                      whileHover={{ x: 4 }}
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="text-2xl flex-shrink-0">
+                          {notification.icon}
+                        </span>
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className={cn(
+                              'text-sm font-bold',
+                              notification.isRead ? 'text-gray-300' : 'text-white'
+                            )}>
+                              {notification.title}
+                            </p>
+                            {!notification.isRead && (
+                              <span className="w-2 h-2 bg-green-400 rounded-full flex-shrink-0 mt-1" />
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {notification.message}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-2">
+                            {formatTime(notification.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                    </motion.button>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <Bell className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                    <p className="text-gray-400">Nessuna notifica</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Close Button */}
+              <div className="mt-4 pt-4 border-t border-gray-800">
+                <Button 
+                  variant="gradient" 
+                  className="w-full" 
+                  onClick={() => setShowModal(false)}
+                >
+                  Chiudi
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   )
 }
 
@@ -185,7 +430,7 @@ const HeroProfileCard = ({ user, stats }: any) => {
               </div>
             </div>
 
-            {/* Settings Button */}
+            {/* Settings Button - FIXED LINK */}
             <Link href="/profile">
               <motion.button
                 whileHover={{ scale: 1.1, rotate: 90 }}
@@ -521,7 +766,7 @@ export default function DashboardPage() {
   const { user, stats, setUser, setStats } = useUserStore()
   const [loading, setLoading] = useState(true)
 
-  // Sample data
+  // Game modes data - TEAM BATTLE FIXED TO 3v3
   const gameModes: GameMode[] = [
     {
       id: '1',
@@ -549,7 +794,7 @@ export default function DashboardPage() {
       subtitle: 'Squadra vs Squadra',
       icon: '👥',
       color: '#0088FF',
-      players: '5v5',
+      players: '3v3', // CHANGED FROM 5v5 TO 3v3
       time: '5min',
       path: '/teams'
     },
@@ -662,14 +907,8 @@ export default function DashboardPage() {
             </motion.div>
 
             <div className="flex items-center gap-3">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="relative p-2 bg-gray-800/50 rounded-lg border border-gray-700 hover:border-green-400/50 transition-colors"
-              >
-                <Bell className="w-5 h-5 text-gray-400" />
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-              </motion.button>
+              {/* NOTIFICATION SYSTEM COMPONENT */}
+              <NotificationSystem />
 
               <motion.button
                 whileHover={{ scale: 1.05 }}
@@ -692,42 +931,7 @@ export default function DashboardPage() {
             {/* Hero Profile */}
             <HeroProfileCard user={user} stats={stats} />
 
-            {/* Central Play Button */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.2, type: "spring" }}
-              className="relative"
-            >
-              <Link href="/challenges">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="w-full py-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-3xl relative overflow-hidden group"
-                >
-                  <div className="relative z-10 flex items-center justify-center gap-4">
-                    <Play className="w-12 h-12 text-black" />
-                    <span className="text-4xl font-black text-black uppercase tracking-wider">
-                      GIOCA ORA
-                    </span>
-                  </div>
-                  
-                  {/* Animated shimmer */}
-                  <motion.div
-                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                    animate={{ x: ['-100%', '100%'] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  />
-                  
-                  {/* Pulse effect */}
-                  <motion.div
-                    className="absolute inset-0 bg-white/10"
-                    animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  />
-                </motion.button>
-              </Link>
-            </motion.div>
+            {/* REMOVED CENTRAL PLAY BUTTON */}
 
             {/* Game Modes Grid */}
             <div>
@@ -882,23 +1086,7 @@ export default function DashboardPage() {
         </div>
       </main>
 
-      {/* Floating Action Button */}
-      <motion.button
-        initial={{ opacity: 0, scale: 0 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 1 }}
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        onClick={() => router.push('/challenges')}
-        className="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-r from-green-400 to-blue-500 rounded-full shadow-2xl flex items-center justify-center group"
-      >
-        <Plus className="w-8 h-8 text-black group-hover:rotate-90 transition-transform" />
-        <motion.div
-          className="absolute inset-0 bg-gradient-to-r from-green-400 to-blue-500 rounded-full"
-          animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
-          transition={{ duration: 2, repeat: Infinity }}
-        />
-      </motion.button>
+      {/* REMOVED FLOATING ACTION BUTTON */}
     </div>
   )
 }
