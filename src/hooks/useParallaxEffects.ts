@@ -199,8 +199,8 @@ export function useFloatingAnimation(
   return elementRef
 }
 
-export function useGlowEffect() {
-  const elementRef = useRef<HTMLDivElement>(null)
+export function useGlowEffect<T extends HTMLElement = HTMLDivElement>() {
+  const elementRef = useRef<T>(null)
   const mousePosition = useMousePosition()
 
   useEffect(() => {
