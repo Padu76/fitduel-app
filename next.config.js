@@ -5,12 +5,30 @@ const nextConfig = {
   images: {
     domains: [
       'localhost',
-      // Supabase storage domain - aggiorna con il tuo project ID
-      'your-project-id.supabase.co',
+      // Supabase storage domain
+      'oevzsmaenbgwokivgelo.supabase.co',
+      // Unsplash domains for images
+      'images.unsplash.com',
+      'source.unsplash.com',
       // Placeholder images
       'ui-avatars.com',
       'placehold.co',
-      'avatars.githubusercontent.com'
+      'avatars.githubusercontent.com',
+      // Additional image CDNs
+      'cdn.jsdelivr.net',
+      'raw.githubusercontent.com'
+    ],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**.unsplash.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.supabase.co',
+        pathname: '/**',
+      },
     ],
   },
   experimental: {
@@ -33,6 +51,49 @@ const nextConfig = {
         permanent: true,
       },
     ]
+  },
+  // Headers for better security and performance
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-DNS-Prefetch-Control',
+            value: 'on'
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block'
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN'
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff'
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'origin-when-cross-origin'
+          }
+        ]
+      }
+    ]
+  },
+  // Webpack configuration
+  webpack: (config, { isServer }) => {
+    // Fix for Supabase/NextJS compatibility
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+      }
+    }
+    return config
   },
 }
 
