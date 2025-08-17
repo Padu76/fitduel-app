@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
@@ -101,9 +101,31 @@ const TIER_CONFIG = {
 }
 
 // ====================================
-// MAIN COMPONENT
+// LOADING FALLBACK COMPONENT
 // ====================================
-export default function LoginPage() {
+function LoginLoadingFallback() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-indigo-950 to-purple-950 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center">
+          <div className="w-20 h-20 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-3xl flex items-center justify-center mx-auto mb-6">
+            <Flame className="w-10 h-10 text-white animate-pulse" />
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-2">FitDuel</h1>
+          <div className="flex items-center justify-center gap-2 text-gray-400">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>Caricamento...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ====================================
+// LOGIN CONTENT COMPONENT (uses useSearchParams)
+// ====================================
+function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClientComponentClient()
@@ -625,7 +647,7 @@ export default function LoginPage() {
                 <span>Sistema livelli</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="text-purple-400">💥</span>
+                <span className="text-purple-400">👥</span>
                 <span>Duelli equi</span>
               </div>
               <div className="flex items-center gap-1">
@@ -652,5 +674,16 @@ export default function LoginPage() {
         </motion.div>
       </div>
     </div>
+  )
+}
+
+// ====================================
+// MAIN COMPONENT (with Suspense wrapper)
+// ====================================
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginLoadingFallback />}>
+      <LoginContent />
+    </Suspense>
   )
 }
