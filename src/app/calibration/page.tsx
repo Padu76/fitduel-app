@@ -2,1004 +2,894 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { motion, AnimatePresence } from 'framer-motion'
 import { 
-  User, Activity, Target, Heart, ChevronRight, 
-  ChevronLeft, Check, AlertCircle, Dumbbell,
-  Calendar, Trophy, Timer, Info
+  User, Calendar, Activity, Target, Award, ChevronRight, 
+  AlertCircle, CheckCircle, Timer, Zap, TrendingUp, SkipForward,
+  FastForward, Save, Edit, X
 } from 'lucide-react'
-import Button from '@/components/ui/Button'
-import Card from '@/components/ui/Card'
-import Input from '@/components/ui/Input'
-import Modal from '@/components/ui/Modal'
-import AIExerciseTracker, { PerformanceData } from '@/components/game/AIExerciseTracker'
+import AIExerciseTracker from '@/components/game/ai-tracker/AIExerciseTracker'
+import { supabase } from '@/lib/supabase-client'
+import { useUserStore } from '@/stores/useUserStore'
+import { calculateUserHandicap } from '@/utils/handicapSystem'
+import confetti from 'canvas-confetti'
 
 // ====================================
 // TYPES
 // ====================================
 
-interface CalibrationData {
-  // Step 1 - Info Base
-  age: number
-  gender: 'male' | 'female' | 'other' | 'prefer_not_say'
-  height_cm: number
-  weight_kg: number
-  
-  // Step 2 - Esperienza
-  fitness_experience: 'beginner' | 'intermediate' | 'advanced' | 'athlete'
-  training_frequency: 'never' | 'rarely' | '1-2_week' | '3-4_week' | '5-6_week' | 'daily'
-  years_training: number
-  
-  // Step 3 - Obiettivi e Limitazioni
-  primary_goal: 'weight_loss' | 'muscle_gain' | 'endurance' | 'strength' | 'general_fitness' | 'competition'
-  has_limitations: boolean
-  limitations: Array<{
-    type: string
-    area: string
-    severity: string
-  }>
-  medical_conditions: string[]
-  
-  // Step 4 - Test Results
-  pushup_max: number
-  squat_max: number
-  plank_seconds: number
-  burpees_minute: number
-  jumping_jacks_minute: number
-  
-  // Step 5 - Calculated
-  strength_score?: number
-  endurance_score?: number
-  flexibility_score?: number
-  overall_fitness_score?: number
-  fitness_level?: number
-  fitness_category?: string
-}
-
-interface TestExercise {
+interface CalibrationStep {
   id: string
-  name: string
-  type: 'reps' | 'duration'
-  target: number
-  duration?: number
+  title: string
   description: string
   icon: any
+  field?: string
+  type: 'info' | 'test' | 'complete'
+  exercise?: string
+  targetReps?: number
+  duration?: number
+  unit?: string
 }
+
+interface UserInfo {
+  age: number
+  gender: 'male' | 'female' | 'other'
+  weight: number
+  height: number
+  fitness_level: 'beginner' | 'intermediate' | 'advanced' | 'elite'
+  training_frequency: number
+  fitness_experience_years: number
+  has_limitations: boolean
+  limitations: string[]
+}
+
+interface TestResults {
+  pushups_count: number
+  squats_count: number
+  plank_duration: number
+  jumping_jacks_count: number
+  burpees_count: number
+  lunges_count: number
+  mountain_climbers_count: number
+  high_knees_count: number
+}
+
+interface PerformanceData {
+  exerciseId: string
+  userId: string
+  formScore: number
+  repsCompleted: number
+  duration: number
+  caloriesBurned: number
+  timestamp: string
+}
+
+// ====================================
+// CALIBRATION STEPS
+// ====================================
+
+const CALIBRATION_STEPS: CalibrationStep[] = [
+  {
+    id: 'welcome',
+    title: 'Benvenuto alla Calibrazione!',
+    description: 'Personalizzeremo la tua esperienza fitness in base alle tue capacità.',
+    icon: Award,
+    type: 'info'
+  },
+  {
+    id: 'age',
+    title: 'Età',
+    description: 'Quanti anni hai?',
+    icon: Calendar,
+    field: 'age',
+    type: 'info'
+  },
+  {
+    id: 'gender',
+    title: 'Genere',
+    description: 'Seleziona il tuo genere',
+    icon: User,
+    field: 'gender',
+    type: 'info'
+  },
+  {
+    id: 'weight',
+    title: 'Peso',
+    description: 'Inserisci il tuo peso in kg',
+    icon: Activity,
+    field: 'weight',
+    type: 'info',
+    unit: 'kg'
+  },
+  {
+    id: 'height',
+    title: 'Altezza',
+    description: 'Inserisci la tua altezza in cm',
+    icon: TrendingUp,
+    field: 'height',
+    type: 'info',
+    unit: 'cm'
+  },
+  {
+    id: 'fitness_level',
+    title: 'Livello Fitness',
+    description: 'Come valuteresti il tuo livello di forma fisica?',
+    icon: Target,
+    field: 'fitness_level',
+    type: 'info'
+  },
+  {
+    id: 'frequency',
+    title: 'Frequenza Allenamento',
+    description: 'Quanti giorni a settimana ti alleni?',
+    icon: Timer,
+    field: 'training_frequency',
+    type: 'info',
+    unit: 'giorni/settimana'
+  },
+  {
+    id: 'experience',
+    title: 'Esperienza',
+    description: 'Da quanti anni ti alleni regolarmente?',
+    icon: Award,
+    field: 'fitness_experience_years',
+    type: 'info',
+    unit: 'anni'
+  },
+  {
+    id: 'limitations',
+    title: 'Limitazioni',
+    description: 'Hai limitazioni fisiche o infortuni?',
+    icon: AlertCircle,
+    field: 'has_limitations',
+    type: 'info'
+  },
+  // Test fisici
+  {
+    id: 'pushups',
+    title: 'Test Push-ups',
+    description: 'Fai il massimo numero di push-ups con forma corretta',
+    icon: Zap,
+    type: 'test',
+    exercise: 'pushups',
+    targetReps: 50,
+    field: 'pushups_count'
+  },
+  {
+    id: 'squats',
+    title: 'Test Squats',
+    description: 'Fai il massimo numero di squats con forma corretta',
+    icon: Zap,
+    type: 'test',
+    exercise: 'squats',
+    targetReps: 50,
+    field: 'squats_count'
+  },
+  {
+    id: 'plank',
+    title: 'Test Plank',
+    description: 'Mantieni la posizione di plank il più a lungo possibile',
+    icon: Timer,
+    type: 'test',
+    exercise: 'plank',
+    duration: 120,
+    field: 'plank_duration',
+    unit: 'secondi'
+  },
+  {
+    id: 'jumping_jacks',
+    title: 'Test Jumping Jacks',
+    description: 'Fai il massimo numero di jumping jacks in 30 secondi',
+    icon: Zap,
+    type: 'test',
+    exercise: 'jumping_jacks',
+    targetReps: 50,
+    duration: 30,
+    field: 'jumping_jacks_count'
+  },
+  {
+    id: 'complete',
+    title: 'Calibrazione Completata!',
+    description: 'Il tuo profilo fitness è stato creato con successo.',
+    icon: CheckCircle,
+    type: 'complete'
+  }
+]
 
 // ====================================
 // MAIN COMPONENT
 // ====================================
 
-export default function CalibrationWizard() {
+export default function CalibrationPage() {
   const router = useRouter()
-  const supabase = createClientComponentClient()
-  
-  // State
-  const [currentStep, setCurrentStep] = useState(1)
+  const { user, setUser } = useUserStore()
+  const [currentStep, setCurrentStep] = useState(0)
+  const [showAITracker, setShowAITracker] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [showTestModal, setShowTestModal] = useState(false)
-  const [currentTest, setCurrentTest] = useState<TestExercise | null>(null)
-  const [testResults, setTestResults] = useState<Record<string, number>>({})
-  const [userId, setUserId] = useState<string>('')
+  const [manualInput, setManualInput] = useState(false)
+  const [manualValue, setManualValue] = useState('')
   
-  // Form Data
-  const [calibrationData, setCalibrationData] = useState<CalibrationData>({
+  // User info state
+  const [userInfo, setUserInfo] = useState<UserInfo>({
     age: 25,
-    gender: 'prefer_not_say',
-    height_cm: 170,
-    weight_kg: 70,
-    fitness_experience: 'beginner',
-    training_frequency: 'rarely',
-    years_training: 0,
-    primary_goal: 'general_fitness',
+    gender: 'male',
+    weight: 70,
+    height: 175,
+    fitness_level: 'intermediate',
+    training_frequency: 3,
+    fitness_experience_years: 1,
     has_limitations: false,
-    limitations: [],
-    medical_conditions: [],
-    pushup_max: 0,
-    squat_max: 0,
-    plank_seconds: 0,
-    burpees_minute: 0,
-    jumping_jacks_minute: 0
+    limitations: []
   })
   
-  // Validation errors
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  
-  // Test exercises configuration
-  const testExercises: TestExercise[] = [
-    {
-      id: 'push_up',
-      name: 'Push-up',
-      type: 'reps',
-      target: 20,
-      duration: 60,
-      description: 'Esegui il massimo numero di push-up in 60 secondi',
-      icon: Dumbbell
-    },
-    {
-      id: 'squat',
-      name: 'Squat',
-      type: 'reps',
-      target: 30,
-      duration: 60,
-      description: 'Esegui il massimo numero di squat in 60 secondi',
-      icon: Activity
-    },
-    {
-      id: 'plank',
-      name: 'Plank',
-      type: 'duration',
-      target: 60,
-      description: 'Mantieni la posizione di plank il più a lungo possibile',
-      icon: Timer
-    },
-    {
-      id: 'burpee',
-      name: 'Burpees',
-      type: 'reps',
-      target: 10,
-      duration: 60,
-      description: 'Esegui il massimo numero di burpees in 60 secondi',
-      icon: Activity
-    },
-    {
-      id: 'jumping_jack',
-      name: 'Jumping Jacks',
-      type: 'reps',
-      target: 40,
-      duration: 60,
-      description: 'Esegui il massimo numero di jumping jacks in 60 secondi',
-      icon: Activity
-    }
-  ]
+  // Test results state
+  const [testResults, setTestResults] = useState<TestResults>({
+    pushups_count: 0,
+    squats_count: 0,
+    plank_duration: 0,
+    jumping_jacks_count: 0,
+    burpees_count: 0,
+    lunges_count: 0,
+    mountain_climbers_count: 0,
+    high_knees_count: 0
+  })
+
+  const currentStepData = CALIBRATION_STEPS[currentStep]
+  const progress = ((currentStep + 1) / CALIBRATION_STEPS.length) * 100
 
   // ====================================
-  // EFFECTS
+  // HANDLERS
   // ====================================
 
-  useEffect(() => {
-    checkExistingCalibration()
-  }, [])
-
-  const checkExistingCalibration = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/login')
-        return
-      }
-
-      setUserId(user.id)
-
-      // Controlla se esiste già una calibrazione
-      const { data: calibration } = await supabase
-        .from('user_calibration')
-        .select('*')
-        .eq('user_id', user.id)
-        .single()
-
-      if (calibration && calibration.calibration_status === 'completed') {
-        // Già calibrato, vai alla dashboard
-        router.push('/dashboard')
-      } else if (calibration) {
-        // Calibrazione incompleta, riprendi da dove aveva lasciato
-        setCalibrationData({
-          ...calibrationData,
-          ...calibration
-        })
-        setCurrentStep(calibration.calibration_step || 1)
-      }
-    } catch (error) {
-      console.error('Error checking calibration:', error)
-    }
-  }
-
-  // ====================================
-  // VALIDATION
-  // ====================================
-
-  const validateStep = (step: number): boolean => {
-    const newErrors: Record<string, string> = {}
-    
-    switch (step) {
-      case 1:
-        if (!calibrationData.age || calibrationData.age < 13 || calibrationData.age > 100) {
-          newErrors.age = 'Età deve essere tra 13 e 100 anni'
-        }
-        if (!calibrationData.gender) {
-          newErrors.gender = 'Seleziona il genere'
-        }
-        if (!calibrationData.height_cm || calibrationData.height_cm < 100 || calibrationData.height_cm > 250) {
-          newErrors.height = 'Altezza deve essere tra 100 e 250 cm'
-        }
-        if (!calibrationData.weight_kg || calibrationData.weight_kg < 30 || calibrationData.weight_kg > 300) {
-          newErrors.weight = 'Peso deve essere tra 30 e 300 kg'
-        }
-        break
-        
-      case 2:
-        if (!calibrationData.fitness_experience) {
-          newErrors.experience = 'Seleziona il livello di esperienza'
-        }
-        if (!calibrationData.training_frequency) {
-          newErrors.frequency = 'Seleziona la frequenza di allenamento'
-        }
-        break
-        
-      case 3:
-        if (!calibrationData.primary_goal) {
-          newErrors.goal = 'Seleziona un obiettivo primario'
-        }
-        break
-        
-      case 4:
-        // I test verranno validati durante l'esecuzione
-        break
-    }
-    
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
-
-  // ====================================
-  // NAVIGATION
-  // ====================================
-
-  const handleNext = async () => {
-    if (!validateStep(currentStep)) return
-    
-    // Salva progresso nel database
-    await saveProgress()
-    
-    if (currentStep < 5) {
-      setCurrentStep(currentStep + 1)
-    } else {
-      await completeCalibration()
+  const handleNext = () => {
+    if (currentStep < CALIBRATION_STEPS.length - 1) {
+      setCurrentStep(prev => prev + 1)
+      setShowAITracker(false)
+      setManualInput(false)
+      setManualValue('')
     }
   }
 
   const handlePrevious = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
+    if (currentStep > 0) {
+      setCurrentStep(prev => prev - 1)
+      setShowAITracker(false)
+      setManualInput(false)
     }
   }
 
-  const saveProgress = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { error } = await supabase
-        .from('user_calibration')
-        .upsert({
-          user_id: user.id,
-          ...calibrationData,
-          calibration_step: currentStep,
-          calibration_status: 'incomplete'
-        })
-
-      if (error) throw error
-    } catch (error) {
-      console.error('Error saving progress:', error)
-    }
-  }
-
-  // ====================================
-  // TEST EXECUTION
-  // ====================================
-
-  const startTest = (exercise: TestExercise) => {
-    setCurrentTest(exercise)
-    setShowTestModal(true)
-  }
-
-  const handleTestComplete = (data: PerformanceData) => {
-    if (!currentTest) return
-    
-    // Estrai il valore corretto dal PerformanceData
-    // Per plank usiamo duration, per gli altri usiamo repsCompleted
-    const value = currentTest.type === 'duration' ? data.duration : data.repsCompleted
-    
-    // Salva risultato in base al tipo di test
-    if (currentTest.id === 'plank') {
-      setTestResults({ ...testResults, plank_seconds: value })
-      setCalibrationData({ ...calibrationData, plank_seconds: value })
-    } else if (currentTest.id === 'burpee') {
-      setTestResults({ ...testResults, burpees_minute: value })
-      setCalibrationData({ ...calibrationData, burpees_minute: value })
-    } else if (currentTest.id === 'jumping_jack') {
-      setTestResults({ ...testResults, jumping_jacks_minute: value })
-      setCalibrationData({ ...calibrationData, jumping_jacks_minute: value })
-    } else if (currentTest.id === 'push_up') {
-      setTestResults({ ...testResults, pushup_max: value })
-      setCalibrationData({ ...calibrationData, pushup_max: value })
-    } else if (currentTest.id === 'squat') {
-      setTestResults({ ...testResults, squat_max: value })
-      setCalibrationData({ ...calibrationData, squat_max: value })
-    }
-    
-    setShowTestModal(false)
-    setCurrentTest(null)
-  }
-
-  // ====================================
-  // CALIBRATION COMPLETION
-  // ====================================
-
-  const calculateScores = () => {
-    const { 
-      pushup_max, squat_max, plank_seconds, 
-      burpees_minute, jumping_jacks_minute,
-      age, gender 
-    } = calibrationData
-
-    // Calcola punteggi basati su età e genere
-    const ageFactor = age < 20 ? 1.1 : age < 30 ? 1.0 : age < 40 ? 0.95 : age < 50 ? 0.90 : age < 60 ? 0.85 : 0.80
-    const genderFactor = gender === 'female' ? 1.15 : gender === 'male' ? 1.0 : 1.05
-
-    // Calcola score componenti
-    const strength = Math.min(100, ((pushup_max * 2) + (squat_max * 1.5)) * ageFactor * genderFactor)
-    const endurance = Math.min(100, ((burpees_minute * 3) + (jumping_jacks_minute * 1)) * ageFactor * genderFactor)
-    const flexibility = Math.min(100, (plank_seconds * 1.5) * ageFactor * genderFactor)
-    
-    // Overall score
-    const overall = (strength + endurance + flexibility) / 3
-
-    // Determina livello (1-10)
-    const level = overall >= 90 ? 10 :
-                  overall >= 80 ? 9 :
-                  overall >= 70 ? 8 :
-                  overall >= 60 ? 7 :
-                  overall >= 50 ? 6 :
-                  overall >= 40 ? 5 :
-                  overall >= 30 ? 4 :
-                  overall >= 20 ? 3 :
-                  overall >= 10 ? 2 : 1
-
-    return {
-      strength_score: strength,
-      endurance_score: endurance,
-      flexibility_score: flexibility,
-      overall_fitness_score: overall,
-      fitness_level: level
-    }
-  }
-
-  const completeCalibration = async () => {
-    setSaving(true)
-    
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      // Calcola punteggi finali
-      const scores = calculateScores()
-      
-      // Aggiorna calibrazione completa
-      const finalData = {
-        ...calibrationData,
-        ...scores,
-        calibration_status: 'completed',
-        calibration_completed_at: new Date().toISOString()
+  const handleSkipTest = () => {
+    // Imposta valore di default per il test corrente
+    if (currentStepData.field) {
+      const defaultValues: Record<string, number> = {
+        pushups_count: 15,
+        squats_count: 20,
+        plank_duration: 30,
+        jumping_jacks_count: 25,
+        burpees_count: 10,
+        lunges_count: 15,
+        mountain_climbers_count: 20,
+        high_knees_count: 30
       }
+      
+      setTestResults(prev => ({
+        ...prev,
+        [currentStepData.field!]: defaultValues[currentStepData.field!] || 0
+      }))
+    }
+    
+    handleNext()
+  }
 
-      const { error: calibrationError } = await supabase
-        .from('user_calibration')
-        .upsert({
-          user_id: user.id,
-          ...finalData
-        })
+  const handleQuickComplete = async () => {
+    // Imposta valori di default per tutti i test
+    const quickResults: TestResults = {
+      pushups_count: 20,
+      squats_count: 30,
+      plank_duration: 45,
+      jumping_jacks_count: 35,
+      burpees_count: 15,
+      lunges_count: 20,
+      mountain_climbers_count: 25,
+      high_knees_count: 35
+    }
+    
+    setTestResults(quickResults)
+    
+    // Vai direttamente al completamento
+    setCurrentStep(CALIBRATION_STEPS.length - 1)
+    
+    // Salva automaticamente
+    setTimeout(() => {
+      handleComplete(quickResults)
+    }, 1000)
+  }
 
-      if (calibrationError) throw calibrationError
+  const handleManualInput = () => {
+    setManualInput(true)
+    setShowAITracker(false)
+  }
 
-      // Aggiorna profilo
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          is_calibrated: true,
-          calibration_required: false
-        })
-        .eq('id', user.id)
+  const handleSaveManualValue = () => {
+    const value = parseInt(manualValue) || 0
+    if (currentStepData.field) {
+      setTestResults(prev => ({
+        ...prev,
+        [currentStepData.field!]: value
+      }))
+    }
+    setManualInput(false)
+    handleNext()
+  }
 
-      if (profileError) throw profileError
+  const handleStartTest = () => {
+    setShowAITracker(true)
+    setManualInput(false)
+  }
 
-      // Salva test results
-      for (const exercise of testExercises) {
-        const resultKey = exercise.id === 'push_up' ? 'pushup_max' :
-                         exercise.id === 'squat' ? 'squat_max' :
-                         exercise.id === 'plank' ? 'plank_seconds' :
-                         exercise.id === 'burpee' ? 'burpees_minute' :
-                         'jumping_jacks_minute'
+  const handleExerciseComplete = (data: PerformanceData) => {
+    // Salva i risultati del test
+    if (currentStepData.field) {
+      const value = currentStepData.exercise === 'plank' 
+        ? Math.round(data.duration)
+        : data.repsCompleted
         
-        await supabase
-          .from('calibration_tests')
+      setTestResults(prev => ({
+        ...prev,
+        [currentStepData.field!]: value
+      }))
+    }
+    
+    setShowAITracker(false)
+    handleNext()
+  }
+
+  const handleComplete = async (customResults?: TestResults) => {
+    setLoading(true)
+    
+    try {
+      const finalResults = customResults || testResults
+      
+      // Calcola l'handicap score
+      const calibrationData = {
+        ...userInfo,
+        ...finalResults,
+        calibration_score: calculateUserHandicap({
+          ...userInfo,
+          ...finalResults,
+          calibration_score: 0,
+          assigned_level: 'bronze',
+          base_handicap: 1
+        }),
+        assigned_level: determineLevel(finalResults),
+        base_handicap: 1
+      }
+      
+      // Salva nel database
+      if (user?.id) {
+        const { error } = await supabase
+          .from('user_calibration')
           .insert({
             user_id: user.id,
-            test_type: 'initial',
-            exercise_name: exercise.name,
-            completed_reps: calibrationData[resultKey as keyof CalibrationData],
-            performed_at: new Date().toISOString()
+            ...calibrationData,
+            created_at: new Date().toISOString()
           })
+        
+        if (error) {
+          console.error('Error saving calibration:', error)
+        }
       }
-
-      // Redirect to dashboard
-      router.push('/dashboard')
+      
+      // Salva in localStorage come backup
+      localStorage.setItem('fitduel_calibration', JSON.stringify(calibrationData))
+      localStorage.setItem('fitduel_calibration_complete', 'true')
+      
+      // Aggiorna user store
+      setUser({
+        ...user,
+        calibrated: true,
+        level: getLevelNumber(calibrationData.assigned_level)
+      })
+      
+      // Celebrazione
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      })
+      
+      // Redirect dopo 2 secondi
+      setTimeout(() => {
+        router.push('/dashboard')
+      }, 2000)
+      
     } catch (error) {
-      console.error('Error completing calibration:', error)
+      console.error('Calibration error:', error)
+      // Vai comunque alla dashboard
+      router.push('/dashboard')
     } finally {
-      setSaving(false)
+      setLoading(false)
     }
   }
 
   // ====================================
-  // RENDER STEPS
+  // HELPERS
   // ====================================
 
-  const renderStep1 = () => (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Informazioni Base</h2>
-        <p className="text-gray-400">Questi dati ci aiutano a personalizzare la tua esperienza</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-2">
-            Età
-          </label>
-          <Input
-            type="number"
-            value={calibrationData.age}
-            onChange={(e) => setCalibrationData({ ...calibrationData, age: parseInt(e.target.value) })}
-            min={13}
-            max={100}
-            className={errors.age ? 'border-red-500' : ''}
-          />
-          {errors.age && <p className="text-red-500 text-sm mt-1">{errors.age}</p>}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-2">
-            Genere
-          </label>
-          <select
-            value={calibrationData.gender}
-            onChange={(e) => setCalibrationData({ ...calibrationData, gender: e.target.value as any })}
-            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
-          >
-            <option value="prefer_not_say">Preferisco non dire</option>
-            <option value="male">Maschile</option>
-            <option value="female">Femminile</option>
-            <option value="other">Altro</option>
-          </select>
-          {errors.gender && <p className="text-red-500 text-sm mt-1">{errors.gender}</p>}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-2">
-            Altezza (cm)
-          </label>
-          <Input
-            type="number"
-            value={calibrationData.height_cm}
-            onChange={(e) => setCalibrationData({ ...calibrationData, height_cm: parseInt(e.target.value) })}
-            min={100}
-            max={250}
-            className={errors.height ? 'border-red-500' : ''}
-          />
-          {errors.height && <p className="text-red-500 text-sm mt-1">{errors.height}</p>}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-2">
-            Peso (kg)
-          </label>
-          <Input
-            type="number"
-            value={calibrationData.weight_kg}
-            onChange={(e) => setCalibrationData({ ...calibrationData, weight_kg: parseFloat(e.target.value) })}
-            min={30}
-            max={300}
-            step={0.5}
-            className={errors.weight ? 'border-red-500' : ''}
-          />
-          {errors.weight && <p className="text-red-500 text-sm mt-1">{errors.weight}</p>}
-        </div>
-      </div>
-
-      <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
-        <div className="flex items-start gap-3">
-          <Info className="w-5 h-5 text-blue-400 mt-0.5" />
-          <div className="text-sm text-blue-300">
-            <p>I tuoi dati sono protetti e utilizzati solo per calibrare le sfide.</p>
-            <p className="mt-1">Puoi aggiornare queste informazioni in qualsiasi momento.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-
-  const renderStep2 = () => (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Esperienza Fitness</h2>
-        <p className="text-gray-400">Aiutaci a capire il tuo livello attuale</p>
-      </div>
-
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-3">
-            Livello di Esperienza
-          </label>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {['beginner', 'intermediate', 'advanced', 'athlete'].map((level) => (
-              <button
-                key={level}
-                onClick={() => setCalibrationData({ ...calibrationData, fitness_experience: level as any })}
-                className={`p-4 rounded-lg border transition-all ${
-                  calibrationData.fitness_experience === level
-                    ? 'bg-purple-600 border-purple-500 text-white'
-                    : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600'
-                }`}
-              >
-                <div className="text-center">
-                  <Trophy className="w-8 h-8 mx-auto mb-2" />
-                  <div className="font-medium capitalize">{level === 'beginner' ? 'Principiante' : level === 'intermediate' ? 'Intermedio' : level === 'advanced' ? 'Avanzato' : 'Atleta'}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-          {errors.experience && <p className="text-red-500 text-sm mt-2">{errors.experience}</p>}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-3">
-            Frequenza di Allenamento
-          </label>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {[
-              { value: 'never', label: 'Mai' },
-              { value: 'rarely', label: 'Raramente' },
-              { value: '1-2_week', label: '1-2 volte/sett' },
-              { value: '3-4_week', label: '3-4 volte/sett' },
-              { value: '5-6_week', label: '5-6 volte/sett' },
-              { value: 'daily', label: 'Ogni giorno' }
-            ].map((freq) => (
-              <button
-                key={freq.value}
-                onClick={() => setCalibrationData({ ...calibrationData, training_frequency: freq.value as any })}
-                className={`px-4 py-3 rounded-lg border transition-all ${
-                  calibrationData.training_frequency === freq.value
-                    ? 'bg-purple-600 border-purple-500 text-white'
-                    : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600'
-                }`}
-              >
-                <Calendar className="w-5 h-5 mx-auto mb-1" />
-                <div className="text-sm font-medium">{freq.label}</div>
-              </button>
-            ))}
-          </div>
-          {errors.frequency && <p className="text-red-500 text-sm mt-2">{errors.frequency}</p>}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-2">
-            Anni di Allenamento
-          </label>
-          <Input
-            type="number"
-            value={calibrationData.years_training}
-            onChange={(e) => setCalibrationData({ ...calibrationData, years_training: parseInt(e.target.value) })}
-            min={0}
-            max={50}
-            placeholder="0"
-          />
-        </div>
-      </div>
-    </div>
-  )
-
-  const renderStep3 = () => (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Obiettivi e Limitazioni</h2>
-        <p className="text-gray-400">Personalizziamo il tuo percorso</p>
-      </div>
-
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-3">
-            Obiettivo Primario
-          </label>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {[
-              { value: 'weight_loss', label: 'Perdere Peso', icon: Target },
-              { value: 'muscle_gain', label: 'Massa Muscolare', icon: Dumbbell },
-              { value: 'endurance', label: 'Resistenza', icon: Activity },
-              { value: 'strength', label: 'Forza', icon: Dumbbell },
-              { value: 'general_fitness', label: 'Fitness Generale', icon: Heart },
-              { value: 'competition', label: 'Competizione', icon: Trophy }
-            ].map((goal) => (
-              <button
-                key={goal.value}
-                onClick={() => setCalibrationData({ ...calibrationData, primary_goal: goal.value as any })}
-                className={`p-4 rounded-lg border transition-all ${
-                  calibrationData.primary_goal === goal.value
-                    ? 'bg-purple-600 border-purple-500 text-white'
-                    : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600'
-                }`}
-              >
-                <goal.icon className="w-6 h-6 mx-auto mb-2" />
-                <div className="text-sm font-medium">{goal.label}</div>
-              </button>
-            ))}
-          </div>
-          {errors.goal && <p className="text-red-500 text-sm mt-2">{errors.goal}</p>}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-3">
-            Hai limitazioni fisiche o infortuni?
-          </label>
-          <div className="flex gap-4">
-            <button
-              onClick={() => setCalibrationData({ ...calibrationData, has_limitations: false })}
-              className={`flex-1 px-4 py-3 rounded-lg border transition-all ${
-                !calibrationData.has_limitations
-                  ? 'bg-green-600 border-green-500 text-white'
-                  : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600'
-              }`}
-            >
-              No, nessuna limitazione
-            </button>
-            <button
-              onClick={() => setCalibrationData({ ...calibrationData, has_limitations: true })}
-              className={`flex-1 px-4 py-3 rounded-lg border transition-all ${
-                calibrationData.has_limitations
-                  ? 'bg-yellow-600 border-yellow-500 text-white'
-                  : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600'
-              }`}
-            >
-              Sì, ho delle limitazioni
-            </button>
-          </div>
-        </div>
-
-        {calibrationData.has_limitations && (
-          <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-yellow-400 mt-0.5" />
-              <div className="text-sm text-yellow-300">
-                <p>Se hai limitazioni fisiche, consulta il tuo medico prima di iniziare.</p>
-                <p className="mt-1">Gli esercizi saranno adattati alle tue capacità.</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-
-  const renderStep4 = () => (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Test di Calibrazione</h2>
-        <p className="text-gray-400">Completa questi test per determinare il tuo livello</p>
-      </div>
-
-      <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 mb-6">
-        <div className="flex items-start gap-3">
-          <Info className="w-5 h-5 text-blue-400 mt-0.5" />
-          <div className="text-sm text-blue-300">
-            <p>Esegui ogni test al meglio delle tue capacità.</p>
-            <p className="mt-1">L'AI tracker verificherà la corretta esecuzione.</p>
-            <p className="mt-1">Puoi fare una pausa tra un test e l'altro.</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        {testExercises.map((exercise) => {
-          const resultKey = exercise.id === 'push_up' ? 'pushup_max' :
-                           exercise.id === 'squat' ? 'squat_max' :
-                           exercise.id === 'plank' ? 'plank_seconds' :
-                           exercise.id === 'burpee' ? 'burpees_minute' :
-                           'jumping_jacks_minute'
-          
-          const completed = calibrationData[resultKey as keyof CalibrationData] as number > 0
-          
-          return (
-            <Card key={exercise.id} className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-lg ${
-                    completed ? 'bg-green-600' : 'bg-gray-700'
-                  }`}>
-                    <exercise.icon className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-white">{exercise.name}</h3>
-                    <p className="text-sm text-gray-400">{exercise.description}</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3">
-                  {completed && (
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-green-400">
-                        {calibrationData[resultKey as keyof CalibrationData] as number}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {exercise.type === 'duration' ? 'secondi' : 'ripetizioni'}
-                      </p>
-                    </div>
-                  )}
-                  
-                  <Button
-                    onClick={() => startTest(exercise)}
-                    variant={completed ? 'ghost' : 'gradient'}
-                    size="sm"
-                  >
-                    {completed ? 'Ripeti' : 'Inizia'} Test
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          )
-        })}
-      </div>
-
-      {Object.values(testResults).filter(v => v > 0).length === testExercises.length && (
-        <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <Check className="w-5 h-5 text-green-400" />
-            <p className="text-green-300">
-              Tutti i test completati! Procedi per vedere i tuoi risultati.
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-
-  const renderStep5 = () => {
-    const scores = calculateScores()
-    const category = scores.fitness_level! <= 2 ? 'Rookie' :
-                    scores.fitness_level! <= 4 ? 'Bronze' :
-                    scores.fitness_level! <= 6 ? 'Silver' :
-                    scores.fitness_level! <= 8 ? 'Gold' : 'Platinum'
+  const determineLevel = (results: TestResults): string => {
+    const score = 
+      results.pushups_count * 2 +
+      results.squats_count * 1.5 +
+      results.plank_duration +
+      results.jumping_jacks_count * 0.5
     
-    return (
-      <div className="space-y-6">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold text-white mb-2">Calibrazione Completata!</h2>
-          <p className="text-gray-400">Ecco il tuo profilo fitness personalizzato</p>
-        </div>
-
-        <Card className="p-6 bg-gradient-to-br from-purple-600/20 to-blue-600/20">
-          <div className="text-center">
-            <div className="mb-4">
-              <Trophy className="w-16 h-16 mx-auto text-yellow-400" />
-            </div>
-            <h3 className="text-2xl font-bold text-white mb-2">
-              Livello {scores.fitness_level}
-            </h3>
-            <div className={`inline-block px-4 py-2 rounded-full ${
-              category === 'Platinum' ? 'bg-purple-600' :
-              category === 'Gold' ? 'bg-yellow-600' :
-              category === 'Silver' ? 'bg-gray-400' :
-              category === 'Bronze' ? 'bg-orange-600' :
-              'bg-green-600'
-            }`}>
-              <span className="text-white font-bold">{category}</span>
-            </div>
-          </div>
-        </Card>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400">Forza</span>
-              <span className="text-xl font-bold text-white">
-                {Math.round(scores.strength_score!)}
-              </span>
-            </div>
-            <div className="w-full bg-gray-700 rounded-full h-2">
-              <div 
-                className="bg-red-500 h-2 rounded-full"
-                style={{ width: `${scores.strength_score}%` }}
-              />
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400">Resistenza</span>
-              <span className="text-xl font-bold text-white">
-                {Math.round(scores.endurance_score!)}
-              </span>
-            </div>
-            <div className="w-full bg-gray-700 rounded-full h-2">
-              <div 
-                className="bg-blue-500 h-2 rounded-full"
-                style={{ width: `${scores.endurance_score}%` }}
-              />
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400">Flessibilità</span>
-              <span className="text-xl font-bold text-white">
-                {Math.round(scores.flexibility_score!)}
-              </span>
-            </div>
-            <div className="w-full bg-gray-700 rounded-full h-2">
-              <div 
-                className="bg-green-500 h-2 rounded-full"
-                style={{ width: `${scores.flexibility_score}%` }}
-              />
-            </div>
-          </Card>
-        </div>
-
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-gray-400 font-semibold">Punteggio Complessivo</span>
-            <span className="text-2xl font-bold text-purple-400">
-              {Math.round(scores.overall_fitness_score!)} / 100
-            </span>
-          </div>
-          <div className="w-full bg-gray-700 rounded-full h-3">
-            <div 
-              className="bg-gradient-to-r from-purple-500 to-blue-500 h-3 rounded-full"
-              style={{ width: `${scores.overall_fitness_score}%` }}
-            />
-          </div>
-        </Card>
-
-        <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <Check className="w-5 h-5 text-green-400 mt-0.5" />
-            <div className="text-sm text-green-300">
-              <p className="font-semibold mb-1">Sei pronto per iniziare!</p>
-              <p>Le sfide saranno calibrate al tuo livello.</p>
-              <p>Riceverai bonus automatici per bilanciare le competizioni.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
+    if (score > 200) return 'elite'
+    if (score > 150) return 'gold'
+    if (score > 100) return 'silver'
+    if (score > 50) return 'bronze'
+    return 'rookie'
   }
 
-  const renderCurrentStep = () => {
-    switch (currentStep) {
-      case 1: return renderStep1()
-      case 2: return renderStep2()
-      case 3: return renderStep3()
-      case 4: return renderStep4()
-      case 5: return renderStep5()
-      default: return null
+  const getLevelNumber = (level: string): number => {
+    const levels: Record<string, number> = {
+      rookie: 1,
+      bronze: 5,
+      silver: 10,
+      gold: 15,
+      elite: 20
     }
+    return levels[level] || 1
   }
 
   // ====================================
-  // MAIN RENDER
+  // RENDER
   // ====================================
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
+      {/* Background effects */}
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.1)_0%,transparent_65%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(120,119,198,0.15)_0%,transparent_50%)]" />
+      </div>
+
+      <div className="relative z-10 container mx-auto px-4 py-8 max-w-4xl">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">
-            Calibrazione FitDuel
-          </h1>
-          <p className="text-gray-400">
-            Personalizza la tua esperienza fitness
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-3xl font-bold text-white">Calibrazione Fitness</h1>
+            
+            {/* Quick Actions */}
+            <div className="flex gap-2">
+              {currentStep > 0 && currentStep < CALIBRATION_STEPS.length - 1 && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleQuickComplete}
+                  className="px-4 py-2 bg-yellow-500/20 border border-yellow-500/50 rounded-lg
+                    text-yellow-400 font-bold hover:bg-yellow-500/30 transition-all
+                    flex items-center gap-2"
+                >
+                  <FastForward className="w-4 h-4" />
+                  Completa Rapidamente
+                </motion.button>
+              )}
+            </div>
+          </div>
+          
+          {/* Progress bar */}
+          <div className="bg-slate-800/50 rounded-full h-3 overflow-hidden">
+            <motion.div
+              className="h-full bg-gradient-to-r from-green-500 to-emerald-500"
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.5 }}
+            />
+          </div>
+          <p className="text-sm text-slate-400 mt-2">
+            Step {currentStep + 1} di {CALIBRATION_STEPS.length}
           </p>
         </div>
 
-        {/* Progress Bar */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-2">
-            {[1, 2, 3, 4, 5].map((step) => (
-              <div
-                key={step}
-                className={`flex items-center ${
-                  step < 5 ? 'flex-1' : ''
-                }`}
-              >
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-                    currentStep >= step
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-gray-700 text-gray-400'
-                  }`}
-                >
-                  {currentStep > step ? <Check className="w-5 h-5" /> : step}
-                </div>
-                {step < 5 && (
-                  <div
-                    className={`flex-1 h-1 mx-2 ${
-                      currentStep > step ? 'bg-purple-600' : 'bg-gray-700'
-                    }`}
-                  />
+        {/* Main Content */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentStep}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-8 border border-slate-700/50"
+          >
+            {/* Step Header */}
+            <div className="text-center mb-8">
+              <div className="inline-flex p-4 bg-gradient-to-br from-green-500/20 to-emerald-500/20 
+                rounded-2xl mb-4">
+                <currentStepData.icon className="w-12 h-12 text-green-400" />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">{currentStepData.title}</h2>
+              <p className="text-slate-400">{currentStepData.description}</p>
+            </div>
+
+            {/* Step Content */}
+            {currentStepData.type === 'info' && (
+              <div className="space-y-6">
+                {/* Age */}
+                {currentStepData.field === 'age' && (
+                  <div className="space-y-4">
+                    <input
+                      type="number"
+                      value={userInfo.age}
+                      onChange={(e) => setUserInfo(prev => ({ ...prev, age: parseInt(e.target.value) || 18 }))}
+                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-lg
+                        text-white text-center text-2xl focus:outline-none focus:border-green-500"
+                      min="16"
+                      max="100"
+                    />
+                    <p className="text-center text-slate-500">anni</p>
+                  </div>
+                )}
+
+                {/* Gender */}
+                {currentStepData.field === 'gender' && (
+                  <div className="grid grid-cols-3 gap-4">
+                    {['male', 'female', 'other'].map(gender => (
+                      <button
+                        key={gender}
+                        onClick={() => setUserInfo(prev => ({ ...prev, gender: gender as any }))}
+                        className={`p-4 rounded-lg border transition-all ${
+                          userInfo.gender === gender
+                            ? 'bg-green-500/20 border-green-500 text-green-400'
+                            : 'bg-slate-900/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                        }`}
+                      >
+                        {gender === 'male' ? 'Maschio' : gender === 'female' ? 'Femmina' : 'Altro'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Weight */}
+                {currentStepData.field === 'weight' && (
+                  <div className="space-y-4">
+                    <input
+                      type="number"
+                      value={userInfo.weight}
+                      onChange={(e) => setUserInfo(prev => ({ ...prev, weight: parseInt(e.target.value) || 50 }))}
+                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-lg
+                        text-white text-center text-2xl focus:outline-none focus:border-green-500"
+                      min="30"
+                      max="200"
+                    />
+                    <p className="text-center text-slate-500">kg</p>
+                  </div>
+                )}
+
+                {/* Height */}
+                {currentStepData.field === 'height' && (
+                  <div className="space-y-4">
+                    <input
+                      type="number"
+                      value={userInfo.height}
+                      onChange={(e) => setUserInfo(prev => ({ ...prev, height: parseInt(e.target.value) || 160 }))}
+                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-lg
+                        text-white text-center text-2xl focus:outline-none focus:border-green-500"
+                      min="120"
+                      max="250"
+                    />
+                    <p className="text-center text-slate-500">cm</p>
+                  </div>
+                )}
+
+                {/* Fitness Level */}
+                {currentStepData.field === 'fitness_level' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { value: 'beginner', label: 'Principiante', desc: 'Nuovo al fitness' },
+                      { value: 'intermediate', label: 'Intermedio', desc: '1-3 anni esperienza' },
+                      { value: 'advanced', label: 'Avanzato', desc: '3-5 anni esperienza' },
+                      { value: 'elite', label: 'Elite', desc: '5+ anni esperienza' }
+                    ].map(level => (
+                      <button
+                        key={level.value}
+                        onClick={() => setUserInfo(prev => ({ ...prev, fitness_level: level.value as any }))}
+                        className={`p-4 rounded-lg border transition-all text-left ${
+                          userInfo.fitness_level === level.value
+                            ? 'bg-green-500/20 border-green-500'
+                            : 'bg-slate-900/50 border-slate-700 hover:border-slate-600'
+                        }`}
+                      >
+                        <p className={`font-bold ${
+                          userInfo.fitness_level === level.value ? 'text-green-400' : 'text-white'
+                        }`}>
+                          {level.label}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">{level.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Training Frequency */}
+                {currentStepData.field === 'training_frequency' && (
+                  <div className="space-y-4">
+                    <input
+                      type="range"
+                      value={userInfo.training_frequency}
+                      onChange={(e) => setUserInfo(prev => ({ ...prev, training_frequency: parseInt(e.target.value) }))}
+                      className="w-full"
+                      min="0"
+                      max="7"
+                    />
+                    <p className="text-center text-2xl font-bold text-white">
+                      {userInfo.training_frequency} giorni/settimana
+                    </p>
+                  </div>
+                )}
+
+                {/* Experience Years */}
+                {currentStepData.field === 'fitness_experience_years' && (
+                  <div className="space-y-4">
+                    <input
+                      type="number"
+                      value={userInfo.fitness_experience_years}
+                      onChange={(e) => setUserInfo(prev => ({ ...prev, fitness_experience_years: parseInt(e.target.value) || 0 }))}
+                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-lg
+                        text-white text-center text-2xl focus:outline-none focus:border-green-500"
+                      min="0"
+                      max="50"
+                    />
+                    <p className="text-center text-slate-500">anni di esperienza</p>
+                  </div>
+                )}
+
+                {/* Limitations */}
+                {currentStepData.field === 'has_limitations' && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <button
+                        onClick={() => setUserInfo(prev => ({ ...prev, has_limitations: false }))}
+                        className={`p-4 rounded-lg border transition-all ${
+                          !userInfo.has_limitations
+                            ? 'bg-green-500/20 border-green-500 text-green-400'
+                            : 'bg-slate-900/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                        }`}
+                      >
+                        No, nessuna limitazione
+                      </button>
+                      <button
+                        onClick={() => setUserInfo(prev => ({ ...prev, has_limitations: true }))}
+                        className={`p-4 rounded-lg border transition-all ${
+                          userInfo.has_limitations
+                            ? 'bg-yellow-500/20 border-yellow-500 text-yellow-400'
+                            : 'bg-slate-900/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                        }`}
+                      >
+                        Sì, ho delle limitazioni
+                      </button>
+                    </div>
+                    
+                    {userInfo.has_limitations && (
+                      <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                        <p className="text-yellow-400 text-sm">
+                          Gli esercizi verranno adattati alle tue esigenze
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
-            ))}
-          </div>
-          <div className="flex justify-between text-xs text-gray-400">
-            <span>Info Base</span>
-            <span>Esperienza</span>
-            <span>Obiettivi</span>
-            <span>Test</span>
-            <span>Risultati</span>
-          </div>
-        </div>
+            )}
 
-        {/* Step Content */}
-        <Card className="p-6 md:p-8">
-          {renderCurrentStep()}
-        </Card>
+            {/* Test Content */}
+            {currentStepData.type === 'test' && (
+              <div className="space-y-6">
+                {!showAITracker && !manualInput ? (
+                  <div className="space-y-4">
+                    {/* Current Value Display */}
+                    {testResults[currentStepData.field as keyof TestResults] > 0 && (
+                      <div className="text-center p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+                        <p className="text-green-400 text-sm mb-1">Valore attuale:</p>
+                        <p className="text-2xl font-bold text-white">
+                          {testResults[currentStepData.field as keyof TestResults]} 
+                          {currentStepData.unit && ` ${currentStepData.unit}`}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Test Options */}
+                    <div className="grid grid-cols-1 gap-3">
+                      <button
+                        onClick={handleStartTest}
+                        className="p-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg
+                          text-white font-bold hover:shadow-lg hover:shadow-green-500/25 
+                          transition-all flex items-center justify-center gap-2"
+                      >
+                        <Activity className="w-5 h-5" />
+                        Inizia Test con AI
+                      </button>
+                      
+                      <button
+                        onClick={handleManualInput}
+                        className="p-4 bg-slate-700/50 border border-slate-600 rounded-lg
+                          text-white font-bold hover:bg-slate-700 transition-all
+                          flex items-center justify-center gap-2"
+                      >
+                        <Edit className="w-5 h-5" />
+                        Inserisci Manualmente
+                      </button>
+                      
+                      <button
+                        onClick={handleSkipTest}
+                        className="p-4 bg-yellow-500/20 border border-yellow-500/50 rounded-lg
+                          text-yellow-400 font-bold hover:bg-yellow-500/30 transition-all
+                          flex items-center justify-center gap-2"
+                      >
+                        <SkipForward className="w-5 h-5" />
+                        Salta Test (Usa Default)
+                      </button>
+                    </div>
+                    
+                    <p className="text-center text-sm text-slate-500">
+                      Puoi sempre modificare questi valori in seguito
+                    </p>
+                  </div>
+                ) : showAITracker ? (
+                  <div>
+                    <AIExerciseTracker
+                      exerciseId={currentStepData.exercise!}
+                      targetReps={currentStepData.targetReps}
+                      duration={currentStepData.duration}
+                      onComplete={handleExerciseComplete}
+                      userId={user?.id || 'temp-user'}
+                    />
+                    <button
+                      onClick={() => setShowAITracker(false)}
+                      className="mt-4 w-full p-3 bg-slate-700/50 border border-slate-600 rounded-lg
+                        text-white font-bold hover:bg-slate-700 transition-all"
+                    >
+                      Annulla Test
+                    </button>
+                  </div>
+                ) : manualInput ? (
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      <p className="text-sm text-slate-400 mb-2">
+                        Inserisci il numero di {currentStepData.exercise === 'plank' ? 'secondi' : 'ripetizioni'}:
+                      </p>
+                      <input
+                        type="number"
+                        value={manualValue}
+                        onChange={(e) => setManualValue(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-lg
+                          text-white text-center text-2xl focus:outline-none focus:border-green-500"
+                        min="0"
+                        max="999"
+                        autoFocus
+                      />
+                      {currentStepData.unit && (
+                        <p className="text-slate-500 mt-2">{currentStepData.unit}</p>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => {
+                          setManualInput(false)
+                          setManualValue('')
+                        }}
+                        className="p-3 bg-slate-700/50 border border-slate-600 rounded-lg
+                          text-white font-bold hover:bg-slate-700 transition-all"
+                      >
+                        <X className="w-5 h-5 inline mr-2" />
+                        Annulla
+                      </button>
+                      <button
+                        onClick={handleSaveManualValue}
+                        className="p-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg
+                          text-white font-bold hover:shadow-lg hover:shadow-green-500/25 transition-all"
+                      >
+                        <Save className="w-5 h-5 inline mr-2" />
+                        Salva
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
-        {/* Navigation Buttons */}
-        <div className="flex justify-between mt-6">
-          <Button
-            onClick={handlePrevious}
-            variant="ghost"
-            disabled={currentStep === 1}
-            className="flex items-center gap-2"
-          >
-            <ChevronLeft className="w-5 h-5" />
-            Indietro
-          </Button>
+            {/* Complete Content */}
+            {currentStepData.type === 'complete' && (
+              <div className="text-center space-y-6">
+                <div className="space-y-4">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", duration: 0.5 }}
+                    className="inline-flex p-6 bg-gradient-to-br from-green-500/20 to-emerald-500/20 
+                      rounded-full"
+                  >
+                    <CheckCircle className="w-16 h-16 text-green-400" />
+                  </motion.div>
+                  
+                  <div>
+                    <h3 className="text-2xl font-bold text-white mb-2">Ottimo lavoro!</h3>
+                    <p className="text-slate-400">
+                      Il tuo profilo è stato calibrato con successo
+                    </p>
+                  </div>
+                  
+                  {/* Results Summary */}
+                  <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
+                    <div className="bg-slate-900/50 rounded-lg p-3">
+                      <p className="text-xs text-slate-500">Push-ups</p>
+                      <p className="text-xl font-bold text-white">{testResults.pushups_count}</p>
+                    </div>
+                    <div className="bg-slate-900/50 rounded-lg p-3">
+                      <p className="text-xs text-slate-500">Squats</p>
+                      <p className="text-xl font-bold text-white">{testResults.squats_count}</p>
+                    </div>
+                    <div className="bg-slate-900/50 rounded-lg p-3">
+                      <p className="text-xs text-slate-500">Plank</p>
+                      <p className="text-xl font-bold text-white">{testResults.plank_duration}s</p>
+                    </div>
+                    <div className="bg-slate-900/50 rounded-lg p-3">
+                      <p className="text-xs text-slate-500">Jumping Jacks</p>
+                      <p className="text-xl font-bold text-white">{testResults.jumping_jacks_count}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => handleComplete()}
+                  disabled={loading}
+                  className="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl
+                    text-white font-bold text-lg shadow-lg hover:shadow-green-500/25 
+                    transition-all disabled:opacity-50"
+                >
+                  {loading ? 'Salvataggio...' : 'Vai alla Dashboard'}
+                </button>
+              </div>
+            )}
 
-          {currentStep < 5 ? (
-            <Button
-              onClick={handleNext}
-              variant="gradient"
-              disabled={currentStep === 4 && Object.values(testResults).filter(v => v > 0).length < testExercises.length}
-              className="flex items-center gap-2"
+            {/* Navigation */}
+            {currentStepData.type !== 'complete' && !showAITracker && !manualInput && (
+              <div className="flex justify-between mt-8">
+                <button
+                  onClick={handlePrevious}
+                  disabled={currentStep === 0}
+                  className="px-6 py-3 bg-slate-700/50 border border-slate-600 rounded-lg
+                    text-white font-bold hover:bg-slate-700 transition-all
+                    disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Indietro
+                </button>
+                
+                <button
+                  onClick={handleNext}
+                  className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg
+                    text-white font-bold hover:shadow-lg hover:shadow-green-500/25 
+                    transition-all flex items-center gap-2"
+                >
+                  Avanti
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Quick Complete Button (sempre visibile) */}
+        {currentStep > 0 && currentStep < CALIBRATION_STEPS.length - 1 && (
+          <div className="mt-6 text-center">
+            <button
+              onClick={handleQuickComplete}
+              className="text-sm text-slate-500 hover:text-yellow-400 transition-colors"
             >
-              Avanti
-              <ChevronRight className="w-5 h-5" />
-            </Button>
-          ) : (
-            <Button
-              onClick={completeCalibration}
-              variant="gradient"
-              disabled={saving}
-              className="flex items-center gap-2"
-            >
-              {saving ? 'Salvataggio...' : 'Inizia FitDuel'}
-              <Check className="w-5 h-5" />
-            </Button>
-          )}
-        </div>
+              Non vuoi fare i test? Clicca qui per completare rapidamente
+            </button>
+          </div>
+        )}
       </div>
-
-      {/* Test Modal */}
-      {showTestModal && currentTest && (
-        <Modal
-          isOpen={showTestModal}
-          onClose={() => setShowTestModal(false)}
-          title={`Test: ${currentTest.name}`}
-        >
-          <div className="space-y-4">
-            <p className="text-gray-300">{currentTest.description}</p>
-            
-            <AIExerciseTracker
-              exerciseId={currentTest.id}
-              userId={userId}
-              targetReps={currentTest.type === 'reps' ? currentTest.target : undefined}
-              targetTime={currentTest.type === 'duration' ? currentTest.target : undefined}
-              onComplete={handleTestComplete}
-            />
-          </div>
-        </Modal>
-      )}
     </div>
   )
 }
