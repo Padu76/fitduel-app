@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
 
 // ====================================
@@ -116,7 +116,7 @@ export interface Notification {
 }
 
 // ====================================
-// SUPABASE CLIENT
+// SINGLETON SUPABASE CLIENT
 // ====================================
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -127,14 +127,40 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('⚠️ Supabase environment variables not found. Using demo mode.')
 }
 
-// Create Supabase client
-export const supabase = createClient(supabaseUrl || 'https://demo.supabase.co', supabaseAnonKey || 'demo-key', {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true
+// Singleton instance
+let supabaseInstance: SupabaseClient | null = null
+
+// Create or get existing Supabase client (SINGLETON PATTERN)
+export function getSupabaseClient(): SupabaseClient {
+  if (!supabaseInstance) {
+    supabaseInstance = createClient(
+      supabaseUrl || 'https://demo.supabase.co', 
+      supabaseAnonKey || 'demo-key', 
+      {
+        auth: {
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: true,
+          storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+          storageKey: 'fitduel-auth-token',
+          flowType: 'pkce'
+        },
+        db: {
+          schema: 'public'
+        },
+        global: {
+          headers: {
+            'x-application-name': 'fitduel'
+          }
+        }
+      }
+    )
   }
-})
+  return supabaseInstance
+}
+
+// Export singleton instance
+export const supabase = getSupabaseClient()
 
 // ====================================
 // AUTH FUNCTIONS
@@ -144,8 +170,10 @@ export const auth = {
   // Sign up new user
   async signUp(email: string, password: string, username: string) {
     try {
+      const client = getSupabaseClient()
+      
       // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      const { data: authData, error: authError } = await client.auth.signUp({
         email,
         password,
         options: {
@@ -160,7 +188,7 @@ export const auth = {
       if (!authData.user) throw new Error('User creation failed')
 
       // Create profile
-      const { error: profileError } = await supabase
+      const { error: profileError } = await client
         .from('profiles')
         .insert({
           id: authData.user.id,
@@ -172,7 +200,7 @@ export const auth = {
       if (profileError) throw profileError
 
       // Create user stats
-      const { error: statsError } = await supabase
+      const { error: statsError } = await client
         .from('user_stats')
         .insert({
           user_id: authData.user.id,
@@ -191,7 +219,8 @@ export const auth = {
   // Sign in existing user
   async signIn(email: string, password: string) {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const client = getSupabaseClient()
+      const { data, error } = await client.auth.signInWithPassword({
         email,
         password
       })
@@ -207,7 +236,8 @@ export const auth = {
   // Sign out
   async signOut() {
     try {
-      const { error } = await supabase.auth.signOut()
+      const client = getSupabaseClient()
+      const { error } = await client.auth.signOut()
       if (error) throw error
     } catch (error) {
       console.error('Sign out error:', error)
@@ -218,7 +248,8 @@ export const auth = {
   // Get current session
   async getSession() {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const client = getSupabaseClient()
+      const { data: { session } } = await client.auth.getSession()
       return session
     } catch (error) {
       console.error('Get session error:', error)
@@ -229,7 +260,8 @@ export const auth = {
   // Get current user
   async getCurrentUser() {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const client = getSupabaseClient()
+      const { data: { user } } = await client.auth.getUser()
       return user
     } catch (error) {
       console.error('Get user error:', error)
@@ -246,7 +278,8 @@ export const db = {
   // Profiles
   profiles: {
     async get(userId: string) {
-      const { data, error } = await supabase
+      const client = getSupabaseClient()
+      const { data, error } = await client
         .from('profiles')
         .select('*')
         .eq('id', userId)
@@ -257,7 +290,8 @@ export const db = {
     },
 
     async getByUsername(username: string) {
-      const { data, error } = await supabase
+      const client = getSupabaseClient()
+      const { data, error } = await client
         .from('profiles')
         .select('*')
         .eq('username', username)
@@ -268,7 +302,8 @@ export const db = {
     },
 
     async update(userId: string, updates: Partial<Profile>) {
-      const { data, error } = await supabase
+      const client = getSupabaseClient()
+      const { data, error } = await client
         .from('profiles')
         .update(updates)
         .eq('id', userId)
@@ -283,7 +318,8 @@ export const db = {
   // User Stats
   stats: {
     async get(userId: string) {
-      const { data, error } = await supabase
+      const client = getSupabaseClient()
+      const { data, error } = await client
         .from('user_stats')
         .select('*')
         .eq('user_id', userId)
@@ -294,7 +330,8 @@ export const db = {
     },
 
     async update(userId: string, updates: Partial<UserStats>) {
-      const { data, error } = await supabase
+      const client = getSupabaseClient()
+      const { data, error } = await client
         .from('user_stats')
         .update(updates)
         .eq('user_id', userId)
@@ -306,7 +343,8 @@ export const db = {
     },
 
     async addXP(userId: string, amount: number, reason: string) {
-      const { data, error } = await supabase
+      const client = getSupabaseClient()
+      const { data, error } = await client
         .rpc('add_xp', {
           p_user_id: userId,
           p_amount: amount,
@@ -321,7 +359,8 @@ export const db = {
   // Exercises
   exercises: {
     async getAll() {
-      const { data, error } = await supabase
+      const client = getSupabaseClient()
+      const { data, error } = await client
         .from('exercises')
         .select('*')
         .eq('is_active', true)
@@ -332,7 +371,8 @@ export const db = {
     },
 
     async getByCode(code: string) {
-      const { data, error } = await supabase
+      const client = getSupabaseClient()
+      const { data, error } = await client
         .from('exercises')
         .select('*')
         .eq('code', code)
@@ -346,7 +386,8 @@ export const db = {
   // Duels
   duels: {
     async create(duel: Partial<Duel>) {
-      const { data, error } = await supabase
+      const client = getSupabaseClient()
+      const { data, error } = await client
         .from('duels')
         .insert(duel)
         .select()
@@ -357,7 +398,8 @@ export const db = {
     },
 
     async get(duelId: string) {
-      const { data, error } = await supabase
+      const client = getSupabaseClient()
+      const { data, error } = await client
         .from('duels')
         .select(`
           *,
@@ -373,7 +415,8 @@ export const db = {
     },
 
     async getMyDuels(userId: string) {
-      const { data, error } = await supabase
+      const client = getSupabaseClient()
+      const { data, error } = await client
         .from('duels')
         .select(`
           *,
@@ -389,7 +432,8 @@ export const db = {
     },
 
     async getOpenDuels() {
-      const { data, error } = await supabase
+      const client = getSupabaseClient()
+      const { data, error } = await client
         .from('duels')
         .select(`
           *,
@@ -404,7 +448,8 @@ export const db = {
     },
 
     async accept(duelId: string, userId: string) {
-      const { data, error } = await supabase
+      const client = getSupabaseClient()
+      const { data, error } = await client
         .from('duels')
         .update({
           challenged_id: userId,
@@ -420,7 +465,8 @@ export const db = {
     },
 
     async complete(duelId: string, winnerId: string | null, isDraw: boolean = false) {
-      const { data, error } = await supabase
+      const client = getSupabaseClient()
+      const { data, error } = await client
         .from('duels')
         .update({
           status: 'completed',
@@ -440,7 +486,8 @@ export const db = {
   // Performances
   performances: {
     async create(performance: Partial<Performance>) {
-      const { data, error } = await supabase
+      const client = getSupabaseClient()
+      const { data, error } = await client
         .from('performances')
         .insert(performance)
         .select()
@@ -451,7 +498,8 @@ export const db = {
     },
 
     async getMyPerformances(userId: string, limit: number = 10) {
-      const { data, error } = await supabase
+      const client = getSupabaseClient()
+      const { data, error } = await client
         .from('performances')
         .select('*')
         .eq('user_id', userId)
@@ -463,7 +511,8 @@ export const db = {
     },
 
     async getBestPerformance(userId: string, exerciseId: string) {
-      const { data, error } = await supabase
+      const client = getSupabaseClient()
+      const { data, error } = await client
         .from('performances')
         .select('*')
         .eq('user_id', userId)
@@ -480,7 +529,8 @@ export const db = {
   // Notifications
   notifications: {
     async getUnread(userId: string) {
-      const { data, error } = await supabase
+      const client = getSupabaseClient()
+      const { data, error } = await client
         .from('notifications')
         .select('*')
         .eq('user_id', userId)
@@ -492,7 +542,8 @@ export const db = {
     },
 
     async markAsRead(notificationId: string) {
-      const { error } = await supabase
+      const client = getSupabaseClient()
+      const { error } = await client
         .from('notifications')
         .update({
           is_read: true,
@@ -504,7 +555,8 @@ export const db = {
     },
 
     async create(notification: Partial<Notification>) {
-      const { data, error } = await supabase
+      const client = getSupabaseClient()
+      const { data, error } = await client
         .from('notifications')
         .insert(notification)
         .select()
@@ -518,7 +570,8 @@ export const db = {
   // Leaderboard
   leaderboard: {
     async getGlobal(period: 'daily' | 'weekly' | 'monthly' | 'all_time' = 'weekly') {
-      const { data, error } = await supabase
+      const client = getSupabaseClient()
+      const { data, error } = await client
         .from('leaderboard_global')
         .select(`
           *,
@@ -533,7 +586,8 @@ export const db = {
     },
 
     async getByExercise(exerciseId: string, period: 'daily' | 'weekly' | 'monthly' | 'all_time' = 'weekly') {
-      const { data, error } = await supabase
+      const client = getSupabaseClient()
+      const { data, error } = await client
         .from('leaderboard_global')
         .select(`
           *,
@@ -557,7 +611,8 @@ export const db = {
 export const realtime = {
   // Subscribe to notifications
   subscribeToNotifications(userId: string, callback: (notification: Notification) => void) {
-    return supabase
+    const client = getSupabaseClient()
+    return client
       .channel(`notifications:${userId}`)
       .on(
         'postgres_changes',
@@ -576,7 +631,8 @@ export const realtime = {
 
   // Subscribe to duel updates
   subscribeToDuel(duelId: string, callback: (duel: Duel) => void) {
-    return supabase
+    const client = getSupabaseClient()
+    return client
       .channel(`duel:${duelId}`)
       .on(
         'postgres_changes',
@@ -595,7 +651,8 @@ export const realtime = {
 
   // Unsubscribe from channel
   unsubscribe(channel: any) {
-    supabase.removeChannel(channel)
+    const client = getSupabaseClient()
+    client.removeChannel(channel)
   }
 }
 
@@ -606,16 +663,17 @@ export const realtime = {
 export const storage = {
   // Upload video
   async uploadVideo(file: File, userId: string, performanceId: string) {
+    const client = getSupabaseClient()
     const fileName = `${userId}/${performanceId}-${Date.now()}.${file.name.split('.').pop()}`
     
-    const { data, error } = await supabase.storage
+    const { data, error } = await client.storage
       .from('videos')
       .upload(fileName, file)
     
     if (error) throw error
     
     // Get public URL
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = client.storage
       .from('videos')
       .getPublicUrl(fileName)
     
@@ -624,16 +682,17 @@ export const storage = {
 
   // Upload avatar
   async uploadAvatar(file: File, userId: string) {
+    const client = getSupabaseClient()
     const fileName = `${userId}/avatar-${Date.now()}.${file.name.split('.').pop()}`
     
-    const { data, error } = await supabase.storage
+    const { data, error } = await client.storage
       .from('avatars')
       .upload(fileName, file)
     
     if (error) throw error
     
     // Get public URL
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = client.storage
       .from('avatars')
       .getPublicUrl(fileName)
     
@@ -642,7 +701,8 @@ export const storage = {
 
   // Delete file
   async deleteFile(bucket: string, path: string) {
-    const { error } = await supabase.storage
+    const client = getSupabaseClient()
+    const { error } = await client.storage
       .from(bucket)
       .remove([path])
     
@@ -662,6 +722,8 @@ export function useUser() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const client = getSupabaseClient()
+    
     // Get initial session
     auth.getSession().then(session => {
       if (session?.user) {
@@ -679,7 +741,7 @@ export function useUser() {
     })
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription } } = client.auth.onAuthStateChange(
       async (event, session) => {
         if (session?.user) {
           setUser(session.user)
