@@ -12,7 +12,7 @@ import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
 import Input from '@/components/ui/Input'
 import Modal from '@/components/ui/Modal'
-import AIExerciseTracker from '@/components/game/AIExerciseTracker'
+import AIExerciseTracker, { PerformanceData } from '@/components/game/AIExerciseTracker'
 
 // ====================================
 // TYPES
@@ -66,15 +66,6 @@ interface TestExercise {
   icon: any
 }
 
-// Add PerformanceData interface
-interface PerformanceData {
-  reps: number
-  duration: number
-  accuracy: number
-  form_score: number
-  [key: string]: any
-}
-
 // ====================================
 // MAIN COMPONENT
 // ====================================
@@ -90,6 +81,7 @@ export default function CalibrationWizard() {
   const [showTestModal, setShowTestModal] = useState(false)
   const [currentTest, setCurrentTest] = useState<TestExercise | null>(null)
   const [testResults, setTestResults] = useState<Record<string, number>>({})
+  const [userId, setUserId] = useState<string>('')
   
   // Form Data
   const [calibrationData, setCalibrationData] = useState<CalibrationData>({
@@ -117,7 +109,7 @@ export default function CalibrationWizard() {
   // Test exercises configuration
   const testExercises: TestExercise[] = [
     {
-      id: 'pushup',
+      id: 'push_up',
       name: 'Push-up',
       type: 'reps',
       target: 20,
@@ -143,7 +135,7 @@ export default function CalibrationWizard() {
       icon: Timer
     },
     {
-      id: 'burpees',
+      id: 'burpee',
       name: 'Burpees',
       type: 'reps',
       target: 10,
@@ -152,7 +144,7 @@ export default function CalibrationWizard() {
       icon: Activity
     },
     {
-      id: 'jumping_jacks',
+      id: 'jumping_jack',
       name: 'Jumping Jacks',
       type: 'reps',
       target: 40,
@@ -177,6 +169,8 @@ export default function CalibrationWizard() {
         router.push('/login')
         return
       }
+
+      setUserId(user.id)
 
       // Controlla se esiste già una calibrazione
       const { data: calibration } = await supabase
@@ -304,22 +298,25 @@ export default function CalibrationWizard() {
     if (!currentTest) return
     
     // Estrai il valore corretto dal PerformanceData
-    const value = currentTest.type === 'duration' ? data.duration : data.reps
+    // Per plank usiamo duration, per gli altri usiamo repsCompleted
+    const value = currentTest.type === 'duration' ? data.duration : data.repsCompleted
     
-    // Salva risultato
-    const resultKey = `${currentTest.id}_max`
+    // Salva risultato in base al tipo di test
     if (currentTest.id === 'plank') {
       setTestResults({ ...testResults, plank_seconds: value })
       setCalibrationData({ ...calibrationData, plank_seconds: value })
-    } else if (currentTest.id === 'burpees') {
+    } else if (currentTest.id === 'burpee') {
       setTestResults({ ...testResults, burpees_minute: value })
       setCalibrationData({ ...calibrationData, burpees_minute: value })
-    } else if (currentTest.id === 'jumping_jacks') {
+    } else if (currentTest.id === 'jumping_jack') {
       setTestResults({ ...testResults, jumping_jacks_minute: value })
       setCalibrationData({ ...calibrationData, jumping_jacks_minute: value })
-    } else {
-      setTestResults({ ...testResults, [resultKey]: value })
-      setCalibrationData({ ...calibrationData, [resultKey]: value })
+    } else if (currentTest.id === 'push_up') {
+      setTestResults({ ...testResults, pushup_max: value })
+      setCalibrationData({ ...calibrationData, pushup_max: value })
+    } else if (currentTest.id === 'squat') {
+      setTestResults({ ...testResults, squat_max: value })
+      setCalibrationData({ ...calibrationData, squat_max: value })
     }
     
     setShowTestModal(false)
@@ -409,10 +406,10 @@ export default function CalibrationWizard() {
 
       // Salva test results
       for (const exercise of testExercises) {
-        const resultKey = exercise.id === 'pushup' ? 'pushup_max' :
+        const resultKey = exercise.id === 'push_up' ? 'pushup_max' :
                          exercise.id === 'squat' ? 'squat_max' :
                          exercise.id === 'plank' ? 'plank_seconds' :
-                         exercise.id === 'burpees' ? 'burpees_minute' :
+                         exercise.id === 'burpee' ? 'burpees_minute' :
                          'jumping_jacks_minute'
         
         await supabase
@@ -704,10 +701,10 @@ export default function CalibrationWizard() {
 
       <div className="space-y-3">
         {testExercises.map((exercise) => {
-          const resultKey = exercise.id === 'pushup' ? 'pushup_max' :
+          const resultKey = exercise.id === 'push_up' ? 'pushup_max' :
                            exercise.id === 'squat' ? 'squat_max' :
                            exercise.id === 'plank' ? 'plank_seconds' :
-                           exercise.id === 'burpees' ? 'burpees_minute' :
+                           exercise.id === 'burpee' ? 'burpees_minute' :
                            'jumping_jacks_minute'
           
           const completed = calibrationData[resultKey as keyof CalibrationData] as number > 0
@@ -994,11 +991,11 @@ export default function CalibrationWizard() {
             <p className="text-gray-300">{currentTest.description}</p>
             
             <AIExerciseTracker
-              exerciseName={currentTest.name}
-              targetReps={currentTest.target}
-              duration={currentTest.duration}
+              exerciseId={currentTest.id}
+              userId={userId}
+              targetReps={currentTest.type === 'reps' ? currentTest.target : undefined}
+              targetTime={currentTest.type === 'duration' ? currentTest.target : undefined}
               onComplete={handleTestComplete}
-              validationMode="strict"
             />
           </div>
         </Modal>
