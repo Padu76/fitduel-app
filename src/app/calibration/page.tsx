@@ -738,7 +738,7 @@ export default function CalibrationPage() {
                     <AIExerciseTracker
                       exerciseId={currentStepData.exercise!}
                       targetReps={currentStepData.targetReps}
-                      duration={currentStepData.duration}
+                      targetTime={currentStepData.duration}
                       onComplete={handleExerciseComplete}
                       userId={user?.id || 'temp-user'}
                     />
