@@ -186,10 +186,12 @@ export default function AdminDashboard() {
 
   const loadStats = async () => {
     try {
-      // Total users
-      const { count: totalUsers } = await supabase
+      // Total users - query semplice senza join
+      const { count: totalUsers, error: profilesError } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true })
+
+      if (profilesError) console.error('Error counting profiles:', profilesError)
 
       // Online users (active in last 5 minutes)
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
@@ -198,13 +200,27 @@ export default function AdminDashboard() {
         .select('*', { count: 'exact', head: true })
         .gte('last_seen', fiveMinutesAgo)
 
-      // Daily active users
+      // Daily active users - controlla sia user_stats che profiles
       const today = new Date()
       today.setHours(0, 0, 0, 0)
-      const { count: dailyActiveUsers } = await supabase
+      
+      // Prima prova con user_stats
+      let dailyActiveUsers = 0
+      const { count: statsActive } = await supabase
         .from('user_stats')
         .select('*', { count: 'exact', head: true })
         .gte('last_active', today.toISOString())
+      
+      if (statsActive) {
+        dailyActiveUsers = statsActive
+      } else {
+        // Se user_stats è vuoto, usa profiles
+        const { count: profilesActive } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .gte('last_seen', today.toISOString())
+        dailyActiveUsers = profilesActive || 0
+      }
 
       // Total duels
       const { count: totalDuels } = await supabase
@@ -239,16 +255,24 @@ export default function AdminDashboard() {
       setStats({
         totalUsers: totalUsers || 0,
         onlineUsers: onlineUsers || 0,
-        dailyActiveUsers: dailyActiveUsers || 0,
-        weeklyActiveUsers: 0, // Calculate from analytics
+        dailyActiveUsers: dailyActiveUsers,
+        weeklyActiveUsers: 0,
         totalDuels: totalDuels || 0,
         todayDuels: todayDuels || 0,
-        avgSessionDuration: 0, // Calculate from sessions
-        totalRevenue: 0, // From payments table
+        avgSessionDuration: 0,
+        totalRevenue: 0,
         suspiciousActivities: suspiciousActivities || 0,
         pendingReviews: suspiciousActivities || 0,
         bannedUsers: bannedUsers || 0,
         verifiedUsers: verifiedUsers || 0
+      })
+      
+      console.log('Stats loaded:', {
+        totalUsers,
+        onlineUsers,
+        dailyActiveUsers,
+        totalDuels,
+        todayDuels
       })
     } catch (error) {
       console.error('Failed to load stats:', error)
@@ -297,44 +321,65 @@ export default function AdminDashboard() {
 
   const loadUsers = async () => {
     try {
-      const { data } = await supabase
+      // Prima carica gli utenti base
+      const { data: profiles, error } = await supabase
         .from('profiles')
-        .select(`
-          *,
-          user_stats (
-            total_duels,
-            duels_won,
-            daily_streak
-          ),
-          trust_scores (
-            score,
-            trust_level
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(100)
 
-      if (data) {
-        const userList = data.map(user => ({
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          trustScore: user.trust_scores?.[0]?.score || 50,
-          trustLevel: user.trust_scores?.[0]?.trust_level || 'low',
-          totalDuels: user.user_stats?.[0]?.total_duels || 0,
-          duelsWon: user.user_stats?.[0]?.duels_won || 0,
-          reports: 0, // Count from reports table
-          warnings: user.warnings || 0,
-          isBanned: user.is_banned || false,
-          isVerified: user.is_verified || false,
-          createdAt: user.created_at,
-          lastActive: user.last_seen
-        }))
+      if (error) {
+        console.error('Error loading profiles:', error)
+        return
+      }
+
+      if (profiles && profiles.length > 0) {
+        // Poi carica i dati correlati separatamente
+        const userIds = profiles.map(p => p.id)
         
+        // Carica user_stats
+        const { data: userStats } = await supabase
+          .from('user_stats')
+          .select('*')
+          .in('user_id', userIds)
+
+        // Carica trust_scores
+        const { data: trustScores } = await supabase
+          .from('trust_scores')
+          .select('*')
+          .in('user_id', userIds)
+
+        // Mappa i dati
+        const userList = profiles.map(user => {
+          const stats = userStats?.find(s => s.user_id === user.id)
+          const trust = trustScores?.find(t => t.user_id === user.id)
+          
+          return {
+            id: user.id,
+            username: user.username || 'Unknown',
+            email: user.email || '',
+            trustScore: trust?.score || 50,
+            trustLevel: trust?.trust_level || 'medium',
+            totalDuels: stats?.total_duels || 0,
+            duelsWon: stats?.duels_won || 0,
+            reports: 0,
+            warnings: user.warnings || 0,
+            isBanned: user.is_banned || false,
+            isVerified: user.is_verified || false,
+            createdAt: user.created_at,
+            lastActive: user.last_seen || user.created_at
+          }
+        })
+        
+        console.log('Loaded users:', userList.length)
         setUsers(userList)
+      } else {
+        console.log('No profiles found')
+        setUsers([])
       }
     } catch (error) {
       console.error('Failed to load users:', error)
+      setUsers([])
     }
   }
 
