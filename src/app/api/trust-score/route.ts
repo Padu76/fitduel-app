@@ -175,7 +175,7 @@ async function getTrustHistory(
     
     if (!logs) return []
     
-    return logs.map(log => ({
+    return logs.map((log: any) => ({
       date: log.created_at,
       score: log.data.new_score || 0,
       change: log.data.adjustment || 0,
