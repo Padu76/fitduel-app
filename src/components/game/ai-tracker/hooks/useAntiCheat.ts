@@ -69,8 +69,8 @@ export const useAntiCheat = (config: AntiCheatConfig): UseAntiCheatReturn => {
             behavioralBiometrics: true,
             patternAnalysis: true,
             challengeSystem: config.duelId ? true : false, // Only for duels
-            reputationSystem: true,
-            evidenceCollection: true
+            reputationSystem: true
+            // REMOVED: evidenceCollection: true - This property doesn't exist in the type
           }
         }
       )
@@ -224,7 +224,7 @@ export const useAntiCheat = (config: AntiCheatConfig): UseAntiCheatReturn => {
     }
 
     try {
-      console.log('🏁 Stopping anti-cheat validation...')
+      console.log('🛑 Stopping anti-cheat validation...')
       const result = await antiCheatRef.current.stopValidation()
       
       // Log final results
