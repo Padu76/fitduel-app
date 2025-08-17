@@ -249,7 +249,8 @@ export const AIExerciseTracker = ({
     let validationResult = { isValid: true, requiresManualReview: false }
     if (strictMode && antiCheatRef.current) {
       validationResult = await stopValidation()
-      setIsValidPerformance(validationResult.isValid)
+      // REMOVED: setIsValidPerformance(validationResult.isValid) - This was the error!
+      // isValidPerformance is already managed by the useAntiCheat hook
     }
 
     // Get final stats
