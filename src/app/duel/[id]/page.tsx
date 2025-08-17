@@ -53,6 +53,23 @@ interface ExerciseStats {
   form: number
 }
 
+// Import PerformanceData type from AIExerciseTracker
+interface PerformanceData {
+  exerciseId: string
+  userId: string
+  duelId?: string
+  missionId?: string
+  formScore: number
+  repsCompleted: number
+  duration: number
+  caloriesBurned: number
+  videoUrl?: string
+  videoBlob?: Blob
+  feedback: any
+  deviceData?: any
+  timestamp: string
+}
+
 // ====================================
 // MOCK DATA
 // ====================================
@@ -195,13 +212,28 @@ export default function ActiveDuelPage({ params }: PageProps) {
     playSound('start')
   }
 
-  const handleExerciseComplete = (reps: number) => {
-    setExerciseStats(prev => ({ ...prev, reps }))
+  const handleExerciseComplete = (data: PerformanceData) => {
+    // Extract reps from PerformanceData
+    const reps = data.repsCompleted
+    
+    setExerciseStats(prev => ({ 
+      ...prev, 
+      reps,
+      accuracy: Math.round(data.formScore),
+      form: Math.round(data.formScore),
+      speed: Math.round((reps / (data.duration || 1)) * 60) // reps per minute
+    }))
     
     // Check if target reached
     if (reps >= myData.targetReps) {
       handleComplete()
     }
+  }
+
+  const handleExerciseProgress = (progress: number) => {
+    // Update reps based on progress
+    const estimatedReps = Math.floor((progress / 100) * myData.targetReps)
+    setExerciseStats(prev => ({ ...prev, reps: estimatedReps }))
   }
 
   const handleComplete = () => {
@@ -619,10 +651,12 @@ export default function ActiveDuelPage({ params }: PageProps) {
                 border border-slate-700/50"
             >
               <AIExerciseTracker
-                exercise={duel.exercise}
+                exerciseId={duel.exercise}
+                duelId={duel.id}
                 targetReps={myData.targetReps}
                 onComplete={handleExerciseComplete}
-                onRepCount={(count) => setExerciseStats(prev => ({ ...prev, reps: count }))}
+                onProgress={handleExerciseProgress}
+                userId={currentUserId}
               />
               
               {/* Quick Stats */}
