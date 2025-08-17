@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
   User, 
@@ -17,7 +17,8 @@ import {
   Crown,
   Eye,
   EyeOff,
-  AlertCircle
+  AlertCircle,
+  Activity
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -104,16 +105,21 @@ const TIER_CONFIG = {
 // ====================================
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClientComponentClient()
   const [authState, setAuthState] = useState<AuthState>('idle')
   const [authMode, setAuthMode] = useState<AuthMode>('login')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showCalibrationInfo, setShowCalibrationInfo] = useState(false)
   const hasCheckedAuth = useRef(false)
   
   // Login form
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  
+  // Get redirect URL from query params
+  const redirectTo = searchParams.get('redirectTo') || '/dashboard'
 
   // Check if user is already logged in - ONLY ONCE
   useEffect(() => {
@@ -129,7 +135,7 @@ export default function LoginPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         console.log('👋 User già loggato con Supabase:', user.email)
-        router.push('/dashboard')
+        await checkCalibrationAndRedirect(user.id)
         return
       }
 
@@ -138,10 +144,57 @@ export default function LoginPage() {
       if (savedUser) {
         const demoUser = JSON.parse(savedUser)
         console.log('👋 User demo già loggato:', demoUser.username)
+        // Demo users skip calibration
         router.push('/dashboard')
       }
     } catch (err) {
       console.error('Error checking user:', err)
+    }
+  }
+
+  // ====================================
+  // CALIBRATION CHECK
+  // ====================================
+  const checkCalibrationAndRedirect = async (userId: string) => {
+    try {
+      // Check if user has completed calibration
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('is_calibrated, calibration_required, role')
+        .eq('id', userId)
+        .single()
+
+      if (profileError) {
+        console.error('Error fetching profile:', profileError)
+        // If profile doesn't exist yet, it will be created and calibration required
+        router.push('/calibration')
+        return
+      }
+
+      // Admin users can skip calibration
+      if (profile.role === 'admin') {
+        console.log('👑 Admin user, skipping calibration')
+        router.push(redirectTo)
+        return
+      }
+
+      // Check if calibration is needed
+      if (!profile.is_calibrated || profile.calibration_required) {
+        console.log('📊 Calibrazione richiesta per l\'utente')
+        setShowCalibrationInfo(true)
+        
+        // Small delay to show calibration message
+        setTimeout(() => {
+          router.push(`/calibration?redirectTo=${encodeURIComponent(redirectTo)}`)
+        }, 1500)
+      } else {
+        console.log('✅ Utente già calibrato')
+        router.push(redirectTo)
+      }
+    } catch (err) {
+      console.error('Error checking calibration:', err)
+      // In case of error, redirect to calibration to be safe
+      router.push('/calibration')
     }
   }
 
@@ -188,8 +241,8 @@ export default function LoginPage() {
         // Clear any demo user data
         localStorage.removeItem('fitduel_user')
         
-        // Navigate to dashboard
-        router.push('/dashboard')
+        // Check calibration status and redirect accordingly
+        await checkCalibrationAndRedirect(data.user.id)
       }
     } catch (err: any) {
       console.error('Auth error:', err)
@@ -220,6 +273,8 @@ export default function LoginPage() {
 
       localStorage.setItem('fitduel_user', JSON.stringify(guestUser))
       setAuthState('success')
+      
+      // Guest users skip calibration
       router.push('/dashboard')
 
     } catch (err: any) {
@@ -240,6 +295,8 @@ export default function LoginPage() {
       
       localStorage.setItem('fitduel_user', JSON.stringify(demoUser))
       setAuthState('success')
+      
+      // Demo users skip calibration
       router.push('/dashboard')
 
     } catch (err: any) {
@@ -285,6 +342,27 @@ export default function LoginPage() {
           </motion.p>
         </div>
 
+        {/* Calibration Info Message */}
+        {showCalibrationInfo && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4"
+          >
+            <Card variant="glass" className="p-4 bg-purple-600/10 border-purple-500/30">
+              <div className="flex items-center gap-3">
+                <Activity className="w-6 h-6 text-purple-400 animate-pulse" />
+                <div>
+                  <p className="text-purple-300 font-medium">Calibrazione richiesta!</p>
+                  <p className="text-purple-200 text-sm">
+                    Completa il test iniziale per personalizzare la tua esperienza
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        )}
+
         {/* Auth Mode Tabs */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -297,6 +375,7 @@ export default function LoginPage() {
             onClick={() => {
               setAuthMode('login')
               setError(null)
+              setShowCalibrationInfo(false)
             }}
             className="flex-1"
             size="sm"
@@ -309,6 +388,7 @@ export default function LoginPage() {
             onClick={() => {
               setAuthMode('demo')
               setError(null)
+              setShowCalibrationInfo(false)
             }}
             className="flex-1"
             size="sm"
@@ -422,6 +502,28 @@ export default function LoginPage() {
                 </div>
               </div>
             </Card>
+
+            {/* Calibration Notice */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+            >
+              <Card variant="glass" className="p-4 bg-blue-900/20 border-blue-500/20">
+                <div className="flex items-start gap-3">
+                  <Activity className="w-5 h-5 text-blue-400 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="text-blue-300 font-medium mb-1">
+                      Nuovo Sistema di Calibrazione!
+                    </p>
+                    <p className="text-blue-200/80">
+                      Al primo accesso completerai un breve test per personalizzare 
+                      le sfide al tuo livello fitness.
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
           </motion.div>
         )}
 
@@ -490,6 +592,12 @@ export default function LoginPage() {
                   Gioca come Ospite
                 </Button>
               </div>
+
+              <div className="mt-3 p-3 bg-gray-800/30 rounded-lg">
+                <p className="text-xs text-gray-400 text-center">
+                  Gli account demo saltano la calibrazione per test rapido
+                </p>
+              </div>
             </Card>
           </motion.div>
         )}
@@ -510,19 +618,19 @@ export default function LoginPage() {
             <div className="grid grid-cols-2 gap-2 text-xs text-gray-400">
               <div className="flex items-center gap-1">
                 <span className="text-green-400">⚡</span>
-                <span>Sfide fitness</span>
+                <span>Sfide calibrate</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-blue-400">🏆</span>
                 <span>Sistema livelli</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="text-purple-400">👥</span>
-                <span>Duelli 1v1</span>
+                <span className="text-purple-400">💥</span>
+                <span>Duelli equi</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="text-yellow-400">🏅</span>
-                <span>Achievement</span>
+                <span className="text-yellow-400">🎯</span>
+                <span>Handicap automatico</span>
               </div>
             </div>
           </Card>
