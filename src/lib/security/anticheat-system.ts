@@ -301,6 +301,11 @@ export class AntiCheatManager {
       
       if (!gl) return { vendor: 'unknown', renderer: 'unknown' }
 
+      // Type guard to check if gl is a WebGL context (not Canvas 2D context)
+      if (!('getExtension' in gl)) {
+        return { vendor: 'unknown', renderer: 'unknown' }
+      }
+
       const debugInfo = gl.getExtension('WEBGL_debug_renderer_info')
       if (!debugInfo) return { vendor: 'unknown', renderer: 'unknown' }
 
