@@ -361,12 +361,3 @@ export function generateDailyChallenges(
   
   return challenges
 }
-
-// ====================================
-// EXPORT TYPES
-// ====================================
-
-export type {
-  UserCalibrationData,
-  HandicapResult
-}
