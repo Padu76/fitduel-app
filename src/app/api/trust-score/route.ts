@@ -147,7 +147,7 @@ async function getPlayConsistency(supabase: any, userId: string): Promise<number
     
     // Calculate days with activity
     const uniqueDays = new Set(
-      performances.map(p => new Date(p.performed_at).toDateString())
+      performances.map((p: any) => new Date(p.performed_at).toDateString())
     )
     
     // Consistency = active days / 30
