@@ -329,9 +329,18 @@ export default function ActiveDuelPage({ params }: PageProps) {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 
       relative overflow-hidden">
       
-      {/* Animated Background */}
+      {/* Animated Background with CSS Grid Pattern */}
       <div className="absolute inset-0">
-        <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center opacity-20" />
+        {/* CSS Grid Pattern instead of SVG */}
+        <div 
+          className="absolute inset-0 opacity-20"
+          style={{
+            backgroundImage: 'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)',
+            backgroundSize: '50px 50px'
+          }}
+        />
+        
+        {/* Floating orbs */}
         {[...Array(3)].map((_, i) => (
           <motion.div
             key={i}
