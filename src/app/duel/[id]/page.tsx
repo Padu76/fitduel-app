@@ -82,10 +82,23 @@ const MOCK_DUEL: DuelData = {
 }
 
 // ====================================
+// PAGE PROPS TYPE FOR NEXT.JS 14
+// ====================================
+
+interface PageProps {
+  params: {
+    id: string
+  }
+  searchParams?: { [key: string]: string | string[] | undefined }
+}
+
+// ====================================
 // MAIN COMPONENT
 // ====================================
 
-export default function ActiveDuel({ duelId }: { duelId: string }) {
+export default function ActiveDuelPage({ params }: PageProps) {
+  const duelId = params.id // Extract the id from params
+  
   const [duel, setDuel] = useState<DuelData>(MOCK_DUEL)
   const [currentUserId] = useState('user-1') // Current user
   const [timeRemaining, setTimeRemaining] = useState(duel.timeLimit)
@@ -111,6 +124,14 @@ export default function ActiveDuel({ duelId }: { duelId: string }) {
   // ====================================
   // EFFECTS
   // ====================================
+
+  // Load duel data based on duelId
+  useEffect(() => {
+    // In a real app, you would fetch the duel data based on duelId
+    console.log('Loading duel with ID:', duelId)
+    // For now, we're using mock data
+    setDuel({ ...MOCK_DUEL, id: duelId })
+  }, [duelId])
 
   // Timer countdown
   useEffect(() => {
