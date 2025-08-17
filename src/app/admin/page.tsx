@@ -9,10 +9,10 @@ import {
   UserCheck, UserX, BarChart3, Calendar, PlayCircle,
   AlertCircle, Search, Filter, Download, RefreshCw
 } from 'lucide-react'
-import { Card } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Modal } from '@/components/ui/Modal'
+import Card from '@/components/ui/Card'
+import Button from '@/components/ui/Button'
+import Input from '@/components/ui/Input'
+import Modal from '@/components/ui/Modal'
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -637,7 +637,7 @@ export default function AdminDashboard() {
             
             <div className="flex items-center gap-4">
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={loadDashboardData}
                 className="flex items-center gap-2"
@@ -647,7 +647,7 @@ export default function AdminDashboard() {
               </Button>
               
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={() => router.push('/dashboard')}
               >
@@ -971,7 +971,7 @@ export default function AdminDashboard() {
                               {activity.videoUrl && (
                                 <Button
                                   size="sm"
-                                  variant="outline"
+                                  variant="ghost"
                                   onClick={() => {
                                     setSelectedActivity(activity)
                                     setShowVideoModal(true)
@@ -985,7 +985,7 @@ export default function AdminDashboard() {
                                 <>
                                   <Button
                                     size="sm"
-                                    variant="outline"
+                                    variant="ghost"
                                     className="text-green-400 border-green-400"
                                     onClick={() => handleReviewActivity(activity.id, 'approve')}
                                   >
@@ -994,7 +994,7 @@ export default function AdminDashboard() {
                                   
                                   <Button
                                     size="sm"
-                                    variant="outline"
+                                    variant="ghost"
                                     className="text-red-400 border-red-400"
                                     onClick={() => handleReviewActivity(activity.id, 'reject')}
                                   >
@@ -1003,7 +1003,7 @@ export default function AdminDashboard() {
                                   
                                   <Button
                                     size="sm"
-                                    variant="outline"
+                                    variant="ghost"
                                     className="text-purple-400 border-purple-400"
                                     onClick={() => handleReviewActivity(activity.id, 'ban')}
                                   >
@@ -1159,7 +1159,7 @@ export default function AdminDashboard() {
                             <div className="flex items-center gap-2">
                               <Button
                                 size="sm"
-                                variant="outline"
+                                variant="ghost"
                                 onClick={() => {
                                   setSelectedUser(user)
                                   setShowUserDetailsModal(true)
@@ -1171,7 +1171,7 @@ export default function AdminDashboard() {
                               {user.isBanned ? (
                                 <Button
                                   size="sm"
-                                  variant="outline"
+                                  variant="ghost"
                                   className="text-green-400 border-green-400"
                                   onClick={() => handleUnbanUser(user.id)}
                                 >
@@ -1180,7 +1180,7 @@ export default function AdminDashboard() {
                               ) : (
                                 <Button
                                   size="sm"
-                                  variant="outline"
+                                  variant="ghost"
                                   className="text-red-400 border-red-400"
                                   onClick={() => {
                                     setSelectedUser(user)
@@ -1193,7 +1193,7 @@ export default function AdminDashboard() {
                               
                               <Button
                                 size="sm"
-                                variant="outline"
+                                variant="ghost"
                                 className="text-yellow-400 border-yellow-400"
                                 onClick={() => {
                                   const message = prompt('Inserisci il messaggio di avvertimento:')
@@ -1313,7 +1313,7 @@ export default function AdminDashboard() {
             
             <div className="flex justify-end gap-3">
               <Button
-                variant="outline"
+                variant="ghost"
                 onClick={() => setShowBanModal(false)}
               >
                 Annulla
@@ -1362,14 +1362,14 @@ export default function AdminDashboard() {
             
             <div className="flex justify-end gap-3">
               <Button
-                variant="outline"
+                variant="ghost"
                 onClick={() => handleReviewActivity(selectedActivity.id, 'approve')}
                 className="text-green-400 border-green-400"
               >
                 Approva
               </Button>
               <Button
-                variant="outline"
+                variant="ghost"
                 onClick={() => handleReviewActivity(selectedActivity.id, 'reject')}
                 className="text-red-400 border-red-400"
               >
