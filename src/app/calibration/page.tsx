@@ -202,7 +202,7 @@ const CALIBRATION_STEPS: CalibrationStep[] = [
 
 export default function CalibrationPage() {
   const router = useRouter()
-  const { user, setUser } = useUserStore()
+  const { user, updateUser } = useUserStore()
   const [currentStep, setCurrentStep] = useState(0)
   const [showAITracker, setShowAITracker] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -384,11 +384,11 @@ export default function CalibrationPage() {
       localStorage.setItem('fitduel_calibration', JSON.stringify(calibrationData))
       localStorage.setItem('fitduel_calibration_complete', 'true')
       
-      // Aggiorna user store
-      setUser({
-        ...user,
-        calibrated: true,
-        level: getLevelNumber(calibrationData.assigned_level)
+      // Aggiorna user store con il nuovo livello
+      const newLevel = getLevelNumber(calibrationData.assigned_level)
+      updateUser({
+        level: newLevel,
+        fitnessLevel: calibrationData.fitness_level as 'beginner' | 'intermediate' | 'advanced'
       })
       
       // Celebrazione
