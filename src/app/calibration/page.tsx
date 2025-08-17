@@ -719,7 +719,7 @@ export default function CalibrationWizard() {
                   {completed && (
                     <div className="text-right">
                       <p className="text-2xl font-bold text-green-400">
-                        {calibrationData[resultKey as keyof CalibrationData]}
+                        {calibrationData[resultKey as keyof CalibrationData] as number}
                       </p>
                       <p className="text-xs text-gray-400">
                         {exercise.type === 'duration' ? 'secondi' : 'ripetizioni'}
