@@ -104,7 +104,7 @@ export class MatchmakingEngine {
       throw new Error('Già in una sfida attiva')
     }
     
-    // Aggiungi alla coda con priorità
+    // Aggiungi alla coda con priorità 
     const queueEntry: MatchmakingQueue = {
       user_id: userId,
       profile,
@@ -151,8 +151,10 @@ export class MatchmakingEngine {
     }
     
     // Valuta ogni candidato
-    const evaluatedMatches = candidates.map(candidate => 
-      this.evaluateMatch(seeker, candidate, searchRadius)
+    const evaluatedMatches = await Promise.all(
+      candidates.map(candidate => 
+        this.evaluateMatch(seeker, candidate, searchRadius)
+      )
     )
     
     // Ordina per qualità match
@@ -184,11 +186,11 @@ export class MatchmakingEngine {
   /**
    * Valuta la qualità di un potenziale match
    */
-  private evaluateMatch(
+  private async evaluateMatch(
     seeker: MatchmakingQueue,
     candidate: MatchmakingQueue,
     searchRadius: number
-  ): MatchResult | null {
+  ): Promise<MatchResult | null> {
     const reasons: string[] = []
     let qualityScore = 100
     
@@ -237,7 +239,7 @@ export class MatchmakingEngine {
     }
     
     // 5. Penalità per match recenti
-    if (this.hasRecentMatch(seeker.profile.user_id, candidate.profile.user_id)) {
+    if (await this.hasRecentMatch(seeker.profile.user_id, candidate.profile.user_id)) {
       qualityScore -= 20
       reasons.push('Match recente con questo avversario')
     }
