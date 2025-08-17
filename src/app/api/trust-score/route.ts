@@ -8,12 +8,14 @@ import { cookies } from 'next/headers'
 // TYPES
 // ====================================
 
+type TrustLevel = 'untrusted' | 'low' | 'medium' | 'high' | 'verified'
+
 interface TrustScoreResponse {
   success: boolean
   trustScore?: {
     userId: string
     score: number
-    level: 'untrusted' | 'low' | 'medium' | 'high' | 'verified'
+    level: TrustLevel
     factors: {
       accountAge: number
       emailVerified: boolean
@@ -54,7 +56,7 @@ interface TrustUpdateRequest {
 // ====================================
 
 // Calculate trust level based on score
-function getTrustLevel(score: number): TrustScoreResponse['trustScore']['level'] {
+function getTrustLevel(score: number): TrustLevel {
   if (score >= 90) return 'verified'
   if (score >= 70) return 'high'
   if (score >= 50) return 'medium'
@@ -336,7 +338,7 @@ export async function GET(request: NextRequest) {
       trustScore: {
         userId: targetUserId,
         score: trustData.score,
-        level: trustData.trust_level,
+        level: trustData.trust_level as TrustLevel,
         factors: isOwnScore ? trustData.factors : {
           // Limited info for other users
           accountAge: trustData.factors.accountAge,
