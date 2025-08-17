@@ -66,6 +66,15 @@ interface TestExercise {
   icon: any
 }
 
+// Add PerformanceData interface
+interface PerformanceData {
+  reps: number
+  duration: number
+  accuracy: number
+  form_score: number
+  [key: string]: any
+}
+
 // ====================================
 // MAIN COMPONENT
 // ====================================
@@ -291,23 +300,26 @@ export default function CalibrationWizard() {
     setShowTestModal(true)
   }
 
-  const handleTestComplete = (reps: number) => {
+  const handleTestComplete = (data: PerformanceData) => {
     if (!currentTest) return
+    
+    // Estrai il valore corretto dal PerformanceData
+    const value = currentTest.type === 'duration' ? data.duration : data.reps
     
     // Salva risultato
     const resultKey = `${currentTest.id}_max`
     if (currentTest.id === 'plank') {
-      setTestResults({ ...testResults, plank_seconds: reps })
-      setCalibrationData({ ...calibrationData, plank_seconds: reps })
+      setTestResults({ ...testResults, plank_seconds: value })
+      setCalibrationData({ ...calibrationData, plank_seconds: value })
     } else if (currentTest.id === 'burpees') {
-      setTestResults({ ...testResults, burpees_minute: reps })
-      setCalibrationData({ ...calibrationData, burpees_minute: reps })
+      setTestResults({ ...testResults, burpees_minute: value })
+      setCalibrationData({ ...calibrationData, burpees_minute: value })
     } else if (currentTest.id === 'jumping_jacks') {
-      setTestResults({ ...testResults, jumping_jacks_minute: reps })
-      setCalibrationData({ ...calibrationData, jumping_jacks_minute: reps })
+      setTestResults({ ...testResults, jumping_jacks_minute: value })
+      setCalibrationData({ ...calibrationData, jumping_jacks_minute: value })
     } else {
-      setTestResults({ ...testResults, [resultKey]: reps })
-      setCalibrationData({ ...calibrationData, [resultKey]: reps })
+      setTestResults({ ...testResults, [resultKey]: value })
+      setCalibrationData({ ...calibrationData, [resultKey]: value })
     }
     
     setShowTestModal(false)
