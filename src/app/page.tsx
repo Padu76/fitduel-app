@@ -5,12 +5,6 @@ import { useEffect, useState, useRef } from 'react'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import HeroSection from '@/components/landing/HeroSection'
-import GameModesSection from '@/components/landing/GameModesSection'
-import BattlePassSection from '@/components/landing/BattlePassSection'
-import FeaturesSection from '@/components/landing/FeaturesSection'
-import LiveFeedSection from '@/components/landing/LiveFeedSection'
-import CTAFooter from '@/components/landing/CTAFooter'
 
 export default function LandingPage() {
   const { scrollY } = useScroll()
@@ -198,7 +192,7 @@ export default function LandingPage() {
             <div className="bg-gradient-to-r from-green-500/20 to-blue-500/20 backdrop-blur-md 
               rounded-2xl p-6 border-2 border-green-400/50 shadow-2xl shadow-green-500/20">
               <p className="text-xl md:text-3xl font-bold text-white leading-relaxed">
-                🔥 Sfida i tuoi amici in battaglie fitness di 30 secondi!
+                Sfida i tuoi amici in battaglie fitness di 30 secondi!
               </p>
               <p className="text-lg md:text-xl text-green-300 mt-2">
                 Push-ups, Squats, Burpees e molto altro.
@@ -209,7 +203,7 @@ export default function LandingPage() {
             </div>
           </motion.div>
 
-          {/* CTA Buttons - FIXED: Now go to login/register */}
+          {/* CTA Buttons - ONLY CHANGES HERE! */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -274,28 +268,28 @@ export default function LandingPage() {
                 step: '01', 
                 title: 'REGISTRATI', 
                 desc: 'Crea il tuo account gratuito in 30 secondi', 
-                icon: '📝',
+                icon: 'LOGIN',
                 color: 'from-green-500 to-emerald-500' 
               },
               { 
                 step: '02', 
                 title: 'SCEGLI AVATAR', 
                 desc: 'Seleziona il tuo guerriero e sblocca i bonus', 
-                icon: '🎮',
+                icon: 'AVATAR',
                 color: 'from-blue-500 to-cyan-500' 
               },
               { 
                 step: '03', 
                 title: 'LANCIA SFIDE', 
                 desc: '30 secondi di pura adrenalina fitness', 
-                icon: '⚔️',
+                icon: 'BATTLE',
                 color: 'from-purple-500 to-pink-500' 
               },
               { 
                 step: '04', 
                 title: 'VINCI REWARDS', 
                 desc: 'Accumula XP, sblocca skin e domina', 
-                icon: '🏆',
+                icon: 'TROPHY',
                 color: 'from-yellow-500 to-orange-500' 
               }
             ].map((item, index) => (
@@ -313,7 +307,7 @@ export default function LandingPage() {
                     text-6xl font-black mb-2`}>
                     {item.step}
                   </div>
-                  <div className="text-4xl mb-3">{item.icon}</div>
+                  <div className="text-sm font-bold text-gray-400 mb-3">{item.icon}</div>
                   <h3 className="text-xl font-bold text-white mb-2">{item.title}</h3>
                   <p className="text-gray-400 text-sm">{item.desc}</p>
                 </div>
@@ -332,23 +326,23 @@ export default function LandingPage() {
             <div className="grid md:grid-cols-2 gap-8 items-center">
               <div>
                 <h3 className="text-3xl font-bold text-white mb-4">
-                  🤖 AI TRACKING INTELLIGENTE
+                  AI TRACKING INTELLIGENTE
                 </h3>
                 <ul className="space-y-3 text-gray-300">
                   <li className="flex items-start gap-3">
-                    <span className="text-green-400 text-xl">✓</span>
+                    <span className="text-green-400 text-xl">+</span>
                     <span>Riconoscimento automatico degli esercizi</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <span className="text-green-400 text-xl">✓</span>
+                    <span className="text-green-400 text-xl">+</span>
                     <span>Conteggio preciso delle ripetizioni</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <span className="text-green-400 text-xl">✓</span>
+                    <span className="text-green-400 text-xl">+</span>
                     <span>Valutazione della forma in tempo reale</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <span className="text-green-400 text-xl">✓</span>
+                    <span className="text-green-400 text-xl">+</span>
                     <span>Nessun dispositivo esterno richiesto</span>
                   </li>
                 </ul>
@@ -356,7 +350,7 @@ export default function LandingPage() {
               <div className="relative">
                 <div className="aspect-video bg-gradient-to-br from-green-500/20 to-blue-500/20 
                   rounded-2xl flex items-center justify-center border border-green-500/30">
-                  <span className="text-6xl">📹</span>
+                  <span className="text-2xl font-bold text-white">VIDEO TRACKING</span>
                 </div>
               </div>
             </div>
@@ -370,7 +364,7 @@ export default function LandingPage() {
               viewport={{ once: true }}
               className="bg-gray-900/50 backdrop-blur rounded-2xl p-6 border border-yellow-500/30"
             >
-              <div className="text-4xl mb-3">⭐</div>
+              <div className="text-sm font-bold text-gray-400 mb-3">REWARDS</div>
               <h3 className="text-xl font-bold text-yellow-400 mb-2">XP & LIVELLI</h3>
               <p className="text-gray-400 text-sm">
                 Ogni rep conta! Accumula esperienza e sali di livello
@@ -383,7 +377,7 @@ export default function LandingPage() {
               viewport={{ once: true }}
               className="bg-gray-900/50 backdrop-blur rounded-2xl p-6 border border-purple-500/30"
             >
-              <div className="text-4xl mb-3">🏅</div>
+              <div className="text-sm font-bold text-gray-400 mb-3">ACHIEVEMENTS</div>
               <h3 className="text-xl font-bold text-purple-400 mb-2">BADGE ESCLUSIVI</h3>
               <p className="text-gray-400 text-sm">
                 Sblocca achievement e mostra i tuoi trofei
@@ -396,7 +390,7 @@ export default function LandingPage() {
               viewport={{ once: true }}
               className="bg-gray-900/50 backdrop-blur rounded-2xl p-6 border border-blue-500/30"
             >
-              <div className="text-4xl mb-3">👕</div>
+              <div className="text-sm font-bold text-gray-400 mb-3">COSMETICS</div>
               <h3 className="text-xl font-bold text-blue-400 mb-2">SKIN AVATAR</h3>
               <p className="text-gray-400 text-sm">
                 Personalizza il tuo guerriero con skin epiche
@@ -445,8 +439,8 @@ export default function LandingPage() {
                   hover:border-green-500/50 transition-all rounded-2xl">
                   {/* Character Avatar */}
                   <div className="aspect-square bg-gradient-to-br from-gray-800 to-gray-900 
-                    rounded-xl mb-3 flex items-center justify-center text-6xl">
-                    {char.image ? '🎮' : char.name[0]}
+                    rounded-xl mb-3 flex items-center justify-center text-2xl font-bold text-white">
+                    {char.name[0]}
                   </div>
                   
                   {/* Character Info */}
@@ -480,11 +474,11 @@ export default function LandingPage() {
                 </p>
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
-                    <span className="text-green-400">💪 Bonus:</span>
+                    <span className="text-green-400">Bonus:</span>
                     <span className="text-white">{characters[activeCharacter].power}</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-yellow-400">⚡ Abilità:</span>
+                    <span className="text-yellow-400">Abilità:</span>
                     <span className="text-white">{characters[activeCharacter].ability}</span>
                   </div>
                 </div>
@@ -500,9 +494,9 @@ export default function LandingPage() {
                     repeat: Infinity,
                     ease: "easeInOut"
                   }}
-                  className="text-9xl"
+                  className="text-9xl font-bold text-white/20"
                 >
-                  🎮
+                  {characters[activeCharacter].name[0]}
                 </motion.div>
               </div>
             </div>
@@ -527,42 +521,42 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
               {
-                icon: '💪',
+                icon: 'PUSH',
                 title: 'Push-ups Battle',
                 description: 'Sfida i tuoi amici a colpi di piegamenti. Chi ne fa di più in 30 secondi vince!',
                 gradient: 'from-red-400 to-orange-500',
                 image: '/exercises/pushups.jpg'
               },
               {
-                icon: '🦵',
+                icon: 'SQUAT',
                 title: 'Squats Challenge', 
                 description: 'Gambe d\'acciaio? Dimostralo! Squat perfetti contati dall\'AI.',
                 gradient: 'from-blue-400 to-cyan-500',
                 image: '/exercises/squats.jpg'
               },
               {
-                icon: '🔥',
+                icon: 'BURPEE',
                 title: 'Burpees Madness',
                 description: 'L\'esercizio definitivo per i veri guerrieri. Resisti o soccumbi!',
                 gradient: 'from-yellow-400 to-amber-500',
                 image: '/exercises/burpees.jpg'
               },
               {
-                icon: '🧘',
+                icon: 'PLANK',
                 title: 'Plank Hold',
                 description: 'Stabilità e resistenza. Mantieni la posizione più a lungo del tuo avversario.',
                 gradient: 'from-purple-400 to-pink-500',
                 image: '/exercises/plank.jpg'
               },
               {
-                icon: '⚡',
+                icon: 'JUMP',
                 title: 'Jumping Jacks',
                 description: 'Velocità e coordinazione. Ogni movimento conta nel punteggio finale.',
                 gradient: 'from-green-400 to-emerald-500',
                 image: '/exercises/jumping-jacks.jpg'
               },
               {
-                icon: '🎯',
+                icon: 'BONUS',
                 title: 'Avatar Bonus',
                 description: 'Ogni personaggio ha bonus unici. Scegli la strategia vincente!',
                 gradient: 'from-indigo-400 to-violet-500',
@@ -590,7 +584,7 @@ export default function LandingPage() {
                 )}
                 
                 <div className="relative z-30 p-6">
-                  <div className="text-5xl mb-4">{feature.icon}</div>
+                  <div className="text-sm font-bold text-gray-400 mb-4">{feature.icon}</div>
                   <h3 className="text-xl font-bold text-white mb-2">{feature.title}</h3>
                   <p className="text-gray-300 text-sm">{feature.description}</p>
                 </div>
@@ -621,7 +615,7 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               {
-                icon: '⚡',
+                icon: 'QUICK',
                 title: 'SFIDA LAMPO',
                 subtitle: '1v1 • 30 secondi',
                 description: 'Duello rapido con matchmaking istantaneo',
@@ -630,7 +624,7 @@ export default function LandingPage() {
                 players: '2.3K online'
               },
               {
-                icon: '👥',
+                icon: 'TEAM',
                 title: 'TEAM BATTLE',
                 subtitle: '3v3 • 5 minuti',
                 description: 'Squadra contro squadra, coordinazione è tutto',
@@ -639,7 +633,7 @@ export default function LandingPage() {
                 players: '1.8K online'
               },
               {
-                icon: '🏆',
+                icon: 'TOURNEY',
                 title: 'TORNEO DAILY',
                 subtitle: '100 players • 24h',
                 description: 'Scala la classifica e vinci premi esclusivi',
@@ -648,7 +642,7 @@ export default function LandingPage() {
                 players: '5.2K online'
               },
               {
-                icon: '🎯',
+                icon: 'SOLO',
                 title: 'MISSIONI SOLO',
                 subtitle: 'PvE • Vari',
                 description: 'Completa obiettivi e sblocca ricompense',
@@ -673,7 +667,7 @@ export default function LandingPage() {
                   hover:border-green-500/50 transition-all rounded-3xl p-6 flex flex-col">
                   {/* Icon */}
                   <motion.div 
-                    className="text-8xl mb-4 mx-auto"
+                    className="text-sm font-bold text-gray-400 mb-4 mx-auto"
                     animate={{ 
                       rotate: [0, 10, -10, 0],
                       scale: [1, 1.1, 1]
@@ -736,14 +730,14 @@ export default function LandingPage() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { level: 1, reward: '100 Coins', icon: '🪙', rarity: 'common' },
-              { level: 5, reward: 'Skin Bull Rage', icon: '🎨', rarity: 'rare' },
-              { level: 10, reward: 'Emote Victory', icon: '🎉', rarity: 'epic' },
-              { level: 15, reward: 'Title Champion', icon: '👑', rarity: 'legendary' },
-              { level: 20, reward: '500 Gems', icon: '💎', rarity: 'epic' },
-              { level: 25, reward: 'Avatar Frame', icon: '🖼️', rarity: 'rare' },
-              { level: 30, reward: 'Skin Cyber', icon: '🤖', rarity: 'legendary' },
-              { level: 35, reward: 'Premium Pass', icon: '🎫', rarity: 'legendary' }
+              { level: 1, reward: '100 Coins', icon: 'COINS', rarity: 'common' },
+              { level: 5, reward: 'Skin Bull Rage', icon: 'SKIN', rarity: 'rare' },
+              { level: 10, reward: 'Emote Victory', icon: 'EMOTE', rarity: 'epic' },
+              { level: 15, reward: 'Title Champion', icon: 'TITLE', rarity: 'legendary' },
+              { level: 20, reward: '500 Gems', icon: 'GEMS', rarity: 'epic' },
+              { level: 25, reward: 'Avatar Frame', icon: 'FRAME', rarity: 'rare' },
+              { level: 30, reward: 'Skin Cyber', icon: 'CYBER', rarity: 'legendary' },
+              { level: 35, reward: 'Premium Pass', icon: 'PASS', rarity: 'legendary' }
             ].map((item, index) => (
               <motion.div
                 key={item.level}
@@ -764,7 +758,7 @@ export default function LandingPage() {
                     <p className="text-xs text-gray-400 mb-1">Level {item.level}</p>
                     <p className="text-sm font-bold text-white">{item.reward}</p>
                   </div>
-                  <div className="text-3xl">{item.icon}</div>
+                  <div className="text-xs font-bold text-gray-400">{item.icon}</div>
                 </div>
                 {item.rarity === 'legendary' && (
                   <div className="absolute -top-2 -right-2 bg-yellow-500 text-black text-xs 
@@ -799,19 +793,19 @@ export default function LandingPage() {
               {
                 title: 'NO EXCUSES',
                 desc: 'Solo 30 secondi ti separano dalla vittoria',
-                icon: '💀',
+                icon: 'FIGHT',
                 color: 'from-red-500 to-orange-500'
               },
               {
                 title: 'LEVEL UP',
                 desc: 'Ogni rep ti rende più forte',
-                icon: '📈',
+                icon: 'GROWTH',
                 color: 'from-green-500 to-emerald-500'
               },
               {
                 title: 'BE A LEGEND',
                 desc: 'Scrivi il tuo nome nella hall of fame',
-                icon: '⭐',
+                icon: 'STAR',
                 color: 'from-purple-500 to-pink-500'
               }
             ].map((item, index) => (
@@ -833,7 +827,7 @@ export default function LandingPage() {
                     repeat: Infinity,
                     delay: index * 0.3
                   }}
-                  className="text-8xl mb-4"
+                  className="text-sm font-bold text-gray-400 mb-4"
                 >
                   {item.icon}
                 </motion.div>
