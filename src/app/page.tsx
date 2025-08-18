@@ -160,39 +160,34 @@ export default function LandingPage() {
                 L'AI conta le tue ripetizioni in tempo reale!
               </p>
             </div>
-          </motion.div>
 
-          {/* How It Works Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 max-w-4xl mx-auto"
-          >
-            <div className="bg-gray-900/50 backdrop-blur rounded-xl p-6 border border-gray-800">
-              <div className="text-4xl mb-3">📱</div>
-              <h3 className="text-lg font-bold text-green-400 mb-2">1. SCEGLI LA SFIDA</h3>
-              <p className="text-sm text-gray-400">30 secondi di esercizio: Push-ups, Squats, Burpees</p>
-            </div>
-            
-            <div className="bg-gray-900/50 backdrop-blur rounded-xl p-6 border border-gray-800">
-              <div className="text-4xl mb-3">🤖</div>
-              <h3 className="text-lg font-bold text-blue-400 mb-2">2. AI TRACKING</h3>
-              <p className="text-sm text-gray-400">La nostra AI conta le ripetizioni in tempo reale</p>
-            </div>
-            
-            <div className="bg-gray-900/50 backdrop-blur rounded-xl p-6 border border-gray-800">
-              <div className="text-4xl mb-3">🏆</div>
-              <h3 className="text-lg font-bold text-yellow-400 mb-2">3. VINCI REWARDS</h3>
-              <p className="text-sm text-gray-400">Guadagna XP e sfrutta i bonus del tuo avatar</p>
-            </div>
+            {/* Background Fitness Image */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.5 }}
+              className="relative w-full h-64 md:h-96 rounded-3xl overflow-hidden mb-8"
+            >
+              <Image
+                src="https://images.unsplash.com/photo-1517963879433-6ad2b056d712?w=1200&h=400&fit=crop"
+                alt="Fitness Battle"
+                fill
+                className="object-cover opacity-40"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
+              <div className="absolute bottom-8 left-0 right-0">
+                <p className="text-3xl font-black text-white">
+                  TRASFORMA IL FITNESS IN UN GIOCO EPICO
+                </p>
+              </div>
+            </motion.div>
           </motion.div>
 
           {/* CTA Buttons */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
+            transition={{ delay: 0.7 }}
             className="flex flex-col sm:flex-row gap-4 justify-center"
           >
             <motion.button
@@ -415,7 +410,7 @@ export default function LandingPage() {
             viewport={{ once: true }}
             className="text-center"
           >
-            <h3 className="text-3xl font-black text-white mb-8">
+            <h3 className="text-3xl font-black text-center text-white mb-8">
               MODALITÀ DI GIOCO
             </h3>
             
@@ -539,42 +534,42 @@ export default function LandingPage() {
                 title: 'Push-ups Battle',
                 description: 'Sfida i tuoi amici a colpi di piegamenti. Chi ne fa di più in 30 secondi vince!',
                 gradient: 'from-red-400 to-orange-500',
-                image: 'https://images.unsplash.com/photo-1598971639058-fab3c3109a00?w=400&h=300&fit=crop'
+                image: '/exercises/pushups.jpg'
               },
               {
                 icon: '🦵',
                 title: 'Squats Challenge',
                 description: 'Gambe di ferro? Dimostralo! Squat perfetti contati dalla nostra AI.',
                 gradient: 'from-blue-400 to-purple-500',
-                image: 'https://images.unsplash.com/photo-1574680178050-55c6a6a96e0a?w=400&h=300&fit=crop'
+                image: '/exercises/squats.jpg'
               },
               {
                 icon: '🏃',
                 title: 'Burpees Madness',
                 description: 'L\'esercizio più temuto diventa una sfida epica. Resistenza al massimo!',
                 gradient: 'from-green-400 to-emerald-500',
-                image: 'https://images.unsplash.com/photo-1599058945522-28d584b6f0ff?w=400&h=300&fit=crop'
+                image: '/exercises/burpees.jpg'
               },
               {
                 icon: '⏱️',
                 title: 'Plank Hold',
                 description: 'Core di acciaio? Tieni la posizione più a lungo del tuo avversario!',
                 gradient: 'from-purple-400 to-pink-500',
-                image: 'https://images.unsplash.com/photo-1598266663439-2056e6aacded?w=400&h=300&fit=crop'
+                image: '/exercises/plank.jpg'
               },
               {
                 icon: '🤸',
                 title: 'Jumping Jacks',
                 description: 'Velocità e coordinazione. Ogni ripetizione conta per la vittoria!',
                 gradient: 'from-cyan-400 to-blue-500',
-                image: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400&h=300&fit=crop'
+                image: '/exercises/jumping-jacks.jpg'
               },
               {
-                icon: '🎮',
-                title: 'Avatar Bonus',
+                icon: '💥',
+                title: 'Avatar Power-Up',
                 description: 'Ogni avatar ha bonus unici per diversi esercizi. Scegli la tua strategia!',
                 gradient: 'from-yellow-400 to-red-500',
-                image: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400&h=300&fit=crop'
+                image: '/graphics/power-bonus.png'
               }
             ].map((feature, index) => (
               <motion.div
@@ -620,21 +615,21 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Game Modes Section */}
+      {/* Game Modes Section - ENHANCED */}
       <section className="py-24 px-4 bg-gradient-to-b from-black to-gray-900">
         <div className="max-w-7xl mx-auto">
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-5xl font-black text-center mb-16"
+            className="text-5xl md:text-6xl font-black text-center mb-16"
           >
             <span className="bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
-              MODALITÀ DI GIOCO
+              MODALITÀ DI GIOCO EPICHE
             </span>
           </motion.h2>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {/* Sfida Lampo */}
             <motion.div
               initial={{ opacity: 0, y: 50 }}
@@ -643,15 +638,30 @@ export default function LandingPage() {
               whileHover={{ scale: 1.05, y: -10 }}
               className="relative group cursor-pointer"
             >
-              <div className="relative h-80 rounded-2xl overflow-hidden bg-gradient-to-br from-yellow-600 to-orange-600">
+              <div className="relative h-96 rounded-3xl overflow-hidden bg-gradient-to-br from-yellow-600 to-orange-600 shadow-2xl">
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-8xl">⚡</div>
+                  <motion.div 
+                    className="text-9xl"
+                    animate={{ 
+                      scale: [1, 1.1, 1],
+                      rotate: [0, 5, -5, 0]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  >
+                    ⚡
+                  </motion.div>
                 </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                <div className="absolute bottom-0 p-6">
-                  <h3 className="text-2xl font-black text-yellow-400 mb-2">SFIDA LAMPO</h3>
-                  <p className="text-xs text-white/80 font-bold mb-3">1 VS 1 • 30 SECONDI</p>
-                  <p className="text-sm text-gray-300">Sfida istantanea contro un amico. Chi fa più ripetizioni vince!</p>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+                <div className="absolute bottom-0 p-8">
+                  <h3 className="text-3xl font-black text-yellow-400 mb-3">SFIDA LAMPO</h3>
+                  <p className="text-sm text-white/90 font-bold mb-3">1 VS 1 • 30 SECONDI</p>
+                  <p className="text-base text-gray-300">Sfida istantanea contro un amico. Chi fa più ripetizioni vince!</p>
+                  <motion.div
+                    className="mt-4 bg-yellow-400/20 rounded-full px-4 py-2 inline-block"
+                    whileHover={{ scale: 1.1 }}
+                  >
+                    <span className="text-yellow-400 font-bold">GIOCA ORA →</span>
+                  </motion.div>
                 </div>
               </div>
             </motion.div>
@@ -665,15 +675,29 @@ export default function LandingPage() {
               whileHover={{ scale: 1.05, y: -10 }}
               className="relative group cursor-pointer"
             >
-              <div className="relative h-80 rounded-2xl overflow-hidden bg-gradient-to-br from-blue-600 to-cyan-600">
+              <div className="relative h-96 rounded-3xl overflow-hidden bg-gradient-to-br from-blue-600 to-cyan-600 shadow-2xl">
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-8xl">👥</div>
+                  <motion.div 
+                    className="text-9xl"
+                    animate={{ 
+                      y: [0, -10, 0]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    👥
+                  </motion.div>
                 </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                <div className="absolute bottom-0 p-6">
-                  <h3 className="text-2xl font-black text-blue-400 mb-2">TEAM BATTLE</h3>
-                  <p className="text-xs text-white/80 font-bold mb-3">3 VS 3 • 5 MINUTI</p>
-                  <p className="text-sm text-gray-300">Crea il tuo team e domina. Punti doppi per le vittorie!</p>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+                <div className="absolute bottom-0 p-8">
+                  <h3 className="text-3xl font-black text-blue-400 mb-3">TEAM BATTLE</h3>
+                  <p className="text-sm text-white/90 font-bold mb-3">3 VS 3 • 5 MINUTI</p>
+                  <p className="text-base text-gray-300">Crea il tuo team e domina. Punti doppi per le vittorie!</p>
+                  <motion.div
+                    className="mt-4 bg-blue-400/20 rounded-full px-4 py-2 inline-block"
+                    whileHover={{ scale: 1.1 }}
+                  >
+                    <span className="text-blue-400 font-bold">CREA TEAM →</span>
+                  </motion.div>
                 </div>
               </div>
             </motion.div>
@@ -687,15 +711,29 @@ export default function LandingPage() {
               whileHover={{ scale: 1.05, y: -10 }}
               className="relative group cursor-pointer"
             >
-              <div className="relative h-80 rounded-2xl overflow-hidden bg-gradient-to-br from-purple-600 to-pink-600">
+              <div className="relative h-96 rounded-3xl overflow-hidden bg-gradient-to-br from-purple-600 to-pink-600 shadow-2xl">
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-8xl">🏆</div>
+                  <motion.div 
+                    className="text-9xl"
+                    animate={{ 
+                      rotate: [0, 360]
+                    }}
+                    transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                  >
+                    🏆
+                  </motion.div>
                 </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                <div className="absolute bottom-0 p-6">
-                  <h3 className="text-2xl font-black text-purple-400 mb-2">TORNEO DAILY</h3>
-                  <p className="text-xs text-white/80 font-bold mb-3">100 PLAYERS • TUTTO IL GIORNO</p>
-                  <p className="text-sm text-gray-300">Accumula punti. Top 3 vincono premi esclusivi!</p>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+                <div className="absolute bottom-0 p-8">
+                  <h3 className="text-3xl font-black text-purple-400 mb-3">TORNEO DAILY</h3>
+                  <p className="text-sm text-white/90 font-bold mb-3">100 PLAYERS • TUTTO IL GIORNO</p>
+                  <p className="text-base text-gray-300">Accumula punti. Top 3 vincono premi esclusivi!</p>
+                  <motion.div
+                    className="mt-4 bg-purple-400/20 rounded-full px-4 py-2 inline-block"
+                    whileHover={{ scale: 1.1 }}
+                  >
+                    <span className="text-purple-400 font-bold">ENTRA →</span>
+                  </motion.div>
                 </div>
               </div>
             </motion.div>
@@ -709,15 +747,29 @@ export default function LandingPage() {
               whileHover={{ scale: 1.05, y: -10 }}
               className="relative group cursor-pointer"
             >
-              <div className="relative h-80 rounded-2xl overflow-hidden bg-gradient-to-br from-green-600 to-emerald-600">
+              <div className="relative h-96 rounded-3xl overflow-hidden bg-gradient-to-br from-green-600 to-emerald-600 shadow-2xl">
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-8xl">🎯</div>
+                  <motion.div 
+                    className="text-9xl"
+                    animate={{ 
+                      scale: [1, 1.2, 1]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    🎯
+                  </motion.div>
                 </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                <div className="absolute bottom-0 p-6">
-                  <h3 className="text-2xl font-black text-green-400 mb-2">MISSIONI SOLO</h3>
-                  <p className="text-xs text-white/80 font-bold mb-3">SINGLE PLAYER • QUANDO VUOI</p>
-                  <p className="text-sm text-gray-300">Completa missioni e sblocca rewards epici!</p>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+                <div className="absolute bottom-0 p-8">
+                  <h3 className="text-3xl font-black text-green-400 mb-3">MISSIONI SOLO</h3>
+                  <p className="text-sm text-white/90 font-bold mb-3">SINGLE PLAYER • QUANDO VUOI</p>
+                  <p className="text-base text-gray-300">Completa missioni e sblocca rewards epici!</p>
+                  <motion.div
+                    className="mt-4 bg-green-400/20 rounded-full px-4 py-2 inline-block"
+                    whileHover={{ scale: 1.1 }}
+                  >
+                    <span className="text-green-400 font-bold">INIZIA →</span>
+                  </motion.div>
                 </div>
               </div>
             </motion.div>
