@@ -1,7 +1,7 @@
 // src/app/page.tsx
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -87,6 +87,14 @@ export default function LandingPage() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [activeCharacter, setActiveCharacter] = useState(0)
   const router = useRouter()
+  
+  // Ref per lo scroll alla sezione
+  const howItWorksRef = useRef<HTMLDivElement>(null)
+  
+  // Funzione per scrollare alla sezione
+  const scrollToHowItWorks = () => {
+    howItWorksRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
   
   // Parallax transforms
   const backgroundParallax = useTransform(scrollY, [0, 1000], [0, 300])
@@ -206,10 +214,236 @@ export default function LandingPage() {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
+              onClick={scrollToHowItWorks}
               className="px-12 py-6 border-2 border-green-400 rounded-full text-xl font-bold text-green-400 hover:bg-green-400/10 transition-colors"
             >
               COME FUNZIONA
             </motion.button>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* How It Works Detailed Section */}
+      <section ref={howItWorksRef} className="py-24 px-4 bg-gradient-to-b from-black via-gray-900 to-black">
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-5xl md:text-6xl font-black mb-4">
+              <span className="bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
+                COME FUNZIONA FITDUEL
+              </span>
+            </h2>
+            <p className="text-xl text-gray-400 max-w-3xl mx-auto">
+              Trasforma il fitness in un gioco epico. Ecco come iniziare la tua avventura!
+            </p>
+          </motion.div>
+
+          {/* Step by Step Guide */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="relative"
+            >
+              <div className="bg-gradient-to-br from-green-400/20 to-transparent backdrop-blur rounded-3xl p-8 border border-green-400/30 h-full">
+                <div className="text-6xl mb-4">1️⃣</div>
+                <h3 className="text-2xl font-bold text-green-400 mb-3">REGISTRATI</h3>
+                <p className="text-gray-400">
+                  Crea il tuo account in 30 secondi. Scegli username e sei subito pronto!
+                </p>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+              className="relative"
+            >
+              <div className="bg-gradient-to-br from-blue-400/20 to-transparent backdrop-blur rounded-3xl p-8 border border-blue-400/30 h-full">
+                <div className="text-6xl mb-4">2️⃣</div>
+                <h3 className="text-2xl font-bold text-blue-400 mb-3">SCEGLI L'AVATAR</h3>
+                <p className="text-gray-400">
+                  6 personaggi unici con bonus specifici. Trova quello che si adatta al tuo stile!
+                </p>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 }}
+              className="relative"
+            >
+              <div className="bg-gradient-to-br from-purple-400/20 to-transparent backdrop-blur rounded-3xl p-8 border border-purple-400/30 h-full">
+                <div className="text-6xl mb-4">3️⃣</div>
+                <h3 className="text-2xl font-bold text-purple-400 mb-3">LANCIA SFIDE</h3>
+                <p className="text-gray-400">
+                  Sfida amici o avversari casuali. 30 secondi di pura adrenalina!
+                </p>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.4 }}
+              className="relative"
+            >
+              <div className="bg-gradient-to-br from-yellow-400/20 to-transparent backdrop-blur rounded-3xl p-8 border border-yellow-400/30 h-full">
+                <div className="text-6xl mb-4">4️⃣</div>
+                <h3 className="text-2xl font-bold text-yellow-400 mb-3">VINCI E SALI</h3>
+                <p className="text-gray-400">
+                  Guadagna XP, sali di livello, scala le classifiche e diventa una leggenda!
+                </p>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* AI Tracking Explanation */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            className="bg-gradient-to-r from-green-400/10 to-blue-500/10 rounded-3xl p-12 border border-green-400/30 mb-16"
+          >
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              <div>
+                <h3 className="text-3xl font-black text-white mb-6">
+                  🤖 AI TRACKING RIVOLUZIONARIO
+                </h3>
+                <ul className="space-y-4">
+                  <li className="flex items-start gap-3">
+                    <span className="text-green-400 text-xl">✓</span>
+                    <p className="text-gray-300">
+                      <strong className="text-white">Conta automatica:</strong> L'AI riconosce e conta ogni ripetizione
+                    </p>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-green-400 text-xl">✓</span>
+                    <p className="text-gray-300">
+                      <strong className="text-white">Valutazione forma:</strong> Ricevi feedback sulla correttezza dell'esecuzione
+                    </p>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-green-400 text-xl">✓</span>
+                    <p className="text-gray-300">
+                      <strong className="text-white">Zero trucchi:</strong> Impossibile barare, solo skill reale conta
+                    </p>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="text-green-400 text-xl">✓</span>
+                    <p className="text-gray-300">
+                      <strong className="text-white">Privacy garantita:</strong> Tutto processato localmente sul tuo dispositivo
+                    </p>
+                  </li>
+                </ul>
+              </div>
+              <div className="relative">
+                <div className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl p-8 transform rotate-3 hover:rotate-0 transition-transform duration-300">
+                  <div className="text-center">
+                    <div className="text-8xl mb-4">📸</div>
+                    <p className="text-xl font-bold text-white">
+                      Posiziona il telefono, inizia l'esercizio e l'AI fa il resto!
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* XP and Rewards System */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="mb-16"
+          >
+            <h3 className="text-3xl font-black text-center text-white mb-12">
+              SISTEMA RICOMPENSE
+            </h3>
+            
+            <div className="grid md:grid-cols-3 gap-8">
+              <div className="bg-gray-900/50 backdrop-blur rounded-2xl p-8 border border-gray-800">
+                <div className="text-4xl mb-4">⭐</div>
+                <h4 className="text-xl font-bold text-green-400 mb-3">XP & LIVELLI</h4>
+                <ul className="space-y-2 text-gray-400">
+                  <li>• Sfida completata: +50 XP</li>
+                  <li>• Vittoria: +100 XP</li>
+                  <li>• Form perfetta: +150 XP</li>
+                  <li>• Streak giornaliero: +200 XP</li>
+                </ul>
+              </div>
+
+              <div className="bg-gray-900/50 backdrop-blur rounded-2xl p-8 border border-gray-800">
+                <div className="text-4xl mb-4">🏅</div>
+                <h4 className="text-xl font-bold text-blue-400 mb-3">BADGE & TITOLI</h4>
+                <ul className="space-y-2 text-gray-400">
+                  <li>• "Prima Vittoria"</li>
+                  <li>• "7 Giorni di Fila"</li>
+                  <li>• "Maestro del Plank"</li>
+                  <li>• "Leggenda Fitness"</li>
+                </ul>
+              </div>
+
+              <div className="bg-gray-900/50 backdrop-blur rounded-2xl p-8 border border-gray-800">
+                <div className="text-4xl mb-4">🎨</div>
+                <h4 className="text-xl font-bold text-purple-400 mb-3">SKIN & AVATAR</h4>
+                <ul className="space-y-2 text-gray-400">
+                  <li>• Personalizzazioni esclusive</li>
+                  <li>• Effetti speciali vittoria</li>
+                  <li>• Cornici profilo uniche</li>
+                  <li>• Emote personalizzate</li>
+                </ul>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Game Modes Quick Overview */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center"
+          >
+            <h3 className="text-3xl font-black text-white mb-8">
+              MODALITÀ DI GIOCO
+            </h3>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+              <div className="bg-gradient-to-br from-yellow-600/20 to-transparent backdrop-blur rounded-xl p-4 border border-yellow-600/30">
+                <div className="text-3xl mb-2">⚡</div>
+                <p className="font-bold text-yellow-400">1v1 LAMPO</p>
+                <p className="text-xs text-gray-400">30 secondi</p>
+              </div>
+              
+              <div className="bg-gradient-to-br from-blue-600/20 to-transparent backdrop-blur rounded-xl p-4 border border-blue-600/30">
+                <div className="text-3xl mb-2">👥</div>
+                <p className="font-bold text-blue-400">TEAM 3v3</p>
+                <p className="text-xs text-gray-400">5 minuti</p>
+              </div>
+              
+              <div className="bg-gradient-to-br from-purple-600/20 to-transparent backdrop-blur rounded-xl p-4 border border-purple-600/30">
+                <div className="text-3xl mb-2">🏆</div>
+                <p className="font-bold text-purple-400">TORNEO</p>
+                <p className="text-xs text-gray-400">Daily</p>
+              </div>
+              
+              <div className="bg-gradient-to-br from-green-600/20 to-transparent backdrop-blur rounded-xl p-4 border border-green-600/30">
+                <div className="text-3xl mb-2">🎯</div>
+                <p className="font-bold text-green-400">MISSIONI</p>
+                <p className="text-xs text-gray-400">Solo</p>
+              </div>
+            </div>
           </motion.div>
         </div>
       </section>
