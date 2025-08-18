@@ -42,7 +42,7 @@ export default function LandingPage() {
       image: '/avatars/leopard.png', 
       color: 'from-yellow-500 to-amber-500',
       glow: 'rgba(251, 191, 36, 0.5)',
-      description: 'Velocità e resistenza imbattibili'
+      description: 'VelocitÃ  e resistenza imbattibili'
     },
     { 
       id: 3, 
@@ -53,7 +53,7 @@ export default function LandingPage() {
       image: '/avatars/panther.png', 
       color: 'from-purple-600 to-pink-500',
       glow: 'rgba(147, 51, 234, 0.5)',
-      description: 'Agilità e precisione letali'
+      description: 'AgilitÃ  e precisione letali'
     },
     { 
       id: 4, 
@@ -64,7 +64,7 @@ export default function LandingPage() {
       image: '/avatars/gorilla.png', 
       color: 'from-gray-600 to-cyan-500',
       glow: 'rgba(107, 114, 128, 0.5)',
-      description: 'Stabilità e controllo assoluti'
+      description: 'StabilitÃ  e controllo assoluti'
     },
     { 
       id: 5, 
@@ -192,7 +192,7 @@ export default function LandingPage() {
             <div className="bg-gradient-to-r from-green-500/20 to-blue-500/20 backdrop-blur-md 
               rounded-2xl p-6 border-2 border-green-400/50 shadow-2xl shadow-green-500/20">
               <p className="text-xl md:text-3xl font-bold text-white leading-relaxed">
-                Sfida i tuoi amici in battaglie fitness di 30 secondi!
+                ðŸ"¥ Sfida i tuoi amici in battaglie fitness di 30 secondi!
               </p>
               <p className="text-lg md:text-xl text-green-300 mt-2">
                 Push-ups, Squats, Burpees e molto altro.
@@ -258,7 +258,7 @@ export default function LandingPage() {
                 COME FUNZIONA FITDUEL
               </span>
             </h2>
-            <p className="text-xl text-gray-400">Il fitness gaming che ti farà sudare davvero!</p>
+            <p className="text-xl text-gray-400">Il fitness gaming che ti farÃ  sudare davvero!</p>
           </motion.div>
 
           {/* Steps Grid */}
@@ -268,28 +268,28 @@ export default function LandingPage() {
                 step: '01', 
                 title: 'REGISTRATI', 
                 desc: 'Crea il tuo account gratuito in 30 secondi', 
-                icon: 'LOGIN',
+                icon: 'ðŸ"',
                 color: 'from-green-500 to-emerald-500' 
               },
               { 
                 step: '02', 
                 title: 'SCEGLI AVATAR', 
                 desc: 'Seleziona il tuo guerriero e sblocca i bonus', 
-                icon: 'AVATAR',
+                icon: 'ðŸŽ®',
                 color: 'from-blue-500 to-cyan-500' 
               },
               { 
                 step: '03', 
                 title: 'LANCIA SFIDE', 
                 desc: '30 secondi di pura adrenalina fitness', 
-                icon: 'BATTLE',
+                icon: 'âš"ï¸',
                 color: 'from-purple-500 to-pink-500' 
               },
               { 
                 step: '04', 
                 title: 'VINCI REWARDS', 
                 desc: 'Accumula XP, sblocca skin e domina', 
-                icon: 'TROPHY',
+                icon: 'ðŸ†',
                 color: 'from-yellow-500 to-orange-500' 
               }
             ].map((item, index) => (
@@ -307,7 +307,7 @@ export default function LandingPage() {
                     text-6xl font-black mb-2`}>
                     {item.step}
                   </div>
-                  <div className="text-sm font-bold text-gray-400 mb-3">{item.icon}</div>
+                  <div className="text-4xl mb-3">{item.icon}</div>
                   <h3 className="text-xl font-bold text-white mb-2">{item.title}</h3>
                   <p className="text-gray-400 text-sm">{item.desc}</p>
                 </div>
@@ -326,23 +326,23 @@ export default function LandingPage() {
             <div className="grid md:grid-cols-2 gap-8 items-center">
               <div>
                 <h3 className="text-3xl font-bold text-white mb-4">
-                  AI TRACKING INTELLIGENTE
+                  ðŸ¤– AI TRACKING INTELLIGENTE
                 </h3>
                 <ul className="space-y-3 text-gray-300">
                   <li className="flex items-start gap-3">
-                    <span className="text-green-400 text-xl">+</span>
+                    <span className="text-green-400 text-xl">âœ"</span>
                     <span>Riconoscimento automatico degli esercizi</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <span className="text-green-400 text-xl">+</span>
+                    <span className="text-green-400 text-xl">âœ"</span>
                     <span>Conteggio preciso delle ripetizioni</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <span className="text-green-400 text-xl">+</span>
+                    <span className="text-green-400 text-xl">âœ"</span>
                     <span>Valutazione della forma in tempo reale</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <span className="text-green-400 text-xl">+</span>
+                    <span className="text-green-400 text-xl">âœ"</span>
                     <span>Nessun dispositivo esterno richiesto</span>
                   </li>
                 </ul>
@@ -350,7 +350,7 @@ export default function LandingPage() {
               <div className="relative">
                 <div className="aspect-video bg-gradient-to-br from-green-500/20 to-blue-500/20 
                   rounded-2xl flex items-center justify-center border border-green-500/30">
-                  <span className="text-2xl font-bold text-white">VIDEO TRACKING</span>
+                  <span className="text-6xl">ðŸ"¹</span>
                 </div>
               </div>
             </div>
@@ -364,7 +364,7 @@ export default function LandingPage() {
               viewport={{ once: true }}
               className="bg-gray-900/50 backdrop-blur rounded-2xl p-6 border border-yellow-500/30"
             >
-              <div className="text-sm font-bold text-gray-400 mb-3">REWARDS</div>
+              <div className="text-4xl mb-3">â­</div>
               <h3 className="text-xl font-bold text-yellow-400 mb-2">XP & LIVELLI</h3>
               <p className="text-gray-400 text-sm">
                 Ogni rep conta! Accumula esperienza e sali di livello
@@ -377,7 +377,7 @@ export default function LandingPage() {
               viewport={{ once: true }}
               className="bg-gray-900/50 backdrop-blur rounded-2xl p-6 border border-purple-500/30"
             >
-              <div className="text-sm font-bold text-gray-400 mb-3">ACHIEVEMENTS</div>
+              <div className="text-4xl mb-3">ðŸ…</div>
               <h3 className="text-xl font-bold text-purple-400 mb-2">BADGE ESCLUSIVI</h3>
               <p className="text-gray-400 text-sm">
                 Sblocca achievement e mostra i tuoi trofei
@@ -390,7 +390,7 @@ export default function LandingPage() {
               viewport={{ once: true }}
               className="bg-gray-900/50 backdrop-blur rounded-2xl p-6 border border-blue-500/30"
             >
-              <div className="text-sm font-bold text-gray-400 mb-3">COSMETICS</div>
+              <div className="text-4xl mb-3">ðŸ'•</div>
               <h3 className="text-xl font-bold text-blue-400 mb-2">SKIN AVATAR</h3>
               <p className="text-gray-400 text-sm">
                 Personalizza il tuo guerriero con skin epiche
@@ -439,8 +439,8 @@ export default function LandingPage() {
                   hover:border-green-500/50 transition-all rounded-2xl">
                   {/* Character Avatar */}
                   <div className="aspect-square bg-gradient-to-br from-gray-800 to-gray-900 
-                    rounded-xl mb-3 flex items-center justify-center text-2xl font-bold text-white">
-                    {char.name[0]}
+                    rounded-xl mb-3 flex items-center justify-center text-6xl">
+                    {char.image ? 'ðŸŽ®' : char.name[0]}
                   </div>
                   
                   {/* Character Info */}
@@ -474,11 +474,11 @@ export default function LandingPage() {
                 </p>
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
-                    <span className="text-green-400">Bonus:</span>
+                    <span className="text-green-400">ðŸ'ª Bonus:</span>
                     <span className="text-white">{characters[activeCharacter].power}</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-yellow-400">Abilità:</span>
+                    <span className="text-yellow-400">âš¡ AbilitÃ :</span>
                     <span className="text-white">{characters[activeCharacter].ability}</span>
                   </div>
                 </div>
@@ -494,9 +494,9 @@ export default function LandingPage() {
                     repeat: Infinity,
                     ease: "easeInOut"
                   }}
-                  className="text-9xl font-bold text-white/20"
+                  className="text-9xl"
                 >
-                  {characters[activeCharacter].name[0]}
+                  ðŸŽ®
                 </motion.div>
               </div>
             </div>
@@ -514,49 +514,49 @@ export default function LandingPage() {
             className="text-5xl md:text-6xl font-black text-center mb-12"
           >
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-blue-500">
-              PERCHÉ FITDUEL?
+              PERCHÃ‰ FITDUEL?
             </span>
           </motion.h2>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
               {
-                icon: 'PUSH',
+                icon: 'ðŸ'ª',
                 title: 'Push-ups Battle',
-                description: 'Sfida i tuoi amici a colpi di piegamenti. Chi ne fa di più in 30 secondi vince!',
+                description: 'Sfida i tuoi amici a colpi di piegamenti. Chi ne fa di piÃ¹ in 30 secondi vince!',
                 gradient: 'from-red-400 to-orange-500',
                 image: '/exercises/pushups.jpg'
               },
               {
-                icon: 'SQUAT',
+                icon: 'ðŸ¦µ',
                 title: 'Squats Challenge', 
                 description: 'Gambe d\'acciaio? Dimostralo! Squat perfetti contati dall\'AI.',
                 gradient: 'from-blue-400 to-cyan-500',
                 image: '/exercises/squats.jpg'
               },
               {
-                icon: 'BURPEE',
+                icon: 'ðŸ"¥',
                 title: 'Burpees Madness',
                 description: 'L\'esercizio definitivo per i veri guerrieri. Resisti o soccumbi!',
                 gradient: 'from-yellow-400 to-amber-500',
                 image: '/exercises/burpees.jpg'
               },
               {
-                icon: 'PLANK',
+                icon: 'ðŸ§˜',
                 title: 'Plank Hold',
-                description: 'Stabilità e resistenza. Mantieni la posizione più a lungo del tuo avversario.',
+                description: 'StabilitÃ  e resistenza. Mantieni la posizione piÃ¹ a lungo del tuo avversario.',
                 gradient: 'from-purple-400 to-pink-500',
                 image: '/exercises/plank.jpg'
               },
               {
-                icon: 'JUMP',
+                icon: 'âš¡',
                 title: 'Jumping Jacks',
-                description: 'Velocità e coordinazione. Ogni movimento conta nel punteggio finale.',
+                description: 'VelocitÃ  e coordinazione. Ogni movimento conta nel punteggio finale.',
                 gradient: 'from-green-400 to-emerald-500',
                 image: '/exercises/jumping-jacks.jpg'
               },
               {
-                icon: 'BONUS',
+                icon: 'ðŸŽ¯',
                 title: 'Avatar Bonus',
                 description: 'Ogni personaggio ha bonus unici. Scegli la strategia vincente!',
                 gradient: 'from-indigo-400 to-violet-500',
@@ -584,7 +584,7 @@ export default function LandingPage() {
                 )}
                 
                 <div className="relative z-30 p-6">
-                  <div className="text-sm font-bold text-gray-400 mb-4">{feature.icon}</div>
+                  <div className="text-5xl mb-4">{feature.icon}</div>
                   <h3 className="text-xl font-bold text-white mb-2">{feature.title}</h3>
                   <p className="text-gray-300 text-sm">{feature.description}</p>
                 </div>
@@ -604,7 +604,7 @@ export default function LandingPage() {
             className="text-5xl md:text-6xl font-black text-center mb-4"
           >
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-blue-500">
-              MODALITÀ DI GIOCO
+              MODALITÃ€ DI GIOCO
             </span>
           </motion.h2>
           
@@ -615,36 +615,36 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               {
-                icon: 'QUICK',
+                icon: 'âš¡',
                 title: 'SFIDA LAMPO',
-                subtitle: '1v1 • 30 secondi',
+                subtitle: '1v1 â€¢ 30 secondi',
                 description: 'Duello rapido con matchmaking istantaneo',
                 gradient: 'from-yellow-500 to-orange-500',
                 xp: '+150 XP',
                 players: '2.3K online'
               },
               {
-                icon: 'TEAM',
+                icon: 'ðŸ'¥',
                 title: 'TEAM BATTLE',
-                subtitle: '3v3 • 5 minuti',
-                description: 'Squadra contro squadra, coordinazione è tutto',
+                subtitle: '3v3 â€¢ 5 minuti',
+                description: 'Squadra contro squadra, coordinazione Ã¨ tutto',
                 gradient: 'from-blue-500 to-cyan-500',
                 xp: '+300 XP',
                 players: '1.8K online'
               },
               {
-                icon: 'TOURNEY',
+                icon: 'ðŸ†',
                 title: 'TORNEO DAILY',
-                subtitle: '100 players • 24h',
+                subtitle: '100 players â€¢ 24h',
                 description: 'Scala la classifica e vinci premi esclusivi',
                 gradient: 'from-purple-500 to-pink-500',
                 xp: '+500 XP',
                 players: '5.2K online'
               },
               {
-                icon: 'SOLO',
+                icon: 'ðŸŽ¯',
                 title: 'MISSIONI SOLO',
-                subtitle: 'PvE • Vari',
+                subtitle: 'PvE â€¢ Vari',
                 description: 'Completa obiettivi e sblocca ricompense',
                 gradient: 'from-green-500 to-emerald-500',
                 xp: '+200 XP',
@@ -667,7 +667,7 @@ export default function LandingPage() {
                   hover:border-green-500/50 transition-all rounded-3xl p-6 flex flex-col">
                   {/* Icon */}
                   <motion.div 
-                    className="text-sm font-bold text-gray-400 mb-4 mx-auto"
+                    className="text-8xl mb-4 mx-auto"
                     animate={{ 
                       rotate: [0, 10, -10, 0],
                       scale: [1, 1.1, 1]
@@ -730,14 +730,14 @@ export default function LandingPage() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { level: 1, reward: '100 Coins', icon: 'COINS', rarity: 'common' },
-              { level: 5, reward: 'Skin Bull Rage', icon: 'SKIN', rarity: 'rare' },
-              { level: 10, reward: 'Emote Victory', icon: 'EMOTE', rarity: 'epic' },
-              { level: 15, reward: 'Title Champion', icon: 'TITLE', rarity: 'legendary' },
-              { level: 20, reward: '500 Gems', icon: 'GEMS', rarity: 'epic' },
-              { level: 25, reward: 'Avatar Frame', icon: 'FRAME', rarity: 'rare' },
-              { level: 30, reward: 'Skin Cyber', icon: 'CYBER', rarity: 'legendary' },
-              { level: 35, reward: 'Premium Pass', icon: 'PASS', rarity: 'legendary' }
+              { level: 1, reward: '100 Coins', icon: 'ðŸª™', rarity: 'common' },
+              { level: 5, reward: 'Skin Bull Rage', icon: 'ðŸŽ¨', rarity: 'rare' },
+              { level: 10, reward: 'Emote Victory', icon: 'ðŸŽ‰', rarity: 'epic' },
+              { level: 15, reward: 'Title Champion', icon: 'ðŸ''', rarity: 'legendary' },
+              { level: 20, reward: '500 Gems', icon: 'ðŸ'Ž', rarity: 'epic' },
+              { level: 25, reward: 'Avatar Frame', icon: 'ðŸ–¼ï¸', rarity: 'rare' },
+              { level: 30, reward: 'Skin Cyber', icon: 'ðŸ¤–', rarity: 'legendary' },
+              { level: 35, reward: 'Premium Pass', icon: 'ðŸŽ«', rarity: 'legendary' }
             ].map((item, index) => (
               <motion.div
                 key={item.level}
@@ -758,7 +758,7 @@ export default function LandingPage() {
                     <p className="text-xs text-gray-400 mb-1">Level {item.level}</p>
                     <p className="text-sm font-bold text-white">{item.reward}</p>
                   </div>
-                  <div className="text-xs font-bold text-gray-400">{item.icon}</div>
+                  <div className="text-3xl">{item.icon}</div>
                 </div>
                 {item.rarity === 'legendary' && (
                   <div className="absolute -top-2 -right-2 bg-yellow-500 text-black text-xs 
@@ -793,19 +793,19 @@ export default function LandingPage() {
               {
                 title: 'NO EXCUSES',
                 desc: 'Solo 30 secondi ti separano dalla vittoria',
-                icon: 'FIGHT',
+                icon: 'ðŸ'€',
                 color: 'from-red-500 to-orange-500'
               },
               {
                 title: 'LEVEL UP',
-                desc: 'Ogni rep ti rende più forte',
-                icon: 'GROWTH',
+                desc: 'Ogni rep ti rende piÃ¹ forte',
+                icon: 'ðŸ"ˆ',
                 color: 'from-green-500 to-emerald-500'
               },
               {
                 title: 'BE A LEGEND',
                 desc: 'Scrivi il tuo nome nella hall of fame',
-                icon: 'STAR',
+                icon: 'â­',
                 color: 'from-purple-500 to-pink-500'
               }
             ].map((item, index) => (
@@ -827,7 +827,7 @@ export default function LandingPage() {
                     repeat: Infinity,
                     delay: index * 0.3
                   }}
-                  className="text-sm font-bold text-gray-400 mb-4"
+                  className="text-8xl mb-4"
                 >
                   {item.icon}
                 </motion.div>
@@ -859,7 +859,7 @@ export default function LandingPage() {
             </motion.button>
             
             <p className="mt-6 text-gray-500">
-              Gratis per sempre • Nessuna carta richiesta • Unisciti a 10.000+ atleti
+              Gratis per sempre â€¢ Nessuna carta richiesta â€¢ Unisciti a 10.000+ atleti
             </p>
           </motion.div>
         </div>
@@ -869,7 +869,7 @@ export default function LandingPage() {
       <footer className="py-12 px-4 bg-black border-t border-gray-900">
         <div className="max-w-7xl mx-auto text-center">
           <p className="text-gray-500 text-sm">
-            © 2024 FitDuel Arena. Transform your body. Level up your life.
+            Â© 2024 FitDuel Arena. Transform your body. Level up your life.
           </p>
         </div>
       </footer>
