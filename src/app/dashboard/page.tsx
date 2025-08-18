@@ -309,29 +309,29 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
           <Button 
             onClick={() => router.push('/leaderboard')}
-            variant="outline"
-            className="border-purple-500/30 hover:bg-purple-900/20"
+            variant="ghost"
+            className="border border-purple-500/30 hover:bg-purple-900/20 bg-transparent"
           >
             🏆 Leaderboard
           </Button>
           <Button 
             onClick={() => router.push('/achievements')}
-            variant="outline"
-            className="border-purple-500/30 hover:bg-purple-900/20"
+            variant="ghost"
+            className="border border-purple-500/30 hover:bg-purple-900/20 bg-transparent"
           >
             🎖️ Achievements
           </Button>
           <Button 
             onClick={() => router.push('/missions')}
-            variant="outline"
-            className="border-purple-500/30 hover:bg-purple-900/20"
+            variant="ghost"
+            className="border border-purple-500/30 hover:bg-purple-900/20 bg-transparent"
           >
             🎯 Missions
           </Button>
           <Button 
             onClick={() => router.push('/profile')}
-            variant="outline"
-            className="border-purple-500/30 hover:bg-purple-900/20"
+            variant="ghost"
+            className="border border-purple-500/30 hover:bg-purple-900/20 bg-transparent"
           >
             👤 Profile
           </Button>
