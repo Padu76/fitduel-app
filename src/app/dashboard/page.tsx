@@ -17,6 +17,12 @@ export default function Dashboard() {
   const router = useRouter()
   const { user, stats, isAuthenticated, notifications: userNotifications } = useUserStore()
   
+  // ====================================
+  // FIX: CHECK DEMO/GUEST USERS FIRST
+  // ====================================
+  const [localUser, setLocalUser] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [notifications, setNotifications] = useState([
     { id: 1, type: 'challenge', message: 'Marco ti ha sfidato!', time: '5m fa', read: false },
@@ -34,18 +40,81 @@ export default function Dashboard() {
     training: 67
   })
 
-  // Check authentication
+  // ====================================
+  // ENHANCED AUTH CHECK - FIX FOR LOOP
+  // ====================================
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/auth')
+    const checkAuth = async () => {
+      try {
+        // 1. First check localStorage for demo/guest users
+        const savedUser = localStorage.getItem('fitduel_user')
+        if (savedUser) {
+          const parsedUser = JSON.parse(savedUser)
+          console.log('📱 Demo/Guest user found:', parsedUser.username)
+          setLocalUser(parsedUser)
+          setIsLoading(false)
+          return // Demo users bypass other auth checks
+        }
+
+        // 2. Then check Zustand store for Supabase users
+        if (isAuthenticated && user) {
+          console.log('✅ Authenticated user from store:', user.username || user.email)
+          setIsLoading(false)
+          return
+        }
+
+        // 3. Small delay to let store initialize
+        await new Promise(resolve => setTimeout(resolve, 500))
+
+        // 4. Re-check after delay
+        const savedUserAfterDelay = localStorage.getItem('fitduel_user')
+        if (savedUserAfterDelay) {
+          const parsedUser = JSON.parse(savedUserAfterDelay)
+          setLocalUser(parsedUser)
+          setIsLoading(false)
+          return
+        }
+
+        // 5. Final check of Zustand store
+        const currentState = useUserStore.getState()
+        if (currentState.isAuthenticated && currentState.user) {
+          console.log('✅ Auth confirmed after delay')
+          setIsLoading(false)
+          return
+        }
+
+        // 6. If still no auth after all checks, redirect
+        console.log('❌ No authentication found, redirecting to /auth')
+        router.push('/auth')
+        
+      } catch (error) {
+        console.error('Auth check error:', error)
+        // In case of error, check if we have any user data
+        const emergencyUser = localStorage.getItem('fitduel_user')
+        if (emergencyUser) {
+          setLocalUser(JSON.parse(emergencyUser))
+          setIsLoading(false)
+        } else {
+          router.push('/auth')
+        }
+      }
     }
-  }, [isAuthenticated, router])
+
+    checkAuth()
+  }, [isAuthenticated, user, router])
+
+  // ====================================
+  // MERGE USER DATA
+  // ====================================
+  const currentUser = user || localUser
+  const isGuest = localUser?.isGuest || false
+  const isDemoUser = localUser && !localUser.isGuest
 
   // Calculate user level and progress from XP
-  const userLevel = user ? calculateLevel(user.totalXp || 0) : 1
-  const levelProgress = user ? calculateProgress(user.totalXp || 0) : { current: 0, next: 100, progress: 0 }
+  const userLevel = currentUser ? calculateLevel(currentUser.totalXp || currentUser.xp || 0) : 1
+  const levelProgress = currentUser ? calculateProgress(currentUser.totalXp || currentUser.xp || 0) : { current: 0, next: 100, progress: 0 }
   const xpForNextLevel = levelProgress.next - levelProgress.current
-  const currentLevelXp = (user?.totalXp || 0) - levelProgress.current
+  const currentLevelXp = (currentUser?.totalXp || currentUser?.xp || 0) - levelProgress.current
   const progressPercentage = (currentLevelXp / xpForNextLevel) * 100
 
   // Simula aggiornamento real-time dei counter
@@ -191,14 +260,33 @@ export default function Dashboard() {
 
   // Get user initials for avatar
   const getUserInitials = () => {
-    if (!user) return 'G'
-    if (user.username) {
-      return user.username.charAt(0).toUpperCase()
+    if (!currentUser) return 'G'
+    if (currentUser.username) {
+      return currentUser.username.charAt(0).toUpperCase()
     }
-    if (user.email) {
-      return user.email.charAt(0).toUpperCase()
+    if (currentUser.email) {
+      return currentUser.email.charAt(0).toUpperCase()
     }
     return 'U'
+  }
+
+  // ====================================
+  // LOADING STATE
+  // ====================================
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 
+        flex items-center justify-center">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="flex flex-col items-center gap-4"
+        >
+          <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-green-400 font-bold">Caricamento...</p>
+        </motion.div>
+      </div>
+    )
   }
 
   return (
@@ -252,6 +340,21 @@ export default function Dashboard() {
           <div className="relative">
             {/* Top bar with notifications and online counter */}
             <div className="absolute -top-2 right-0 flex items-center gap-3">
+              {/* Demo/Guest Badge */}
+              {(isGuest || isDemoUser) && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold ${
+                    isGuest 
+                      ? 'bg-gray-600/50 text-gray-300 border border-gray-500/50' 
+                      : 'bg-blue-600/50 text-blue-300 border border-blue-500/50'
+                  }`}
+                >
+                  {isGuest ? '👤 OSPITE' : '🎮 DEMO'}
+                </motion.div>
+              )}
+
               {/* Online Counter */}
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
@@ -302,10 +405,10 @@ export default function Dashboard() {
             <div className="flex items-center gap-4 md:gap-6">
               {/* Avatar with level */}
               <div className="relative">
-                {user?.avatar ? (
+                {currentUser?.avatar && typeof currentUser.avatar === 'string' && currentUser.avatar.length > 2 ? (
                   <motion.img
-                    src={user.avatar}
-                    alt={user.username}
+                    src={currentUser.avatar}
+                    alt={currentUser.username}
                     className="w-24 h-24 rounded-2xl object-cover shadow-2xl"
                     whileHover={{ scale: 1.05, rotate: 5 }}
                   />
@@ -315,7 +418,7 @@ export default function Dashboard() {
                       flex items-center justify-center text-4xl font-bold text-white shadow-2xl"
                     whileHover={{ scale: 1.05, rotate: 5 }}
                   >
-                    {getUserInitials()}
+                    {currentUser?.avatar || getUserInitials()}
                   </motion.div>
                 )}
                 
@@ -326,7 +429,7 @@ export default function Dashboard() {
                   animate={{ scale: [1, 1.1, 1] }}
                   transition={{ duration: 2, repeat: Infinity }}
                 >
-                  LV {user?.level || userLevel}
+                  LV {currentUser?.level || userLevel}
                 </motion.div>
 
                 {/* Progress Ring */}
@@ -352,7 +455,7 @@ export default function Dashboard() {
               <div className="space-y-3 flex-1">
                 <div className="flex items-center gap-4">
                   <h2 className="text-xl md:text-2xl font-bold text-white">
-                    {user?.username || user?.email?.split('@')[0] || 'Guest'}
+                    {currentUser?.username || currentUser?.email?.split('@')[0] || 'Guest'}
                   </h2>
                   <button className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 
                     rounded-lg text-white font-bold text-sm hover:shadow-lg hover:shadow-green-500/25 
@@ -377,7 +480,7 @@ export default function Dashboard() {
                       XP: {currentLevelXp.toLocaleString()} / {xpForNextLevel.toLocaleString()}
                     </span>
                     <span className="text-slate-400">
-                      Prossimo: {user?.rank || calculateRank(userLevel)}
+                      Prossimo: {currentUser?.rank || calculateRank(userLevel)}
                     </span>
                   </div>
                   <div className="h-3 bg-slate-700/50 rounded-full overflow-hidden">
@@ -415,7 +518,7 @@ export default function Dashboard() {
                     <Zap className="w-4 h-4 text-blue-400" />
                     <span className="text-slate-300">Coins:</span>
                     <span className="text-white font-bold">
-                      {(user?.coins || 0).toLocaleString()}
+                      {(currentUser?.coins || 0).toLocaleString()}
                     </span>
                   </div>
                 </div>
