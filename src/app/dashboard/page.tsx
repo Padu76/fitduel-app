@@ -41,32 +41,52 @@ export default function Dashboard() {
   })
 
   // ====================================
-  // ENHANCED AUTH CHECK - FIX FOR LOOP
+  // ENHANCED AUTH CHECK - FIXED VERSION
   // ====================================
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // 1. First check localStorage for demo/guest users
+        // 1. PRIMA controlla Supabase direttamente
+        const { createClientComponentClient } = await import('@supabase/auth-helpers-nextjs')
+        const supabase = createClientComponentClient()
+        
+        const { data: { user: supabaseUser } } = await supabase.auth.getUser()
+        
+        if (supabaseUser) {
+          console.log('✅ Supabase user authenticated:', supabaseUser.email)
+          setIsLoading(false)
+          // Supabase users are authenticated, no redirect needed
+          return
+        }
+
+        // 2. Poi controlla localStorage per demo/guest users
         const savedUser = localStorage.getItem('fitduel_user')
         if (savedUser) {
           const parsedUser = JSON.parse(savedUser)
           console.log('📱 Demo/Guest user found:', parsedUser.username)
           setLocalUser(parsedUser)
           setIsLoading(false)
-          return // Demo users bypass other auth checks
+          return
         }
 
-        // 2. Then check Zustand store for Supabase users
+        // 3. Controlla Zustand store (potrebbe essere già sincronizzato)
         if (isAuthenticated && user) {
           console.log('✅ Authenticated user from store:', user.username || user.email)
           setIsLoading(false)
           return
         }
 
-        // 3. Small delay to let store initialize
-        await new Promise(resolve => setTimeout(resolve, 500))
+        // 4. Delay per lasciare inizializzare gli store
+        await new Promise(resolve => setTimeout(resolve, 1000))
 
-        // 4. Re-check after delay
+        // 5. Re-check tutto dopo il delay
+        const { data: { user: supabaseUserAfterDelay } } = await supabase.auth.getUser()
+        if (supabaseUserAfterDelay) {
+          console.log('✅ Supabase user found after delay')
+          setIsLoading(false)
+          return
+        }
+
         const savedUserAfterDelay = localStorage.getItem('fitduel_user')
         if (savedUserAfterDelay) {
           const parsedUser = JSON.parse(savedUserAfterDelay)
@@ -75,27 +95,28 @@ export default function Dashboard() {
           return
         }
 
-        // 5. Final check of Zustand store
+        // 6. Final check dello store Zustand
         const currentState = useUserStore.getState()
         if (currentState.isAuthenticated && currentState.user) {
-          console.log('✅ Auth confirmed after delay')
+          console.log('✅ Auth confirmed from store after delay')
           setIsLoading(false)
           return
         }
 
-        // 6. If still no auth after all checks, redirect
-        console.log('❌ No authentication found, redirecting to /auth')
-        router.push('/auth')
+        // 7. Solo se TUTTO fallisce, redirect a LOGIN (non auth!)
+        console.log('❌ No authentication found after all checks, redirecting to /login')
+        router.push('/login')
         
       } catch (error) {
         console.error('Auth check error:', error)
-        // In case of error, check if we have any user data
+        // In caso di errore, controlla ancora localStorage come fallback
         const emergencyUser = localStorage.getItem('fitduel_user')
         if (emergencyUser) {
           setLocalUser(JSON.parse(emergencyUser))
           setIsLoading(false)
         } else {
-          router.push('/auth')
+          // Solo in caso di errore totale, redirect a LOGIN
+          router.push('/login')
         }
       }
     }
