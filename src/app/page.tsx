@@ -1,8 +1,8 @@
 // src/app/page.tsx
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
-import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion'
+import { useEffect, useState } from 'react'
+import { motion, useScroll, useTransform } from 'framer-motion'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import HeroSection from '@/components/landing/HeroSection'
@@ -18,6 +18,7 @@ const characters = [
     id: 1, 
     name: 'BULL RAGE', 
     class: 'TITAN',
+    power: 'Forza Estrema',
     image: '/avatars/bull.png', 
     color: 'from-red-600 to-orange-500',
     glow: 'rgba(239, 68, 68, 0.5)',
@@ -27,6 +28,7 @@ const characters = [
     id: 2, 
     name: 'SPEED LEOPARD', 
     class: 'SPEEDSTER',
+    power: 'Resistenza Infinita',
     image: '/avatars/leopard.png', 
     color: 'from-yellow-500 to-amber-500',
     glow: 'rgba(250, 204, 21, 0.5)',
@@ -36,6 +38,7 @@ const characters = [
     id: 3, 
     name: 'SHADOW PANTHER', 
     class: 'NINJA',
+    power: 'Agilità Suprema',
     image: '/avatars/panther.png', 
     color: 'from-purple-900 to-purple-600',
     glow: 'rgba(147, 51, 234, 0.5)',
@@ -45,6 +48,7 @@ const characters = [
     id: 4, 
     name: 'STONE GORILLA', 
     class: 'SAGE',
+    power: 'Stabilità Assoluta',
     image: '/avatars/gorilla.png', 
     color: 'from-gray-600 to-cyan-500',
     glow: 'rgba(6, 182, 212, 0.5)',
@@ -54,6 +58,7 @@ const characters = [
     id: 5, 
     name: 'CRUSHER CROCODILE', 
     class: 'WARRIOR',
+    power: 'Potenza Devastante',
     image: '/avatars/crocodile.png', 
     color: 'from-green-600 to-emerald-500',
     glow: 'rgba(34, 197, 94, 0.5)',
@@ -63,6 +68,7 @@ const characters = [
     id: 6, 
     name: 'CYBER SHARK', 
     class: 'HYBRID',
+    power: 'Equilibrio Perfetto',
     image: '/avatars/shark.png', 
     color: 'from-blue-600 to-purple-600',
     glow: 'rgba(79, 70, 229, 0.5)',
@@ -74,32 +80,12 @@ export default function LandingPage() {
   const { scrollY } = useScroll()
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [activeCharacter, setActiveCharacter] = useState(0)
-  const [windowWidth, setWindowWidth] = useState(1920)
-  const [windowHeight, setWindowHeight] = useState(1080)
   const router = useRouter()
   
-  // Parallax transforms for different layers
-  const heroParallax = useTransform(scrollY, [0, 1000], [0, -500])
-  const charactersParallax = useTransform(scrollY, [0, 1000], [0, -200])
+  // Parallax transforms
   const backgroundParallax = useTransform(scrollY, [0, 1000], [0, 300])
   
-  // Handle window dimensions
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setWindowWidth(window.innerWidth)
-      setWindowHeight(window.innerHeight)
-      
-      const handleResize = () => {
-        setWindowWidth(window.innerWidth)
-        setWindowHeight(window.innerHeight)
-      }
-      
-      window.addEventListener('resize', handleResize)
-      return () => window.removeEventListener('resize', handleResize)
-    }
-  }, [])
-  
-  // Mouse tracking for interactive effects
+  // Mouse tracking
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const handleMouseMove = (e: MouseEvent) => {
@@ -110,163 +96,144 @@ export default function LandingPage() {
     }
   }, [])
 
-  // Auto-rotate characters
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveCharacter((prev) => (prev + 1) % characters.length)
-    }, 3000)
-    return () => clearInterval(interval)
-  }, [])
-
   return (
     <div className="min-h-screen bg-black text-white overflow-x-hidden">
-      {/* Enhanced Gaming Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Fixed Background with Parallax */}
-        <motion.div 
-          className="absolute inset-0 z-0"
-          style={{ y: backgroundParallax }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-b from-black via-gray-900 to-black" />
-          <Image
-            src="https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=1920&h=1080&fit=crop"
-            alt="Arena Background"
-            fill
-            className="object-cover opacity-20"
-            priority
+      {/* Hero Section Redesigned */}
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-gray-900 via-black to-gray-900">
+        {/* Animated Background Pattern */}
+        <div className="absolute inset-0 opacity-20">
+          <div 
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `
+                linear-gradient(rgba(0, 255, 136, 0.1) 2px, transparent 2px),
+                linear-gradient(90deg, rgba(0, 136, 255, 0.1) 2px, transparent 2px)
+              `,
+              backgroundSize: '60px 60px',
+              transform: `translate(${mousePosition.x * 0.02}px, ${mousePosition.y * 0.02}px)`,
+            }}
           />
-        </motion.div>
+        </div>
 
-        {/* Animated Grid Overlay */}
-        <div 
-          className="absolute inset-0 opacity-30 z-1"
-          style={{
-            backgroundImage: `
-              linear-gradient(rgba(0, 255, 136, 0.1) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(0, 136, 255, 0.1) 1px, transparent 1px)
-            `,
-            backgroundSize: '50px 50px',
-            transform: `translate(${mousePosition.x * 0.02}px, ${mousePosition.y * 0.02}px)`,
-          }}
-        />
-
-        {/* Character Showcase with Parallax */}
-        <motion.div 
-          className="absolute inset-0 z-5"
-          style={{ y: charactersParallax }}
-        >
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeCharacter}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 0.3, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.2 }}
-              transition={{ duration: 0.5 }}
-              className="absolute right-0 top-1/2 transform -translate-y-1/2"
-            >
-              <div className="relative w-[600px] h-[600px]">
-                <Image
-                  src={characters[activeCharacter].image}
-                  alt={characters[activeCharacter].name}
-                  fill
-                  className="object-contain"
-                  style={{
-                    filter: `drop-shadow(0 0 50px ${characters[activeCharacter].glow})`,
-                  }}
-                />
-              </div>
-            </motion.div>
-          </AnimatePresence>
-        </motion.div>
+        {/* Floating Orbs */}
+        <div className="absolute top-20 left-20 w-96 h-96 bg-green-400/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-20 right-20 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
 
         {/* Hero Content */}
-        <motion.div 
-          className="relative z-20 text-center px-4 max-w-6xl mx-auto"
-          style={{ y: heroParallax }}
-        >
-          {/* Live Badge */}
+        <div className="relative z-20 text-center px-4 max-w-7xl mx-auto">
+          {/* Main Title */}
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: -30 }}
             animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 bg-red-600/20 border border-red-600 px-6 py-2 rounded-full mb-8"
+            transition={{ duration: 0.8 }}
+            className="mb-8"
           >
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-            </span>
-            <span className="text-red-400 font-bold">SEASON 1 LIVE</span>
-          </motion.div>
-
-          {/* Main Title with Glitch Effect */}
-          <motion.h1
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-            className="text-7xl md:text-9xl font-black mb-6 relative"
-          >
-            <span className="relative">
-              <span className="absolute inset-0 text-green-400 animate-pulse">FITDUEL</span>
-              <span className="absolute inset-0 text-blue-500" style={{ clipPath: 'inset(0 50% 0 0)' }}>FITDUEL</span>
-              <span className="relative bg-gradient-to-r from-green-400 via-white to-blue-500 bg-clip-text text-transparent">
+            <h1 className="text-6xl md:text-8xl font-black mb-4">
+              <span className="bg-gradient-to-r from-green-400 via-blue-500 to-green-400 bg-clip-text text-transparent animate-gradient">
                 FITDUEL
               </span>
-            </span>
-          </motion.h1>
+            </h1>
+            <p className="text-2xl md:text-3xl text-gray-300 font-bold">
+              SFIDE FITNESS 30 SECONDI • BATTLE ROYALE SPORTIVO
+            </p>
+          </motion.div>
 
-          {/* Subtitle */}
+          {/* Subtitle explaining the concept */}
           <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-2xl md:text-3xl text-gray-300 mb-12 font-bold"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="text-lg md:text-xl text-gray-400 mb-12 max-w-3xl mx-auto"
           >
-            SCEGLI IL TUO FIGHTER. DOMINA L'ARENA.
+            Sfida i tuoi amici in battaglie fitness di 30 secondi! 
+            Push-ups, Squats, Burpees e molto altro. 
+            L'AI conta le tue ripetizioni. Vinci XP e sblocca personaggi epici!
           </motion.p>
 
-          {/* Character Selection Preview */}
+          {/* Character Grid */}
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="flex justify-center gap-4 mb-12"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.5 }}
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-12 max-w-5xl mx-auto"
           >
             {characters.map((char, index) => (
               <motion.div
                 key={char.id}
-                whileHover={{ scale: 1.1, y: -5 }}
+                whileHover={{ scale: 1.05, y: -10 }}
                 onClick={() => setActiveCharacter(index)}
-                className={`cursor-pointer relative ${
+                className={`relative cursor-pointer ${
                   activeCharacter === index ? 'ring-2 ring-green-400' : ''
                 }`}
               >
-                <div className={`w-20 h-20 bg-gradient-to-br ${char.color} rounded-xl flex items-center justify-center text-3xl shadow-2xl`}>
-                  {char.icon}
+                <div className={`bg-gradient-to-br ${char.color} rounded-2xl p-4 transform transition-all duration-300 hover:shadow-2xl`}
+                  style={{
+                    boxShadow: activeCharacter === index ? `0 20px 40px ${char.glow}` : '',
+                  }}
+                >
+                  {/* Character Image */}
+                  <div className="relative h-32 mb-3">
+                    <Image
+                      src={char.image}
+                      alt={char.name}
+                      fill
+                      className="object-contain"
+                    />
+                  </div>
+                  
+                  {/* Character Info */}
+                  <h3 className="text-sm font-black text-white mb-1">{char.name}</h3>
+                  <p className="text-xs text-white/80">{char.power}</p>
+                  
+                  {/* Class Badge */}
+                  <div className="mt-2 bg-black/30 rounded-full px-2 py-1">
+                    <span className="text-xs font-bold">{char.class}</span>
+                  </div>
                 </div>
-                {activeCharacter === index && (
-                  <motion.div
-                    layoutId="selector"
-                    className="absolute inset-0 border-2 border-green-400 rounded-xl"
-                    transition={{ type: "spring", stiffness: 300 }}
-                  />
-                )}
               </motion.div>
             ))}
+          </motion.div>
+
+          {/* How It Works Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7 }}
+            className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 max-w-4xl mx-auto"
+          >
+            <div className="bg-gray-900/50 backdrop-blur rounded-xl p-6 border border-gray-800">
+              <div className="text-4xl mb-3">📱</div>
+              <h3 className="text-lg font-bold text-green-400 mb-2">1. SCEGLI LA SFIDA</h3>
+              <p className="text-sm text-gray-400">30 secondi di esercizio: Push-ups, Squats, Burpees</p>
+            </div>
+            
+            <div className="bg-gray-900/50 backdrop-blur rounded-xl p-6 border border-gray-800">
+              <div className="text-4xl mb-3">🤖</div>
+              <h3 className="text-lg font-bold text-blue-400 mb-2">2. AI TRACKING</h3>
+              <p className="text-sm text-gray-400">La nostra AI conta le ripetizioni in tempo reale</p>
+            </div>
+            
+            <div className="bg-gray-900/50 backdrop-blur rounded-xl p-6 border border-gray-800">
+              <div className="text-4xl mb-3">🏆</div>
+              <h3 className="text-lg font-bold text-yellow-400 mb-2">3. VINCI REWARDS</h3>
+              <p className="text-sm text-gray-400">Guadagna XP, sblocca skin e domina le classifiche</p>
+            </div>
           </motion.div>
 
           {/* CTA Buttons */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
+            transition={{ delay: 0.9 }}
             className="flex flex-col sm:flex-row gap-4 justify-center"
           >
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => router.push('/auth')}
-              className="relative group px-12 py-6 bg-gradient-to-r from-green-400 to-blue-500 rounded-full text-2xl font-black text-black overflow-hidden"
+              className="relative group px-12 py-6 bg-gradient-to-r from-green-400 to-blue-500 rounded-full text-2xl font-black text-black overflow-hidden shadow-2xl"
             >
-              <span className="relative z-10">GIOCA ORA</span>
+              <span className="relative z-10">INIZIA GRATIS</span>
               <motion.div
                 className="absolute inset-0 bg-white"
                 initial={{ x: '-100%' }}
@@ -281,128 +248,300 @@ export default function LandingPage() {
               whileTap={{ scale: 0.95 }}
               className="px-12 py-6 border-2 border-green-400 rounded-full text-xl font-bold text-green-400 hover:bg-green-400/10 transition-colors"
             >
-              GUARDA TRAILER
+              COME FUNZIONA
             </motion.button>
           </motion.div>
-        </motion.div>
 
-        {/* Floating Particles */}
-        <div className="absolute inset-0 z-15 pointer-events-none">
-          {[...Array(30)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-1 h-1 bg-green-400 rounded-full"
-              initial={{
-                x: Math.random() * windowWidth,
-                y: Math.random() * windowHeight,
-              }}
-              animate={{
-                y: [null, -100],
-                opacity: [0, 1, 0],
-              }}
-              transition={{
-                duration: Math.random() * 5 + 5,
-                repeat: Infinity,
-                delay: Math.random() * 5,
-              }}
-            />
-          ))}
+          {/* Live Stats */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.1 }}
+            className="mt-16 grid grid-cols-3 gap-8 max-w-2xl mx-auto"
+          >
+            <div className="text-center">
+              <div className="text-3xl font-black text-green-400">10K+</div>
+              <div className="text-sm text-gray-500">Giocatori Attivi</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-black text-blue-400">500K+</div>
+              <div className="text-sm text-gray-500">Sfide Completate</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-black text-yellow-400">4.9★</div>
+              <div className="text-sm text-gray-500">Rating App</div>
+            </div>
+          </motion.div>
         </div>
       </section>
 
-      {/* Live Battle Arena Section */}
-      <section className="relative py-24 px-4 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-black via-gray-900/50 to-black" />
-        
-        <div className="relative z-10 max-w-7xl mx-auto">
+      {/* Game Modes Section Enhanced */}
+      <section className="py-24 px-4 bg-gradient-to-b from-black to-gray-900">
+        <div className="max-w-7xl mx-auto">
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-5xl md:text-6xl font-black text-center mb-16"
+            className="text-5xl font-black text-center mb-16"
           >
             <span className="bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
-              BATTAGLIE LIVE
+              MODALITÀ DI GIOCO
             </span>
           </motion.h2>
 
-          {/* Battle Cards Grid */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((battle, index) => (
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Sfida Lampo */}
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              whileHover={{ scale: 1.05, y: -10 }}
+              className="relative group cursor-pointer"
+            >
+              <div className="relative h-80 rounded-2xl overflow-hidden bg-gradient-to-br from-yellow-600 to-orange-600">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-8xl">⚡</div>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                <div className="absolute bottom-0 p-6">
+                  <h3 className="text-2xl font-black text-yellow-400 mb-2">SFIDA LAMPO</h3>
+                  <p className="text-xs text-white/80 font-bold mb-3">1 VS 1 • 30 SECONDI</p>
+                  <p className="text-sm text-gray-300">Sfida istantanea contro un amico. Chi fa più ripetizioni vince!</p>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Team Battle */}
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              whileHover={{ scale: 1.05, y: -10 }}
+              className="relative group cursor-pointer"
+            >
+              <div className="relative h-80 rounded-2xl overflow-hidden bg-gradient-to-br from-blue-600 to-cyan-600">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-8xl">👥</div>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                <div className="absolute bottom-0 p-6">
+                  <h3 className="text-2xl font-black text-blue-400 mb-2">TEAM BATTLE</h3>
+                  <p className="text-xs text-white/80 font-bold mb-3">5 VS 5 • 5 MINUTI</p>
+                  <p className="text-sm text-gray-300">Crea il tuo team e domina. Punti doppi per le vittorie!</p>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Torneo Daily */}
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+              whileHover={{ scale: 1.05, y: -10 }}
+              className="relative group cursor-pointer"
+            >
+              <div className="relative h-80 rounded-2xl overflow-hidden bg-gradient-to-br from-purple-600 to-pink-600">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-8xl">🏆</div>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                <div className="absolute bottom-0 p-6">
+                  <h3 className="text-2xl font-black text-purple-400 mb-2">TORNEO DAILY</h3>
+                  <p className="text-xs text-white/80 font-bold mb-3">100 PLAYERS • TUTTO IL GIORNO</p>
+                  <p className="text-sm text-gray-300">Accumula punti. Top 3 vincono premi esclusivi!</p>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Missioni Solo */}
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 }}
+              whileHover={{ scale: 1.05, y: -10 }}
+              className="relative group cursor-pointer"
+            >
+              <div className="relative h-80 rounded-2xl overflow-hidden bg-gradient-to-br from-green-600 to-emerald-600">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-8xl">🎯</div>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                <div className="absolute bottom-0 p-6">
+                  <h3 className="text-2xl font-black text-green-400 mb-2">MISSIONI SOLO</h3>
+                  <p className="text-xs text-white/80 font-bold mb-3">SINGLE PLAYER • QUANDO VUOI</p>
+                  <p className="text-sm text-gray-300">Completa missioni e sblocca rewards epici!</p>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* Enhanced Battle Pass Section */}
+      <section className="py-24 px-4 bg-gradient-to-b from-gray-900 to-black">
+        <div className="max-w-7xl mx-auto">
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-5xl font-black text-center mb-8"
+          >
+            <span className="bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
+              BATTLE PASS
+            </span>
+          </motion.h2>
+
+          {/* Season Timer */}
+          <div className="flex justify-center mb-12">
+            <div className="bg-gradient-to-r from-green-400 to-blue-500 px-8 py-3 rounded-full">
+              <p className="text-black font-black text-xl">SEASON 1 - ORIGINS</p>
+            </div>
+          </div>
+
+          {/* Rewards Track */}
+          <div className="overflow-x-auto pb-6">
+            <div className="flex gap-4 min-w-max px-4">
+              {[
+                { tier: 1, icon: '💪', name: 'Avatar Base', rarity: 'common' },
+                { tier: 5, icon: '🎯', name: 'Emote Victory', rarity: 'common' },
+                { tier: 10, icon: '🔥', name: 'Skin Fire', rarity: 'rare', premium: true },
+                { tier: 15, icon: '⚡', name: 'Boost XP', rarity: 'rare' },
+                { tier: 20, icon: '🏆', name: 'Title Champion', rarity: 'epic' },
+                { tier: 25, icon: '👑', name: 'Crown Effect', rarity: 'epic', premium: true },
+                { tier: 30, icon: '💎', name: '1000 Coins', rarity: 'epic' },
+                { tier: 50, icon: '🌟', name: 'Legendary Skin', rarity: 'legendary', premium: true }
+              ].map((reward, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.05 }}
+                  whileHover={{ scale: 1.1, y: -10 }}
+                  className={`
+                    relative min-w-[160px] p-6 rounded-2xl text-center cursor-pointer
+                    ${reward.rarity === 'legendary' ? 'bg-gradient-to-br from-yellow-600 to-orange-600' :
+                      reward.rarity === 'epic' ? 'bg-gradient-to-br from-purple-600 to-pink-600' :
+                      reward.rarity === 'rare' ? 'bg-gradient-to-br from-blue-600 to-cyan-600' :
+                      'bg-gradient-to-br from-gray-700 to-gray-600'}
+                    ${reward.premium ? 'ring-2 ring-green-400' : ''}
+                  `}
+                >
+                  {/* Tier Badge */}
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-black px-3 py-1 rounded-full">
+                    <span className="text-xs font-bold text-white">LV {reward.tier}</span>
+                  </div>
+                  
+                  {/* Icon */}
+                  <div className="text-5xl mb-3 mt-2">{reward.icon}</div>
+                  
+                  {/* Name */}
+                  <div className="text-sm font-bold text-white">{reward.name}</div>
+                  
+                  {/* Premium Badge */}
+                  {reward.premium && (
+                    <div className="absolute top-2 right-2 bg-green-400 px-2 py-1 rounded-full">
+                      <span className="text-xs font-black text-black">PRO</span>
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Live Feed Section */}
+      <LiveFeedSection />
+
+      {/* Enhanced Features Section */}
+      <section className="py-24 px-4 bg-gradient-to-b from-black to-gray-900">
+        <div className="max-w-7xl mx-auto">
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-5xl font-black text-center mb-16"
+          >
+            <span className="bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
+              PERCHÉ FITDUEL?
+            </span>
+          </motion.h2>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[
+              {
+                icon: '💥',
+                title: 'Sfide Veloci',
+                description: '30 secondi per vincere. Niente allenamenti lunghi. Solo azione pura.',
+                gradient: 'from-yellow-400 to-orange-500'
+              },
+              {
+                icon: '🤖',
+                title: 'AI Tracking',
+                description: 'La nostra AI conta le tue ripetizioni e valuta la forma. Zero trucchi.',
+                gradient: 'from-blue-400 to-purple-500'
+              },
+              {
+                icon: '🏅',
+                title: 'Rewards Reali',
+                description: 'Vinci skin, badge, titoli esclusivi. Mostra a tutti chi è il boss.',
+                gradient: 'from-green-400 to-emerald-500'
+              },
+              {
+                icon: '🔥',
+                title: 'Social Competition',
+                description: 'Sfida amici, crea team, domina le classifiche. Il fitness è più divertente insieme.',
+                gradient: 'from-purple-400 to-pink-500'
+              },
+              {
+                icon: '📱',
+                title: 'Cross-Platform',
+                description: 'Gioca su telefono, tablet o PC. I tuoi progressi ti seguono ovunque.',
+                gradient: 'from-cyan-400 to-blue-500'
+              },
+              {
+                icon: '🎮',
+                title: 'Gaming Experience',
+                description: 'Interfaccia gaming, effetti epici, progression system. Il fitness diventa un gioco.',
+                gradient: 'from-red-400 to-rose-500'
+              }
+            ].map((feature, index) => (
               <motion.div
-                key={battle}
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
+                key={index}
+                initial={{ opacity: 0, y: 50 }}
+                whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
                 whileHover={{ scale: 1.05, y: -10 }}
-                className="relative bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-6 border border-gray-700 hover:border-green-400 transition-all duration-300 cursor-pointer group"
+                className="relative group cursor-pointer"
               >
-                {/* Live Badge */}
-                <div className="absolute top-4 right-4 flex items-center gap-2">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                  </span>
-                  <span className="text-xs text-red-400 font-bold">LIVE</span>
-                </div>
-
-                {/* VS Match */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="text-center">
-                    <div className="w-16 h-16 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center text-2xl mb-2">
-                      {characters[index % 6].icon}
-                    </div>
-                    <p className="text-xs font-bold text-gray-400">Player{index + 1}</p>
+                <div className="bg-gray-900/50 backdrop-blur rounded-2xl p-8 border border-gray-800 hover:border-green-400 transition-all duration-300">
+                  {/* Icon with gradient background */}
+                  <div className={`w-24 h-24 bg-gradient-to-br ${feature.gradient} rounded-2xl flex items-center justify-center text-5xl mx-auto mb-6 shadow-2xl`}>
+                    {feature.icon}
                   </div>
                   
-                  <div className="text-2xl font-black text-green-400">VS</div>
+                  {/* Title */}
+                  <h3 className="text-2xl font-black mb-4 text-white">
+                    {feature.title}
+                  </h3>
                   
-                  <div className="text-center">
-                    <div className="w-16 h-16 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full flex items-center justify-center text-2xl mb-2">
-                      {characters[(index + 3) % 6].icon}
-                    </div>
-                    <p className="text-xs font-bold text-gray-400">Player{index + 7}</p>
-                  </div>
-                </div>
-
-                {/* Exercise Type */}
-                <div className="text-center mb-4">
-                  <p className="text-sm text-gray-500">SFIDA</p>
-                  <p className="text-lg font-bold text-white">
-                    {['Push-ups', 'Squats', 'Burpees', 'Plank', 'Jump Rope', 'Lunges'][index]}
+                  {/* Description */}
+                  <p className="text-gray-400 leading-relaxed">
+                    {feature.description}
                   </p>
                 </div>
-
-                {/* Progress Bar */}
-                <div className="relative h-2 bg-gray-700 rounded-full overflow-hidden">
-                  <motion.div
-                    className="absolute h-full bg-gradient-to-r from-green-400 to-blue-500"
-                    initial={{ width: '0%' }}
-                    animate={{ width: `${Math.random() * 100}%` }}
-                    transition={{ duration: 2, repeat: Infinity, repeatType: 'reverse' }}
-                  />
-                </div>
-
-                {/* Watch Button */}
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="w-full mt-4 py-2 bg-gray-800 group-hover:bg-green-400/20 border border-gray-700 group-hover:border-green-400 rounded-lg text-sm font-bold text-gray-400 group-hover:text-green-400 transition-all"
-                >
-                  GUARDA
-                </motion.button>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Original Sections with Enhanced Styling */}
-      <GameModesSection />
-      <BattlePassSection />
-      <LiveFeedSection />
-      <FeaturesSection />
+      {/* CTA and Footer */}
       <CTASection />
       <FooterSection />
     </div>
