@@ -8,79 +8,9 @@ import { useRouter } from 'next/navigation'
 import HeroSection from '@/components/landing/HeroSection'
 import GameModesSection from '@/components/landing/GameModesSection'
 import BattlePassSection from '@/components/landing/BattlePassSection'
-import LiveFeedSection from '@/components/landing/LiveFeedSection'
 import FeaturesSection from '@/components/landing/FeaturesSection'
-import { CTASection, FooterSection } from '@/components/landing/CTAFooter'
-
-// Character data with their specific classes and colors
-const characters = [
-  { 
-    id: 1, 
-    name: 'BULL RAGE', 
-    class: 'TITAN',
-    power: '+8% Push-ups, Pull-ups',
-    ability: 'POWER SURGE',
-    image: '/avatars/bull.png', 
-    color: 'from-red-600 to-orange-500',
-    glow: 'rgba(239, 68, 68, 0.5)',
-    icon: '🔥'
-  },
-  { 
-    id: 2, 
-    name: 'SPEED LEOPARD', 
-    class: 'SPEEDSTER',
-    power: '+8% Burpees, Cardio',
-    ability: 'RUSH HOUR (+7 sec)',
-    image: '/avatars/leopard.png', 
-    color: 'from-yellow-500 to-amber-500',
-    glow: 'rgba(250, 204, 21, 0.5)',
-    icon: '⚡'
-  },
-  { 
-    id: 3, 
-    name: 'SHADOW PANTHER', 
-    class: 'NINJA',
-    power: '+8% Jump Rope, Box Jumps',
-    ability: 'SWIFT STRIKE (x1.5)',
-    image: '/avatars/panther.png', 
-    color: 'from-purple-900 to-purple-600',
-    glow: 'rgba(147, 51, 234, 0.5)',
-    icon: '🥷'
-  },
-  { 
-    id: 4, 
-    name: 'STONE GORILLA', 
-    class: 'SAGE',
-    power: '+8% Plank, Wall Sit',
-    ability: 'INNER FOCUS',
-    image: '/avatars/gorilla.png', 
-    color: 'from-gray-600 to-cyan-500',
-    glow: 'rgba(6, 182, 212, 0.5)',
-    icon: '🦍'
-  },
-  { 
-    id: 5, 
-    name: 'CRUSHER CROCODILE', 
-    class: 'WARRIOR',
-    power: '+8% Squats, Lunges',
-    ability: 'LAST STAND (+30%)',
-    image: '/avatars/crocodile.png', 
-    color: 'from-green-600 to-emerald-500',
-    glow: 'rgba(34, 197, 94, 0.5)',
-    icon: '🐊'
-  },
-  { 
-    id: 6, 
-    name: 'CYBER SHARK', 
-    class: 'HYBRID',
-    power: '+5% Tutto, No Malus',
-    ability: 'ADAPT',
-    image: '/avatars/shark.png', 
-    color: 'from-blue-600 to-purple-600',
-    glow: 'rgba(79, 70, 229, 0.5)',
-    icon: '🦈'
-  }
-]
+import LiveFeedSection from '@/components/landing/LiveFeedSection'
+import CTAFooter from '@/components/landing/CTAFooter'
 
 export default function LandingPage() {
   const { scrollY } = useScroll()
@@ -88,50 +18,156 @@ export default function LandingPage() {
   const [activeCharacter, setActiveCharacter] = useState(0)
   const router = useRouter()
   
-  // Ref per lo scroll alla sezione
-  const howItWorksRef = useRef<HTMLDivElement>(null)
+  // Ref per la sezione "Come Funziona"
+  const howItWorksRef = useRef<HTMLElement>(null)
   
-  // Funzione per scrollare alla sezione
+  // Scroll to How It Works section
   const scrollToHowItWorks = () => {
     howItWorksRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
-  
-  // Parallax transforms
-  const backgroundParallax = useTransform(scrollY, [0, 1000], [0, 300])
-  
-  // Mouse tracking
+
+  // Characters data with bonuses
+  const characters = [
+    { 
+      id: 1, 
+      name: 'BULL RAGE', 
+      class: 'TITAN',
+      power: '+8% Push-ups, Pull-ups',
+      ability: 'POWER SURGE',
+      image: '/avatars/bull.png', 
+      color: 'from-red-600 to-orange-500',
+      glow: 'rgba(239, 68, 68, 0.5)',
+      description: 'Domina gli esercizi di forza pura'
+    },
+    { 
+      id: 2, 
+      name: 'SPEED LEOPARD', 
+      class: 'SPEEDSTER',
+      power: '+8% Burpees, Jumping Jacks',
+      ability: 'RUSH HOUR',
+      image: '/avatars/leopard.png', 
+      color: 'from-yellow-500 to-amber-500',
+      glow: 'rgba(251, 191, 36, 0.5)',
+      description: 'Velocità e resistenza imbattibili'
+    },
+    { 
+      id: 3, 
+      name: 'SHADOW PANTHER', 
+      class: 'NINJA',
+      power: '+8% Jump Rope, Box Jumps',
+      ability: 'SWIFT STRIKE',
+      image: '/avatars/panther.png', 
+      color: 'from-purple-600 to-pink-500',
+      glow: 'rgba(147, 51, 234, 0.5)',
+      description: 'Agilità e precisione letali'
+    },
+    { 
+      id: 4, 
+      name: 'STONE GORILLA', 
+      class: 'SAGE',
+      power: '+8% Plank, Wall Sit',
+      ability: 'INNER FOCUS',
+      image: '/avatars/gorilla.png', 
+      color: 'from-gray-600 to-cyan-500',
+      glow: 'rgba(107, 114, 128, 0.5)',
+      description: 'Stabilità e controllo assoluti'
+    },
+    { 
+      id: 5, 
+      name: 'CRUSHER CROCODILE', 
+      class: 'WARRIOR',
+      power: '+8% Squats, Lunges',
+      ability: 'LAST STAND',
+      image: '/avatars/crocodile.png', 
+      color: 'from-green-600 to-emerald-500',
+      glow: 'rgba(34, 197, 94, 0.5)',
+      description: 'Potenza devastante nelle gambe'
+    },
+    { 
+      id: 6, 
+      name: 'CYBER SHARK', 
+      class: 'HYBRID',
+      power: '+5% ALL STATS',
+      ability: 'ADAPT',
+      image: '/avatars/shark.png', 
+      color: 'from-blue-600 to-violet-500',
+      glow: 'rgba(59, 130, 246, 0.5)',
+      description: 'Versatile e imprevedibile'
+    }
+  ]
+
+  // Mouse tracking effect
   useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePosition({ x: e.clientX, y: e.clientY })
+    }
+    
     if (typeof window !== 'undefined') {
-      const handleMouseMove = (e: MouseEvent) => {
-        setMousePosition({ x: e.clientX, y: e.clientY })
-      }
       window.addEventListener('mousemove', handleMouseMove)
       return () => window.removeEventListener('mousemove', handleMouseMove)
     }
   }, [])
 
+  // Auto-rotate characters
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveCharacter((prev) => (prev + 1) % characters.length)
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [characters.length])
+
+  // Parallax transforms
+  const y1 = useTransform(scrollY, [0, 300], [0, -50])
+  const y2 = useTransform(scrollY, [0, 300], [0, -100])
+  const opacity = useTransform(scrollY, [0, 300], [1, 0.5])
+
   return (
-    <div className="min-h-screen bg-black text-white overflow-x-hidden">
-      {/* Hero Section Redesigned */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-gray-900 via-black to-gray-900">
-        {/* Animated Background Pattern */}
-        <div className="absolute inset-0 opacity-20">
-          <div 
-            className="absolute inset-0"
+    <div className="min-h-screen bg-black text-white overflow-hidden">
+      {/* Animated Background Grid */}
+      <motion.div 
+        className="fixed inset-0 opacity-30"
+        style={{
+          backgroundImage: `radial-gradient(circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(0, 255, 136, 0.15) 0%, transparent 50%)`,
+        }}
+      />
+      
+      <div className="fixed inset-0 bg-[url('/grid.svg')] bg-center opacity-10" />
+      
+      {/* Floating Particles */}
+      <div className="fixed inset-0">
+        {[...Array(20)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-1 h-1 bg-green-400 rounded-full"
             style={{
-              backgroundImage: `
-                linear-gradient(rgba(0, 255, 136, 0.1) 2px, transparent 2px),
-                linear-gradient(90deg, rgba(0, 136, 255, 0.1) 2px, transparent 2px)
-              `,
-              backgroundSize: '60px 60px',
-              transform: `translate(${mousePosition.x * 0.02}px, ${mousePosition.y * 0.02}px)`,
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+            }}
+            animate={{
+              y: [-20, -100],
+              opacity: [0, 1, 0],
+            }}
+            transition={{
+              duration: Math.random() * 5 + 5,
+              repeat: Infinity,
+              ease: "linear",
+              delay: Math.random() * 5,
             }}
           />
-        </div>
+        ))}
+      </div>
 
-        {/* Floating Orbs */}
-        <div className="absolute top-20 left-20 w-96 h-96 bg-green-400/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-20 right-20 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
+      {/* Hero Section with Fixed Background */}
+      <section className="relative min-h-screen flex items-center justify-center px-4 py-20">
+        {/* Background Image */}
+        <div className="absolute inset-0 z-0">
+          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black z-10" />
+          <img 
+            src="/exercises/fitness-hero.jpg" 
+            alt="Fitness Background"
+            className="w-full h-full object-cover"
+          />
+        </div>
 
         {/* Hero Content */}
         <div className="relative z-20 text-center px-4 max-w-7xl mx-auto">
@@ -140,81 +176,77 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: -30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="mb-12"
+            style={{ y: y1, opacity }}
           >
-            <h1 className="text-6xl md:text-8xl font-black mb-6">
-              <span className="bg-gradient-to-r from-green-400 via-blue-500 to-green-400 bg-clip-text text-transparent animate-gradient">
+            <h1 className="text-6xl md:text-8xl font-black mb-6 tracking-tighter">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-green-400 via-blue-500 to-purple-600">
                 FITDUEL
               </span>
+              <span className="block text-3xl md:text-4xl mt-2 text-white">
+                ARENA
+              </span>
             </h1>
-            
-            {/* Main Description - EMPHASIZED */}
-            <div className="bg-gradient-to-r from-green-400/20 to-blue-500/20 backdrop-blur rounded-3xl p-8 border-2 border-green-400/50 max-w-4xl mx-auto mb-8">
-              <p className="text-2xl md:text-3xl font-bold text-white mb-4">
-                🎮 SFIDA I TUOI AMICI IN BATTAGLIE FITNESS DI 30 SECONDI! 🎮
-              </p>
-              <p className="text-xl md:text-2xl text-gray-300">
-                Push-ups, Squats, Burpees e molto altro.
-              </p>
-              <p className="text-xl md:text-2xl text-green-400 font-bold mt-2">
-                L'AI conta le tue ripetizioni in tempo reale!
-              </p>
-            </div>
-
-            {/* Background Fitness Image */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.5 }}
-              className="relative w-full h-64 md:h-96 rounded-3xl overflow-hidden mb-8"
-            >
-              <Image
-                src="https://images.unsplash.com/photo-1517963879433-6ad2b056d712?w=1200&h=400&fit=crop"
-                alt="Fitness Battle"
-                fill
-                className="object-cover opacity-40"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
-              <div className="absolute bottom-8 left-0 right-0">
-                <p className="text-3xl font-black text-white">
-                  TRASFORMA IL FITNESS IN UN GIOCO EPICO
-                </p>
-              </div>
-            </motion.div>
           </motion.div>
 
-          {/* CTA Buttons */}
+          {/* Main Description Box */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.3, duration: 0.6 }}
+            className="mb-12 max-w-3xl mx-auto"
+          >
+            <div className="bg-gradient-to-r from-green-500/20 to-blue-500/20 backdrop-blur-md 
+              rounded-2xl p-6 border-2 border-green-400/50 shadow-2xl shadow-green-500/20">
+              <p className="text-xl md:text-3xl font-bold text-white leading-relaxed">
+                🔥 Sfida i tuoi amici in battaglie fitness di 30 secondi!
+              </p>
+              <p className="text-lg md:text-xl text-green-300 mt-2">
+                Push-ups, Squats, Burpees e molto altro.
+              </p>
+              <p className="text-lg md:text-xl text-blue-300">
+                L'AI conta le tue ripetizioni. Vinci e domina la classifica!
+              </p>
+            </div>
+          </motion.div>
+
+          {/* CTA Buttons - FIXED: Now go to login/register */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center"
+            transition={{ delay: 0.6, duration: 0.6 }}
+            className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-12"
           >
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => router.push('/auth')}
-              className="relative group px-12 py-6 bg-gradient-to-r from-green-400 to-blue-500 rounded-full text-2xl font-black text-black overflow-hidden shadow-2xl"
+              onClick={() => router.push('/login')}
+              className="px-12 py-6 bg-gradient-to-r from-green-500 to-emerald-500 
+                rounded-full text-xl font-bold text-white shadow-2xl 
+                hover:shadow-green-500/50 transition-all duration-300"
             >
-              <span className="relative z-10">INIZIA GRATIS</span>
-              <motion.div
-                className="absolute inset-0 bg-white"
-                initial={{ x: '-100%' }}
-                whileHover={{ x: '100%' }}
-                transition={{ duration: 0.5 }}
-                style={{ opacity: 0.2 }}
-              />
+              INIZIA ORA
             </motion.button>
             
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={scrollToHowItWorks}
-              className="px-12 py-6 border-2 border-green-400 rounded-full text-xl font-bold text-green-400 hover:bg-green-400/10 transition-colors"
+              onClick={() => router.push('/register')}
+              className="px-12 py-6 border-2 border-green-400 rounded-full text-xl font-bold text-green-400 
+                hover:bg-green-400/10 transition-all duration-300"
             >
-              COME FUNZIONA
+              REGISTRATI
             </motion.button>
           </motion.div>
+
+          {/* Motivational Text */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.9 }}
+            className="text-gray-400 text-lg"
+          >
+            Unisciti a <span className="text-green-400 font-bold">10.000+</span> atleti digitali
+          </motion.p>
         </div>
       </section>
 
@@ -228,222 +260,153 @@ export default function LandingPage() {
             className="text-center mb-16"
           >
             <h2 className="text-5xl md:text-6xl font-black mb-4">
-              <span className="bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-blue-500">
                 COME FUNZIONA FITDUEL
               </span>
             </h2>
-            <p className="text-xl text-gray-400 max-w-3xl mx-auto">
-              Trasforma il fitness in un gioco epico. Ecco come iniziare la tua avventura!
-            </p>
+            <p className="text-xl text-gray-400">Il fitness gaming che ti farà sudare davvero!</p>
           </motion.div>
 
-          {/* Step by Step Guide */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              className="relative"
-            >
-              <div className="bg-gradient-to-br from-green-400/20 to-transparent backdrop-blur rounded-3xl p-8 border border-green-400/30 h-full">
-                <div className="text-6xl mb-4">1️⃣</div>
-                <h3 className="text-2xl font-bold text-green-400 mb-3">REGISTRATI</h3>
-                <p className="text-gray-400">
-                  Crea il tuo account in 30 secondi. Scegli username e sei subito pronto!
-                </p>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
-              className="relative"
-            >
-              <div className="bg-gradient-to-br from-blue-400/20 to-transparent backdrop-blur rounded-3xl p-8 border border-blue-400/30 h-full">
-                <div className="text-6xl mb-4">2️⃣</div>
-                <h3 className="text-2xl font-bold text-blue-400 mb-3">SCEGLI L'AVATAR</h3>
-                <p className="text-gray-400">
-                  6 personaggi unici con bonus specifici. Trova quello che si adatta al tuo stile!
-                </p>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.3 }}
-              className="relative"
-            >
-              <div className="bg-gradient-to-br from-purple-400/20 to-transparent backdrop-blur rounded-3xl p-8 border border-purple-400/30 h-full">
-                <div className="text-6xl mb-4">3️⃣</div>
-                <h3 className="text-2xl font-bold text-purple-400 mb-3">LANCIA SFIDE</h3>
-                <p className="text-gray-400">
-                  Sfida amici o avversari casuali. 30 secondi di pura adrenalina!
-                </p>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.4 }}
-              className="relative"
-            >
-              <div className="bg-gradient-to-br from-yellow-400/20 to-transparent backdrop-blur rounded-3xl p-8 border border-yellow-400/30 h-full">
-                <div className="text-6xl mb-4">4️⃣</div>
-                <h3 className="text-2xl font-bold text-yellow-400 mb-3">VINCI E SALI</h3>
-                <p className="text-gray-400">
-                  Guadagna XP, sali di livello, scala le classifiche e diventa una leggenda!
-                </p>
-              </div>
-            </motion.div>
+          {/* Steps Grid */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+            {[
+              { 
+                step: '01', 
+                title: 'REGISTRATI', 
+                desc: 'Crea il tuo account gratuito in 30 secondi', 
+                icon: '📝',
+                color: 'from-green-500 to-emerald-500' 
+              },
+              { 
+                step: '02', 
+                title: 'SCEGLI AVATAR', 
+                desc: 'Seleziona il tuo guerriero e sblocca i bonus', 
+                icon: '🎮',
+                color: 'from-blue-500 to-cyan-500' 
+              },
+              { 
+                step: '03', 
+                title: 'LANCIA SFIDE', 
+                desc: '30 secondi di pura adrenalina fitness', 
+                icon: '⚔️',
+                color: 'from-purple-500 to-pink-500' 
+              },
+              { 
+                step: '04', 
+                title: 'VINCI REWARDS', 
+                desc: 'Accumula XP, sblocca skin e domina', 
+                icon: '🏆',
+                color: 'from-yellow-500 to-orange-500' 
+              }
+            ].map((item, index) => (
+              <motion.div
+                key={item.step}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                viewport={{ once: true }}
+                className="relative group"
+              >
+                <div className="bg-gray-900/50 backdrop-blur rounded-2xl p-6 border border-gray-800 
+                  hover:border-green-500/50 transition-all duration-300 h-full">
+                  <div className={`bg-gradient-to-r ${item.color} text-transparent bg-clip-text 
+                    text-6xl font-black mb-2`}>
+                    {item.step}
+                  </div>
+                  <div className="text-4xl mb-3">{item.icon}</div>
+                  <h3 className="text-xl font-bold text-white mb-2">{item.title}</h3>
+                  <p className="text-gray-400 text-sm">{item.desc}</p>
+                </div>
+              </motion.div>
+            ))}
           </div>
 
-          {/* AI Tracking Explanation */}
+          {/* AI Tracking Section */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
-            className="bg-gradient-to-r from-green-400/10 to-blue-500/10 rounded-3xl p-12 border border-green-400/30 mb-16"
+            className="bg-gradient-to-r from-green-900/20 to-blue-900/20 rounded-3xl p-8 md:p-12 
+              border border-green-500/30 mb-12"
           >
-            <div className="grid md:grid-cols-2 gap-12 items-center">
+            <div className="grid md:grid-cols-2 gap-8 items-center">
               <div>
-                <h3 className="text-3xl font-black text-white mb-6">
-                  🤖 AI TRACKING RIVOLUZIONARIO
+                <h3 className="text-3xl font-bold text-white mb-4">
+                  🤖 AI TRACKING INTELLIGENTE
                 </h3>
-                <ul className="space-y-4">
+                <ul className="space-y-3 text-gray-300">
                   <li className="flex items-start gap-3">
                     <span className="text-green-400 text-xl">✓</span>
-                    <p className="text-gray-300">
-                      <strong className="text-white">Conta automatica:</strong> L'AI riconosce e conta ogni ripetizione
-                    </p>
+                    <span>Riconoscimento automatico degli esercizi</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="text-green-400 text-xl">✓</span>
-                    <p className="text-gray-300">
-                      <strong className="text-white">Valutazione forma:</strong> Ricevi feedback sulla correttezza dell'esecuzione
-                    </p>
+                    <span>Conteggio preciso delle ripetizioni</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="text-green-400 text-xl">✓</span>
-                    <p className="text-gray-300">
-                      <strong className="text-white">Zero trucchi:</strong> Impossibile barare, solo skill reale conta
-                    </p>
+                    <span>Valutazione della forma in tempo reale</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="text-green-400 text-xl">✓</span>
-                    <p className="text-gray-300">
-                      <strong className="text-white">Privacy garantita:</strong> Tutto processato localmente sul tuo dispositivo
-                    </p>
+                    <span>Nessun dispositivo esterno richiesto</span>
                   </li>
                 </ul>
               </div>
               <div className="relative">
-                <div className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl p-8 transform rotate-3 hover:rotate-0 transition-transform duration-300">
-                  <div className="text-center">
-                    <div className="text-8xl mb-4">📸</div>
-                    <p className="text-xl font-bold text-white">
-                      Posiziona il telefono, inizia l'esercizio e l'AI fa il resto!
-                    </p>
-                  </div>
+                <div className="aspect-video bg-gradient-to-br from-green-500/20 to-blue-500/20 
+                  rounded-2xl flex items-center justify-center border border-green-500/30">
+                  <span className="text-6xl">📹</span>
                 </div>
               </div>
             </div>
           </motion.div>
 
-          {/* XP and Rewards System */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="mb-16"
-          >
-            <h3 className="text-3xl font-black text-center text-white mb-12">
-              SISTEMA RICOMPENSE
-            </h3>
+          {/* Rewards System */}
+          <div className="grid md:grid-cols-3 gap-6">
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="bg-gray-900/50 backdrop-blur rounded-2xl p-6 border border-yellow-500/30"
+            >
+              <div className="text-4xl mb-3">⭐</div>
+              <h3 className="text-xl font-bold text-yellow-400 mb-2">XP & LIVELLI</h3>
+              <p className="text-gray-400 text-sm">
+                Ogni rep conta! Accumula esperienza e sali di livello
+              </p>
+            </motion.div>
             
-            <div className="grid md:grid-cols-3 gap-8">
-              <div className="bg-gray-900/50 backdrop-blur rounded-2xl p-8 border border-gray-800">
-                <div className="text-4xl mb-4">⭐</div>
-                <h4 className="text-xl font-bold text-green-400 mb-3">XP & LIVELLI</h4>
-                <ul className="space-y-2 text-gray-400">
-                  <li>• Sfida completata: +50 XP</li>
-                  <li>• Vittoria: +100 XP</li>
-                  <li>• Form perfetta: +150 XP</li>
-                  <li>• Streak giornaliero: +200 XP</li>
-                </ul>
-              </div>
-
-              <div className="bg-gray-900/50 backdrop-blur rounded-2xl p-8 border border-gray-800">
-                <div className="text-4xl mb-4">🏅</div>
-                <h4 className="text-xl font-bold text-blue-400 mb-3">BADGE & TITOLI</h4>
-                <ul className="space-y-2 text-gray-400">
-                  <li>• "Prima Vittoria"</li>
-                  <li>• "7 Giorni di Fila"</li>
-                  <li>• "Maestro del Plank"</li>
-                  <li>• "Leggenda Fitness"</li>
-                </ul>
-              </div>
-
-              <div className="bg-gray-900/50 backdrop-blur rounded-2xl p-8 border border-gray-800">
-                <div className="text-4xl mb-4">🎨</div>
-                <h4 className="text-xl font-bold text-purple-400 mb-3">SKIN & AVATAR</h4>
-                <ul className="space-y-2 text-gray-400">
-                  <li>• Personalizzazioni esclusive</li>
-                  <li>• Effetti speciali vittoria</li>
-                  <li>• Cornici profilo uniche</li>
-                  <li>• Emote personalizzate</li>
-                </ul>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Game Modes Quick Overview */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center"
-          >
-            <h3 className="text-3xl font-black text-center text-white mb-8">
-              MODALITÀ DI GIOCO
-            </h3>
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="bg-gray-900/50 backdrop-blur rounded-2xl p-6 border border-purple-500/30"
+            >
+              <div className="text-4xl mb-3">🏅</div>
+              <h3 className="text-xl font-bold text-purple-400 mb-2">BADGE ESCLUSIVI</h3>
+              <p className="text-gray-400 text-sm">
+                Sblocca achievement e mostra i tuoi trofei
+              </p>
+            </motion.div>
             
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
-              <div className="bg-gradient-to-br from-yellow-600/20 to-transparent backdrop-blur rounded-xl p-4 border border-yellow-600/30">
-                <div className="text-3xl mb-2">⚡</div>
-                <p className="font-bold text-yellow-400">1v1 LAMPO</p>
-                <p className="text-xs text-gray-400">30 secondi</p>
-              </div>
-              
-              <div className="bg-gradient-to-br from-blue-600/20 to-transparent backdrop-blur rounded-xl p-4 border border-blue-600/30">
-                <div className="text-3xl mb-2">👥</div>
-                <p className="font-bold text-blue-400">TEAM 3v3</p>
-                <p className="text-xs text-gray-400">5 minuti</p>
-              </div>
-              
-              <div className="bg-gradient-to-br from-purple-600/20 to-transparent backdrop-blur rounded-xl p-4 border border-purple-600/30">
-                <div className="text-3xl mb-2">🏆</div>
-                <p className="font-bold text-purple-400">TORNEO</p>
-                <p className="text-xs text-gray-400">Daily</p>
-              </div>
-              
-              <div className="bg-gradient-to-br from-green-600/20 to-transparent backdrop-blur rounded-xl p-4 border border-green-600/30">
-                <div className="text-3xl mb-2">🎯</div>
-                <p className="font-bold text-green-400">MISSIONI</p>
-                <p className="text-xs text-gray-400">Solo</p>
-              </div>
-            </div>
-          </motion.div>
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="bg-gray-900/50 backdrop-blur rounded-2xl p-6 border border-blue-500/30"
+            >
+              <div className="text-4xl mb-3">👕</div>
+              <h3 className="text-xl font-bold text-blue-400 mb-2">SKIN AVATAR</h3>
+              <p className="text-gray-400 text-sm">
+                Personalizza il tuo guerriero con skin epiche
+              </p>
+            </motion.div>
+          </div>
         </div>
       </section>
 
-      {/* Avatar Selection Section */}
+      {/* Characters Section */}
       <section className="py-24 px-4 bg-gradient-to-b from-black to-gray-900">
         <div className="max-w-7xl mx-auto">
           <motion.div
@@ -452,82 +415,116 @@ export default function LandingPage() {
             viewport={{ once: true }}
             className="text-center mb-12"
           >
-            <h2 className="text-5xl font-black mb-4">
-              <span className="bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
+            <h2 className="text-5xl md:text-6xl font-black mb-4">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-blue-500">
                 SCEGLI IL TUO AVATAR
               </span>
             </h2>
-            <p className="text-xl text-gray-400">
-              Ogni avatar ha bonus unici per diversi esercizi. Scegli la tua strategia!
-            </p>
+            <p className="text-xl text-gray-400">E sfrutta i suoi bonus unici durante le sfide!</p>
           </motion.div>
 
-          {/* Character Grid */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.2 }}
-            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 max-w-6xl mx-auto"
-          >
+          {/* Characters Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-12">
             {characters.map((char, index) => (
               <motion.div
                 key={char.id}
-                whileHover={{ scale: 1.05, y: -10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                initial={{ opacity: 0, y: 50 }}
-                viewport={{ once: true }}
+                initial={{ opacity: 0, scale: 0.8 }}
+                whileInView={{ opacity: 1, scale: 1 }}
                 transition={{ delay: index * 0.1 }}
+                viewport={{ once: true }}
+                whileHover={{ scale: 1.05, y: -10 }}
                 onClick={() => setActiveCharacter(index)}
-                className={`relative cursor-pointer ${
-                  activeCharacter === index ? 'ring-2 ring-green-400' : ''
-                }`}
+                className={`relative cursor-pointer group ${
+                  activeCharacter === index ? 'ring-4 ring-green-400' : ''
+                } rounded-2xl overflow-hidden`}
               >
-                <div className={`bg-gradient-to-br ${char.color} rounded-2xl p-4 transform transition-all duration-300 hover:shadow-2xl`}
-                  style={{
-                    boxShadow: activeCharacter === index ? `0 20px 40px ${char.glow}` : '',
-                  }}
-                >
-                  {/* Character Image */}
-                  <div className="relative h-32 mb-3">
-                    <Image
-                      src={char.image}
-                      alt={char.name}
-                      fill
-                      className="object-contain"
-                    />
+                <div className={`absolute inset-0 bg-gradient-to-br ${char.color} opacity-20 
+                  group-hover:opacity-40 transition-opacity`} />
+                
+                <div className="bg-gray-900/80 backdrop-blur p-4 border border-gray-800 
+                  hover:border-green-500/50 transition-all rounded-2xl">
+                  {/* Character Avatar */}
+                  <div className="aspect-square bg-gradient-to-br from-gray-800 to-gray-900 
+                    rounded-xl mb-3 flex items-center justify-center text-6xl">
+                    {char.image ? '🎮' : char.name[0]}
                   </div>
                   
                   {/* Character Info */}
                   <h3 className="text-sm font-black text-white mb-1">{char.name}</h3>
                   <p className="text-xs text-white/80 mb-1">{char.power}</p>
-                  <p className="text-xs text-yellow-300 font-bold">{char.ability}</p>
-                  
-                  {/* Class Badge */}
-                  <div className="mt-2 bg-black/30 rounded-full px-2 py-1">
-                    <span className="text-xs font-bold">{char.class}</span>
-                  </div>
+                  <p className="text-xs text-yellow-400 font-bold">{char.ability}</p>
                 </div>
               </motion.div>
             ))}
+          </div>
+
+          {/* Active Character Details */}
+          <motion.div
+            key={activeCharacter}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gradient-to-r from-gray-900/50 to-gray-800/50 backdrop-blur 
+              rounded-3xl p-8 border border-green-500/30"
+          >
+            <div className="grid md:grid-cols-2 gap-8 items-center">
+              <div>
+                <h3 className={`text-3xl font-black bg-gradient-to-r ${characters[activeCharacter].color} 
+                  bg-clip-text text-transparent mb-2`}>
+                  {characters[activeCharacter].name}
+                </h3>
+                <p className="text-xl text-white mb-4">
+                  Classe: {characters[activeCharacter].class}
+                </p>
+                <p className="text-gray-300 mb-4">
+                  {characters[activeCharacter].description}
+                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <span className="text-green-400">💪 Bonus:</span>
+                    <span className="text-white">{characters[activeCharacter].power}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-yellow-400">⚡ Abilità:</span>
+                    <span className="text-white">{characters[activeCharacter].ability}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-center">
+                <motion.div
+                  animate={{ 
+                    y: [0, -10, 0],
+                    rotate: [0, 5, -5, 0]
+                  }}
+                  transition={{ 
+                    duration: 4,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                  className="text-9xl"
+                >
+                  🎮
+                </motion.div>
+              </div>
+            </div>
           </motion.div>
         </div>
       </section>
 
-      {/* Why FitDuel Section - Right After Avatars */}
+      {/* Why FitDuel Section */}
       <section className="py-24 px-4 bg-gradient-to-b from-gray-900 to-black">
         <div className="max-w-7xl mx-auto">
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-5xl font-black text-center mb-16"
+            className="text-5xl md:text-6xl font-black text-center mb-12"
           >
-            <span className="bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-blue-500">
               PERCHÉ FITDUEL?
             </span>
           </motion.h2>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
               {
                 icon: '💪',
@@ -538,76 +535,64 @@ export default function LandingPage() {
               },
               {
                 icon: '🦵',
-                title: 'Squats Challenge',
-                description: 'Gambe di ferro? Dimostralo! Squat perfetti contati dalla nostra AI.',
-                gradient: 'from-blue-400 to-purple-500',
+                title: 'Squats Challenge', 
+                description: 'Gambe d\'acciaio? Dimostralo! Squat perfetti contati dall\'AI.',
+                gradient: 'from-blue-400 to-cyan-500',
                 image: '/exercises/squats.jpg'
               },
               {
-                icon: '🏃',
+                icon: '🔥',
                 title: 'Burpees Madness',
-                description: 'L\'esercizio più temuto diventa una sfida epica. Resistenza al massimo!',
-                gradient: 'from-green-400 to-emerald-500',
+                description: 'L\'esercizio definitivo per i veri guerrieri. Resisti o soccumbi!',
+                gradient: 'from-yellow-400 to-amber-500',
                 image: '/exercises/burpees.jpg'
               },
               {
-                icon: '⏱️',
+                icon: '🧘',
                 title: 'Plank Hold',
-                description: 'Core di acciaio? Tieni la posizione più a lungo del tuo avversario!',
+                description: 'Stabilità e resistenza. Mantieni la posizione più a lungo del tuo avversario.',
                 gradient: 'from-purple-400 to-pink-500',
                 image: '/exercises/plank.jpg'
               },
               {
-                icon: '🤸',
+                icon: '⚡',
                 title: 'Jumping Jacks',
-                description: 'Velocità e coordinazione. Ogni ripetizione conta per la vittoria!',
-                gradient: 'from-cyan-400 to-blue-500',
+                description: 'Velocità e coordinazione. Ogni movimento conta nel punteggio finale.',
+                gradient: 'from-green-400 to-emerald-500',
                 image: '/exercises/jumping-jacks.jpg'
               },
               {
-                icon: '💥',
-                title: 'Avatar Power-Up',
-                description: 'Ogni avatar ha bonus unici per diversi esercizi. Scegli la tua strategia!',
-                gradient: 'from-yellow-400 to-red-500',
+                icon: '🎯',
+                title: 'Avatar Bonus',
+                description: 'Ogni personaggio ha bonus unici. Scegli la strategia vincente!',
+                gradient: 'from-indigo-400 to-violet-500',
                 image: '/graphics/power-bonus.png'
               }
             ].map((feature, index) => (
               <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 50 }}
+                key={feature.title}
+                initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
-                whileHover={{ scale: 1.05, y: -10 }}
-                className="relative group cursor-pointer"
+                viewport={{ once: true }}
+                whileHover={{ scale: 1.05 }}
+                className="relative group overflow-hidden rounded-2xl"
               >
-                <div className="bg-gray-900/50 backdrop-blur rounded-2xl overflow-hidden border border-gray-800 hover:border-green-400 transition-all duration-300">
-                  {/* Exercise Image */}
-                  <div className="relative h-48 overflow-hidden">
-                    <Image
-                      src={feature.image}
-                      alt={feature.title}
-                      fill
-                      className="object-cover group-hover:scale-110 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                    {/* Icon overlay */}
-                    <div className={`absolute bottom-4 left-4 w-16 h-16 bg-gradient-to-br ${feature.gradient} rounded-xl flex items-center justify-center text-3xl shadow-2xl`}>
-                      {feature.icon}
-                    </div>
+                <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-black opacity-90 z-10" />
+                <div className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} opacity-20 
+                  group-hover:opacity-30 transition-opacity z-20`} />
+                
+                {/* Background Image */}
+                {feature.image && (
+                  <div className="absolute inset-0">
+                    <div className="w-full h-full bg-gray-800" />
                   </div>
-                  
-                  <div className="p-6">
-                    {/* Title */}
-                    <h3 className="text-2xl font-black mb-3 text-white">
-                      {feature.title}
-                    </h3>
-                    
-                    {/* Description */}
-                    <p className="text-gray-400 leading-relaxed">
-                      {feature.description}
-                    </p>
-                  </div>
+                )}
+                
+                <div className="relative z-30 p-6">
+                  <div className="text-5xl mb-4">{feature.icon}</div>
+                  <h3 className="text-xl font-bold text-white mb-2">{feature.title}</h3>
+                  <p className="text-gray-300 text-sm">{feature.description}</p>
                 </div>
               </motion.div>
             ))}
@@ -615,255 +600,285 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Game Modes Section - ENHANCED */}
+      {/* Game Modes Section - Enhanced */}
       <section className="py-24 px-4 bg-gradient-to-b from-black to-gray-900">
         <div className="max-w-7xl mx-auto">
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-5xl md:text-6xl font-black text-center mb-16"
+            className="text-5xl md:text-6xl font-black text-center mb-4"
           >
-            <span className="bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
-              MODALITÀ DI GIOCO EPICHE
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-blue-500">
+              MODALITÀ DI GIOCO
             </span>
           </motion.h2>
+          
+          <p className="text-xl text-gray-400 text-center mb-12">
+            Scegli la tua battaglia e domina l'arena!
+          </p>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {/* Sfida Lampo */}
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              whileHover={{ scale: 1.05, y: -10 }}
-              className="relative group cursor-pointer"
-            >
-              <div className="relative h-96 rounded-3xl overflow-hidden bg-gradient-to-br from-yellow-600 to-orange-600 shadow-2xl">
-                <div className="absolute inset-0 flex items-center justify-center">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              {
+                icon: '⚡',
+                title: 'SFIDA LAMPO',
+                subtitle: '1v1 • 30 secondi',
+                description: 'Duello rapido con matchmaking istantaneo',
+                gradient: 'from-yellow-500 to-orange-500',
+                xp: '+150 XP',
+                players: '2.3K online'
+              },
+              {
+                icon: '👥',
+                title: 'TEAM BATTLE',
+                subtitle: '3v3 • 5 minuti',
+                description: 'Squadra contro squadra, coordinazione è tutto',
+                gradient: 'from-blue-500 to-cyan-500',
+                xp: '+300 XP',
+                players: '1.8K online'
+              },
+              {
+                icon: '🏆',
+                title: 'TORNEO DAILY',
+                subtitle: '100 players • 24h',
+                description: 'Scala la classifica e vinci premi esclusivi',
+                gradient: 'from-purple-500 to-pink-500',
+                xp: '+500 XP',
+                players: '5.2K online'
+              },
+              {
+                icon: '🎯',
+                title: 'MISSIONI SOLO',
+                subtitle: 'PvE • Vari',
+                description: 'Completa obiettivi e sblocca ricompense',
+                gradient: 'from-green-500 to-emerald-500',
+                xp: '+200 XP',
+                players: '3.1K online'
+              }
+            ].map((mode, index) => (
+              <motion.div
+                key={mode.title}
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                transition={{ delay: index * 0.1 }}
+                viewport={{ once: true }}
+                whileHover={{ scale: 1.05, y: -10 }}
+                className="relative group h-96"
+              >
+                <div className={`absolute inset-0 bg-gradient-to-br ${mode.gradient} opacity-10 
+                  group-hover:opacity-20 transition-opacity rounded-3xl`} />
+                
+                <div className="h-full bg-gray-900/80 backdrop-blur border border-gray-800 
+                  hover:border-green-500/50 transition-all rounded-3xl p-6 flex flex-col">
+                  {/* Icon */}
                   <motion.div 
-                    className="text-9xl"
+                    className="text-8xl mb-4 mx-auto"
                     animate={{ 
-                      scale: [1, 1.1, 1],
-                      rotate: [0, 5, -5, 0]
+                      rotate: [0, 10, -10, 0],
+                      scale: [1, 1.1, 1]
                     }}
-                    transition={{ duration: 3, repeat: Infinity }}
-                  >
-                    ⚡
-                  </motion.div>
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
-                <div className="absolute bottom-0 p-8">
-                  <h3 className="text-3xl font-black text-yellow-400 mb-3">SFIDA LAMPO</h3>
-                  <p className="text-sm text-white/90 font-bold mb-3">1 VS 1 • 30 SECONDI</p>
-                  <p className="text-base text-gray-300">Sfida istantanea contro un amico. Chi fa più ripetizioni vince!</p>
-                  <motion.div
-                    className="mt-4 bg-yellow-400/20 rounded-full px-4 py-2 inline-block"
-                    whileHover={{ scale: 1.1 }}
-                  >
-                    <span className="text-yellow-400 font-bold">GIOCA ORA →</span>
-                  </motion.div>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Team Battle */}
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              whileHover={{ scale: 1.05, y: -10 }}
-              className="relative group cursor-pointer"
-            >
-              <div className="relative h-96 rounded-3xl overflow-hidden bg-gradient-to-br from-blue-600 to-cyan-600 shadow-2xl">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <motion.div 
-                    className="text-9xl"
-                    animate={{ 
-                      y: [0, -10, 0]
+                    transition={{ 
+                      duration: 3,
+                      repeat: Infinity,
+                      delay: index * 0.2
                     }}
-                    transition={{ duration: 2, repeat: Infinity }}
                   >
-                    👥
+                    {mode.icon}
                   </motion.div>
+                  
+                  {/* Content */}
+                  <h3 className="text-xl font-black text-white mb-1">{mode.title}</h3>
+                  <p className="text-sm text-gray-400 mb-2">{mode.subtitle}</p>
+                  <p className="text-xs text-gray-500 mb-4 flex-grow">{mode.description}</p>
+                  
+                  {/* Stats */}
+                  <div className="space-y-2 mb-4">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Reward:</span>
+                      <span className="text-yellow-400 font-bold">{mode.xp}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Online:</span>
+                      <span className="text-green-400 font-bold">{mode.players}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Play Button */}
+                  <button className="w-full py-3 bg-gradient-to-r from-green-500 to-blue-500 
+                    rounded-xl text-white font-bold opacity-0 group-hover:opacity-100 
+                    transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
+                    GIOCA ORA
+                  </button>
                 </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
-                <div className="absolute bottom-0 p-8">
-                  <h3 className="text-3xl font-black text-blue-400 mb-3">TEAM BATTLE</h3>
-                  <p className="text-sm text-white/90 font-bold mb-3">3 VS 3 • 5 MINUTI</p>
-                  <p className="text-base text-gray-300">Crea il tuo team e domina. Punti doppi per le vittorie!</p>
-                  <motion.div
-                    className="mt-4 bg-blue-400/20 rounded-full px-4 py-2 inline-block"
-                    whileHover={{ scale: 1.1 }}
-                  >
-                    <span className="text-blue-400 font-bold">CREA TEAM →</span>
-                  </motion.div>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Torneo Daily */}
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
-              whileHover={{ scale: 1.05, y: -10 }}
-              className="relative group cursor-pointer"
-            >
-              <div className="relative h-96 rounded-3xl overflow-hidden bg-gradient-to-br from-purple-600 to-pink-600 shadow-2xl">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <motion.div 
-                    className="text-9xl"
-                    animate={{ 
-                      rotate: [0, 360]
-                    }}
-                    transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                  >
-                    🏆
-                  </motion.div>
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
-                <div className="absolute bottom-0 p-8">
-                  <h3 className="text-3xl font-black text-purple-400 mb-3">TORNEO DAILY</h3>
-                  <p className="text-sm text-white/90 font-bold mb-3">100 PLAYERS • TUTTO IL GIORNO</p>
-                  <p className="text-base text-gray-300">Accumula punti. Top 3 vincono premi esclusivi!</p>
-                  <motion.div
-                    className="mt-4 bg-purple-400/20 rounded-full px-4 py-2 inline-block"
-                    whileHover={{ scale: 1.1 }}
-                  >
-                    <span className="text-purple-400 font-bold">ENTRA →</span>
-                  </motion.div>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Missioni Solo */}
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.3 }}
-              whileHover={{ scale: 1.05, y: -10 }}
-              className="relative group cursor-pointer"
-            >
-              <div className="relative h-96 rounded-3xl overflow-hidden bg-gradient-to-br from-green-600 to-emerald-600 shadow-2xl">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <motion.div 
-                    className="text-9xl"
-                    animate={{ 
-                      scale: [1, 1.2, 1]
-                    }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  >
-                    🎯
-                  </motion.div>
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
-                <div className="absolute bottom-0 p-8">
-                  <h3 className="text-3xl font-black text-green-400 mb-3">MISSIONI SOLO</h3>
-                  <p className="text-sm text-white/90 font-bold mb-3">SINGLE PLAYER • QUANDO VUOI</p>
-                  <p className="text-base text-gray-300">Completa missioni e sblocca rewards epici!</p>
-                  <motion.div
-                    className="mt-4 bg-green-400/20 rounded-full px-4 py-2 inline-block"
-                    whileHover={{ scale: 1.1 }}
-                  >
-                    <span className="text-green-400 font-bold">INIZIA →</span>
-                  </motion.div>
-                </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* Battle Pass Section */}
-      <BattlePassSection />
-
-      {/* Live Feed Section */}
-      <LiveFeedSection />
-
-      {/* Motivational CTA Section */}
       <section className="py-24 px-4 bg-gradient-to-b from-gray-900 to-black">
         <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-5xl md:text-6xl font-black mb-4">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-orange-500">
+                BATTLE PASS
+              </span>
+            </h2>
+            <p className="text-xl text-gray-400">Sblocca ricompense esclusive ogni settimana!</p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { level: 1, reward: '100 Coins', icon: '🪙', rarity: 'common' },
+              { level: 5, reward: 'Skin Bull Rage', icon: '🎨', rarity: 'rare' },
+              { level: 10, reward: 'Emote Victory', icon: '🎉', rarity: 'epic' },
+              { level: 15, reward: 'Title Champion', icon: '👑', rarity: 'legendary' },
+              { level: 20, reward: '500 Gems', icon: '💎', rarity: 'epic' },
+              { level: 25, reward: 'Avatar Frame', icon: '🖼️', rarity: 'rare' },
+              { level: 30, reward: 'Skin Cyber', icon: '🤖', rarity: 'legendary' },
+              { level: 35, reward: 'Premium Pass', icon: '🎫', rarity: 'legendary' }
+            ].map((item, index) => (
+              <motion.div
+                key={item.level}
+                initial={{ opacity: 0, scale: 0.8 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                transition={{ delay: index * 0.05 }}
+                viewport={{ once: true }}
+                whileHover={{ scale: 1.05 }}
+                className={`relative p-4 rounded-xl border-2 ${
+                  item.rarity === 'legendary' ? 'border-yellow-500 bg-yellow-900/20' :
+                  item.rarity === 'epic' ? 'border-purple-500 bg-purple-900/20' :
+                  item.rarity === 'rare' ? 'border-blue-500 bg-blue-900/20' :
+                  'border-gray-600 bg-gray-900/20'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">Level {item.level}</p>
+                    <p className="text-sm font-bold text-white">{item.reward}</p>
+                  </div>
+                  <div className="text-3xl">{item.icon}</div>
+                </div>
+                {item.rarity === 'legendary' && (
+                  <div className="absolute -top-2 -right-2 bg-yellow-500 text-black text-xs 
+                    font-bold px-2 py-1 rounded">
+                    PREMIUM
+                  </div>
+                )}
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Motivational CTA Section */}
+      <section className="py-24 px-4 bg-gradient-to-b from-black to-gray-900">
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-6xl md:text-7xl font-black mb-8">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-red-500 via-yellow-500 to-green-500">
+                SEI PRONTO A DOMINARE?
+              </span>
+            </h2>
+          </motion.div>
+
+          <div className="grid md:grid-cols-3 gap-8 mb-12">
+            {[
+              {
+                title: 'NO EXCUSES',
+                desc: 'Solo 30 secondi ti separano dalla vittoria',
+                icon: '💀',
+                color: 'from-red-500 to-orange-500'
+              },
+              {
+                title: 'LEVEL UP',
+                desc: 'Ogni rep ti rende più forte',
+                icon: '📈',
+                color: 'from-green-500 to-emerald-500'
+              },
+              {
+                title: 'BE A LEGEND',
+                desc: 'Scrivi il tuo nome nella hall of fame',
+                icon: '⭐',
+                color: 'from-purple-500 to-pink-500'
+              }
+            ].map((item, index) => (
+              <motion.div
+                key={item.title}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.2 }}
+                viewport={{ once: true }}
+                className="text-center"
+              >
+                <motion.div
+                  animate={{ 
+                    y: [0, -20, 0],
+                    rotate: [0, 10, -10, 0]
+                  }}
+                  transition={{ 
+                    duration: 3,
+                    repeat: Infinity,
+                    delay: index * 0.3
+                  }}
+                  className="text-8xl mb-4"
+                >
+                  {item.icon}
+                </motion.div>
+                <h3 className={`text-3xl font-black bg-gradient-to-r ${item.color} 
+                  bg-clip-text text-transparent mb-2`}>
+                  {item.title}
+                </h3>
+                <p className="text-gray-400">{item.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Final CTA */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             className="text-center"
           >
-            <h2 className="text-5xl md:text-6xl font-black mb-8">
-              <span className="bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
-                SEI PRONTO A DOMINARE?
-              </span>
-            </h2>
-            
-            <div className="grid md:grid-cols-3 gap-8 mb-12 max-w-4xl mx-auto">
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                className="bg-gradient-to-br from-green-400/20 to-transparent backdrop-blur rounded-2xl p-8 border border-green-400/30"
-              >
-                <div className="text-5xl mb-4">💯</div>
-                <h3 className="text-2xl font-bold text-green-400 mb-2">NO EXCUSES</h3>
-                <p className="text-gray-400">Solo 30 secondi. Non hai scuse per non allenarti!</p>
-              </motion.div>
-              
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                className="bg-gradient-to-br from-blue-400/20 to-transparent backdrop-blur rounded-2xl p-8 border border-blue-400/30"
-              >
-                <div className="text-5xl mb-4">🚀</div>
-                <h3 className="text-2xl font-bold text-blue-400 mb-2">LEVEL UP</h3>
-                <p className="text-gray-400">Ogni sfida ti rende più forte. Evolvi ogni giorno!</p>
-              </motion.div>
-              
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                className="bg-gradient-to-br from-purple-400/20 to-transparent backdrop-blur rounded-2xl p-8 border border-purple-400/30"
-              >
-                <div className="text-5xl mb-4">🔥</div>
-                <h3 className="text-2xl font-bold text-purple-400 mb-2">BE A LEGEND</h3>
-                <p className="text-gray-400">Entra nella Hall of Fame. Diventa una leggenda!</p>
-              </motion.div>
-            </div>
-
-            <motion.p
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
-              className="text-2xl text-gray-300 mb-12 max-w-3xl mx-auto"
-            >
-              Unisciti a migliaia di atleti che stanno trasformando il fitness in un gioco epico!
-            </motion.p>
-
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => router.push('/auth')}
-              className="relative group px-16 py-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full text-3xl font-black text-black overflow-hidden shadow-2xl"
+              onClick={() => router.push('/register')}
+              className="px-16 py-8 bg-gradient-to-r from-green-500 via-blue-500 to-purple-500 
+                rounded-full text-2xl font-black text-white shadow-2xl 
+                hover:shadow-green-500/50 transition-all duration-300"
             >
-              <span className="relative z-10">INIZIA LA TUA LEGGENDA</span>
-              <motion.div
-                className="absolute inset-0 bg-white"
-                animate={{
-                  x: ['-100%', '100%'],
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  repeatType: 'loop',
-                }}
-                style={{ opacity: 0.2 }}
-              />
+              INIZIA LA TUA LEGGENDA
             </motion.button>
+            
+            <p className="mt-6 text-gray-500">
+              Gratis per sempre • Nessuna carta richiesta • Unisciti a 10.000+ atleti
+            </p>
           </motion.div>
         </div>
       </section>
 
-      {/* CTA and Footer */}
-      <CTASection />
-      <FooterSection />
+      {/* Footer */}
+      <footer className="py-12 px-4 bg-black border-t border-gray-900">
+        <div className="max-w-7xl mx-auto text-center">
+          <p className="text-gray-500 text-sm">
+            © 2024 FitDuel Arena. Transform your body. Level up your life.
+          </p>
+        </div>
+      </footer>
     </div>
   )
 }
