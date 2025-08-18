@@ -6,20 +6,20 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useUserStore } from '@/stores/useUserStore'
 import { useDuelStore } from '@/stores/useDuelStore'
 import { useGameStore } from '@/stores/useGameStore'
-import { Card } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
+import { LogOut, Settings, User, Trophy, Target, Zap, Menu, X } from 'lucide-react'
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { user, isAuthenticated, setUser } = useUserStore()
+  const supabase = createClientComponentClient()
+  const { user, isAuthenticated, setUser, clearUser } = useUserStore()
   const { myDuels, fetchMyDuels, totalDuelsWon, totalDuelsLost } = useDuelStore()
   const { totalExercises, averageFormScore, streakDays, totalCalories } = useGameStore()
   const [isLoading, setIsLoading] = useState(true)
+  const [showMenu, setShowMenu] = useState(false)
 
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const supabase = createClientComponentClient()
         const { data: { session } } = await supabase.auth.getSession()
         
         if (session) {
@@ -74,7 +74,17 @@ export default function DashboardPage() {
     }
 
     checkAuth()
-  }, [isAuthenticated, user, router, setUser, fetchMyDuels])
+  }, [isAuthenticated, user, router, setUser, fetchMyDuels, supabase])
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut()
+      clearUser()
+      router.push('/login')
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -90,43 +100,119 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900/20 to-black">
-      {/* Header */}
+      {/* Header with Menu */}
       <div className="bg-black/50 backdrop-blur-sm border-b border-purple-500/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-2xl">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xl">
                 {user?.username?.charAt(0).toUpperCase() || 'U'}
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white">
-                  Welcome back, {user?.username || 'Warrior'}!
+                <h1 className="text-xl font-bold text-white">
+                  {user?.username || 'Warrior'}
                 </h1>
-                <p className="text-purple-400">Level {user?.level || 1} • {user?.rank || 'Rookie'}</p>
+                <p className="text-sm text-purple-400">Level {user?.level || 1}</p>
               </div>
             </div>
-            <div className="flex items-center space-x-6">
-              <div className="text-center">
-                <p className="text-3xl font-bold text-yellow-400">{user?.coins || 0}</p>
-                <p className="text-xs text-gray-400">Coins</p>
+            
+            {/* Desktop Menu */}
+            <div className="hidden md:flex items-center space-x-4">
+              <div className="flex items-center space-x-4 mr-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-yellow-400">{user?.coins || 0}</p>
+                  <p className="text-xs text-gray-400">Coins</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-purple-400">{user?.xp || 0}</p>
+                  <p className="text-xs text-gray-400">XP</p>
+                </div>
               </div>
-              <div className="text-center">
-                <p className="text-3xl font-bold text-purple-400">{user?.xp || 0}</p>
-                <p className="text-xs text-gray-400">XP</p>
-              </div>
+              
+              <button
+                onClick={() => router.push('/profile')}
+                className="p-2 hover:bg-purple-900/30 rounded-lg transition-colors"
+                title="Profile"
+              >
+                <User className="w-5 h-5 text-gray-400 hover:text-white" />
+              </button>
+              
+              <button
+                onClick={() => router.push('/profile')}
+                className="p-2 hover:bg-purple-900/30 rounded-lg transition-colors"
+                title="Settings"
+              >
+                <Settings className="w-5 h-5 text-gray-400 hover:text-white" />
+              </button>
+              
+              <button
+                onClick={handleLogout}
+                className="p-2 hover:bg-red-900/30 rounded-lg transition-colors"
+                title="Logout"
+              >
+                <LogOut className="w-5 h-5 text-gray-400 hover:text-red-400" />
+              </button>
             </div>
+
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="md:hidden p-2"
+            >
+              {showMenu ? <X className="w-6 h-6 text-white" /> : <Menu className="w-6 h-6 text-white" />}
+            </button>
           </div>
+
+          {/* Mobile Menu Dropdown */}
+          {showMenu && (
+            <div className="md:hidden mt-4 py-4 border-t border-purple-500/20">
+              <div className="flex justify-around mb-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-yellow-400">{user?.coins || 0}</p>
+                  <p className="text-xs text-gray-400">Coins</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-purple-400">{user?.xp || 0}</p>
+                  <p className="text-xs text-gray-400">XP</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <button
+                  onClick={() => { router.push('/profile'); setShowMenu(false); }}
+                  className="w-full flex items-center space-x-3 px-4 py-2 hover:bg-purple-900/30 rounded-lg transition-colors"
+                >
+                  <User className="w-5 h-5 text-gray-400" />
+                  <span className="text-white">Profile</span>
+                </button>
+                <button
+                  onClick={() => { router.push('/profile'); setShowMenu(false); }}
+                  className="w-full flex items-center space-x-3 px-4 py-2 hover:bg-purple-900/30 rounded-lg transition-colors"
+                >
+                  <Settings className="w-5 h-5 text-gray-400" />
+                  <span className="text-white">Settings</span>
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center space-x-3 px-4 py-2 hover:bg-red-900/30 rounded-lg transition-colors"
+                >
+                  <LogOut className="w-5 h-5 text-red-400" />
+                  <span className="text-red-400">Logout</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Main Grid */}
+      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           
           {/* Stats Overview */}
-          <Card className="bg-black/40 backdrop-blur-sm border-purple-500/20 p-6">
+          <div className="bg-black/40 backdrop-blur-sm border border-purple-500/20 rounded-lg p-6 hover:border-purple-500/40 transition-all">
             <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-              <span className="text-2xl mr-2">📊</span> Performance Stats
+              <Trophy className="w-6 h-6 mr-2 text-yellow-400" />
+              Performance Stats
             </h3>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
@@ -146,12 +232,13 @@ export default function DashboardPage() {
                 <span className="text-red-400 font-bold">{totalCalories} kcal</span>
               </div>
             </div>
-          </Card>
+          </div>
 
           {/* Duel Stats */}
-          <Card className="bg-black/40 backdrop-blur-sm border-purple-500/20 p-6">
+          <div className="bg-black/40 backdrop-blur-sm border border-purple-500/20 rounded-lg p-6 hover:border-purple-500/40 transition-all">
             <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-              <span className="text-2xl mr-2">⚔️</span> Duel Record
+              <Zap className="w-6 h-6 mr-2 text-purple-400" />
+              Duel Record
             </h3>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
@@ -173,40 +260,39 @@ export default function DashboardPage() {
                 </span>
               </div>
             </div>
-          </Card>
+          </div>
 
           {/* Quick Actions */}
-          <Card className="bg-black/40 backdrop-blur-sm border-purple-500/20 p-6">
+          <div className="bg-black/40 backdrop-blur-sm border border-purple-500/20 rounded-lg p-6 hover:border-purple-500/40 transition-all">
             <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-              <span className="text-2xl mr-2">🚀</span> Quick Start
+              <Target className="w-6 h-6 mr-2 text-green-400" />
+              Quick Start
             </h3>
             <div className="space-y-3">
-              <Button 
+              <button 
                 onClick={() => router.push('/training')}
-                className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600"
+                className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-all"
               >
                 Start Training
-              </Button>
-              <Button 
+              </button>
+              <button 
                 onClick={() => router.push('/challenges')}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500"
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold py-2 px-4 rounded-lg transition-all"
               >
                 Find Duel
-              </Button>
-              <Button 
+              </button>
+              <button 
                 onClick={() => router.push('/tournament')}
-                className="w-full bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500"
+                className="w-full bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 text-white font-semibold py-2 px-4 rounded-lg transition-all"
               >
                 Join Tournament
-              </Button>
+              </button>
             </div>
-          </Card>
+          </div>
 
           {/* Recent Activity */}
-          <Card className="bg-black/40 backdrop-blur-sm border-purple-500/20 p-6 md:col-span-2">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-              <span className="text-2xl mr-2">📜</span> Recent Duels
-            </h3>
+          <div className="bg-black/40 backdrop-blur-sm border border-purple-500/20 rounded-lg p-6 md:col-span-2 lg:col-span-3 hover:border-purple-500/40 transition-all">
+            <h3 className="text-lg font-semibold text-white mb-4">Recent Duels</h3>
             {myDuels.length > 0 ? (
               <div className="space-y-2">
                 {myDuels.slice(0, 5).map((duel) => (
@@ -245,70 +331,44 @@ export default function DashboardPage() {
             ) : (
               <div className="text-center py-8">
                 <p className="text-gray-400 mb-4">No duels yet!</p>
-                <Button 
+                <button 
                   onClick={() => router.push('/challenges')}
-                  className="bg-purple-600 hover:bg-purple-700"
+                  className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
                 >
                   Start Your First Duel
-                </Button>
+                </button>
               </div>
             )}
-          </Card>
-
-          {/* Level Progress */}
-          <Card className="bg-black/40 backdrop-blur-sm border-purple-500/20 p-6">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-              <span className="text-2xl mr-2">📈</span> Progress
-            </h3>
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Level {user?.level || 1}</span>
-                <span className="text-purple-400">Level {(user?.level || 1) + 1}</span>
-              </div>
-              <div className="w-full bg-gray-800 rounded-full h-2">
-                <div 
-                  className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all"
-                  style={{ width: `${((user?.xp || 0) % 100)}%` }}
-                />
-              </div>
-              <p className="text-center text-xs text-gray-400">
-                {user?.xp || 0} / 100 XP
-              </p>
-            </div>
-          </Card>
+          </div>
 
         </div>
 
         {/* Bottom Navigation */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-          <Button 
+          <button 
             onClick={() => router.push('/leaderboard')}
-            variant="outline"
-            className="border-purple-500/30 hover:bg-purple-900/20"
+            className="bg-black/40 border border-purple-500/20 hover:bg-purple-900/20 text-white py-3 px-4 rounded-lg transition-all flex items-center justify-center"
           >
             🏆 Leaderboard
-          </Button>
-          <Button 
+          </button>
+          <button 
             onClick={() => router.push('/achievements')}
-            variant="outline"
-            className="border-purple-500/30 hover:bg-purple-900/20"
+            className="bg-black/40 border border-purple-500/20 hover:bg-purple-900/20 text-white py-3 px-4 rounded-lg transition-all flex items-center justify-center"
           >
             🎖️ Achievements
-          </Button>
-          <Button 
+          </button>
+          <button 
             onClick={() => router.push('/missions')}
-            variant="outline"
-            className="border-purple-500/30 hover:bg-purple-900/20"
+            className="bg-black/40 border border-purple-500/20 hover:bg-purple-900/20 text-white py-3 px-4 rounded-lg transition-all flex items-center justify-center"
           >
             🎯 Missions
-          </Button>
-          <Button 
-            onClick={() => router.push('/profile')}
-            variant="outline"
-            className="border-purple-500/30 hover:bg-purple-900/20"
+          </button>
+          <button 
+            onClick={() => router.push('/friends')}
+            className="bg-black/40 border border-purple-500/20 hover:bg-purple-900/20 text-white py-3 px-4 rounded-lg transition-all flex items-center justify-center"
           >
-            👤 Profile
-          </Button>
+            👥 Friends
+          </button>
         </div>
       </div>
     </div>
