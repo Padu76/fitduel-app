@@ -2,7 +2,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { motion, AnimatePresence, useScroll, useTransform, useMotionValue, useSpring } from 'framer-motion'
+import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import HeroSection from '@/components/landing/HeroSection'
@@ -74,6 +74,8 @@ export default function LandingPage() {
   const { scrollY } = useScroll()
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [activeCharacter, setActiveCharacter] = useState(0)
+  const [windowWidth, setWindowWidth] = useState(1920)
+  const [windowHeight, setWindowHeight] = useState(1080)
   const router = useRouter()
   
   // Parallax transforms for different layers
@@ -81,13 +83,31 @@ export default function LandingPage() {
   const charactersParallax = useTransform(scrollY, [0, 1000], [0, -200])
   const backgroundParallax = useTransform(scrollY, [0, 1000], [0, 300])
   
+  // Handle window dimensions
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setWindowWidth(window.innerWidth)
+      setWindowHeight(window.innerHeight)
+      
+      const handleResize = () => {
+        setWindowWidth(window.innerWidth)
+        setWindowHeight(window.innerHeight)
+      }
+      
+      window.addEventListener('resize', handleResize)
+      return () => window.removeEventListener('resize', handleResize)
+    }
+  }, [])
+  
   // Mouse tracking for interactive effects
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({ x: e.clientX, y: e.clientY })
+    if (typeof window !== 'undefined') {
+      const handleMouseMove = (e: MouseEvent) => {
+        setMousePosition({ x: e.clientX, y: e.clientY })
+      }
+      window.addEventListener('mousemove', handleMouseMove)
+      return () => window.removeEventListener('mousemove', handleMouseMove)
     }
-    window.addEventListener('mousemove', handleMouseMove)
-    return () => window.removeEventListener('mousemove', handleMouseMove)
   }, [])
 
   // Auto-rotate characters
@@ -273,8 +293,8 @@ export default function LandingPage() {
               key={i}
               className="absolute w-1 h-1 bg-green-400 rounded-full"
               initial={{
-                x: Math.random() * window.innerWidth,
-                y: Math.random() * window.innerHeight,
+                x: Math.random() * windowWidth,
+                y: Math.random() * windowHeight,
               }}
               animate={{
                 y: [null, -100],
