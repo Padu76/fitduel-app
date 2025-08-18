@@ -18,7 +18,8 @@ const characters = [
     id: 1, 
     name: 'BULL RAGE', 
     class: 'TITAN',
-    power: 'Forza Estrema',
+    power: '+8% Push-ups, Pull-ups',
+    ability: 'POWER SURGE',
     image: '/avatars/bull.png', 
     color: 'from-red-600 to-orange-500',
     glow: 'rgba(239, 68, 68, 0.5)',
@@ -28,7 +29,8 @@ const characters = [
     id: 2, 
     name: 'SPEED LEOPARD', 
     class: 'SPEEDSTER',
-    power: 'Resistenza Infinita',
+    power: '+8% Burpees, Cardio',
+    ability: 'RUSH HOUR (+7 sec)',
     image: '/avatars/leopard.png', 
     color: 'from-yellow-500 to-amber-500',
     glow: 'rgba(250, 204, 21, 0.5)',
@@ -38,7 +40,8 @@ const characters = [
     id: 3, 
     name: 'SHADOW PANTHER', 
     class: 'NINJA',
-    power: 'Agilità Suprema',
+    power: '+8% Jump Rope, Box Jumps',
+    ability: 'SWIFT STRIKE (x1.5)',
     image: '/avatars/panther.png', 
     color: 'from-purple-900 to-purple-600',
     glow: 'rgba(147, 51, 234, 0.5)',
@@ -48,7 +51,8 @@ const characters = [
     id: 4, 
     name: 'STONE GORILLA', 
     class: 'SAGE',
-    power: 'Stabilità Assoluta',
+    power: '+8% Plank, Wall Sit',
+    ability: 'INNER FOCUS',
     image: '/avatars/gorilla.png', 
     color: 'from-gray-600 to-cyan-500',
     glow: 'rgba(6, 182, 212, 0.5)',
@@ -58,7 +62,8 @@ const characters = [
     id: 5, 
     name: 'CRUSHER CROCODILE', 
     class: 'WARRIOR',
-    power: 'Potenza Devastante',
+    power: '+8% Squats, Lunges',
+    ability: 'LAST STAND (+30%)',
     image: '/avatars/crocodile.png', 
     color: 'from-green-600 to-emerald-500',
     glow: 'rgba(34, 197, 94, 0.5)',
@@ -68,7 +73,8 @@ const characters = [
     id: 6, 
     name: 'CYBER SHARK', 
     class: 'HYBRID',
-    power: 'Equilibrio Perfetto',
+    power: '+5% Tutto, No Malus',
+    ability: 'ADAPT',
     image: '/avatars/shark.png', 
     color: 'from-blue-600 to-purple-600',
     glow: 'rgba(79, 70, 229, 0.5)',
@@ -147,7 +153,7 @@ export default function LandingPage() {
           >
             Sfida i tuoi amici in battaglie fitness di 30 secondi! 
             Push-ups, Squats, Burpees e molto altro. 
-            L'AI conta le tue ripetizioni. Vinci XP e sblocca personaggi epici!
+            L'AI conta le tue ripetizioni. Scegli il tuo avatar e sfrutta i suoi bonus unici!
           </motion.p>
 
           {/* Character Grid */}
@@ -183,7 +189,8 @@ export default function LandingPage() {
                   
                   {/* Character Info */}
                   <h3 className="text-sm font-black text-white mb-1">{char.name}</h3>
-                  <p className="text-xs text-white/80">{char.power}</p>
+                  <p className="text-xs text-white/80 mb-1">{char.power}</p>
+                  <p className="text-xs text-yellow-300 font-bold">{char.ability}</p>
                   
                   {/* Class Badge */}
                   <div className="mt-2 bg-black/30 rounded-full px-2 py-1">
@@ -216,7 +223,7 @@ export default function LandingPage() {
             <div className="bg-gray-900/50 backdrop-blur rounded-xl p-6 border border-gray-800">
               <div className="text-4xl mb-3">🏆</div>
               <h3 className="text-lg font-bold text-yellow-400 mb-2">3. VINCI REWARDS</h3>
-              <p className="text-sm text-gray-400">Guadagna XP, sblocca skin e domina le classifiche</p>
+              <p className="text-sm text-gray-400">Guadagna XP e sfrutta i bonus del tuo avatar</p>
             </div>
           </motion.div>
 
@@ -474,40 +481,46 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               {
-                icon: '💥',
-                title: 'Sfide Veloci',
-                description: '30 secondi per vincere. Niente allenamenti lunghi. Solo azione pura.',
-                gradient: 'from-yellow-400 to-orange-500'
+                icon: '💪',
+                title: 'Push-ups Battle',
+                description: 'Sfida i tuoi amici a colpi di piegamenti. Chi ne fa di più in 30 secondi vince!',
+                gradient: 'from-red-400 to-orange-500',
+                image: 'https://images.unsplash.com/photo-1598971639058-fab3c3109a00?w=400&h=300&fit=crop'
               },
               {
-                icon: '🤖',
-                title: 'AI Tracking',
-                description: 'La nostra AI conta le tue ripetizioni e valuta la forma. Zero trucchi.',
-                gradient: 'from-blue-400 to-purple-500'
+                icon: '🦵',
+                title: 'Squats Challenge',
+                description: 'Gambe di ferro? Dimostralo! Squat perfetti contati dalla nostra AI.',
+                gradient: 'from-blue-400 to-purple-500',
+                image: 'https://images.unsplash.com/photo-1566479179817-0ddb5fa87cd9?w=400&h=300&fit=crop'
               },
               {
-                icon: '🏅',
-                title: 'Rewards Reali',
-                description: 'Vinci skin, badge, titoli esclusivi. Mostra a tutti chi è il boss.',
-                gradient: 'from-green-400 to-emerald-500'
+                icon: '🏃',
+                title: 'Burpees Madness',
+                description: 'L\'esercizio più temuto diventa una sfida epica. Resistenza al massimo!',
+                gradient: 'from-green-400 to-emerald-500',
+                image: 'https://images.unsplash.com/photo-1601422407692-ec4eeec1d9b3?w=400&h=300&fit=crop'
               },
               {
-                icon: '🔥',
-                title: 'Social Competition',
-                description: 'Sfida amici, crea team, domina le classifiche. Il fitness è più divertente insieme.',
-                gradient: 'from-purple-400 to-pink-500'
+                icon: '⏱️',
+                title: 'Plank Hold',
+                description: 'Core di acciaio? Tieni la posizione più a lungo del tuo avversario!',
+                gradient: 'from-purple-400 to-pink-500',
+                image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop'
               },
               {
-                icon: '📱',
-                title: 'Cross-Platform',
-                description: 'Gioca su telefono, tablet o PC. I tuoi progressi ti seguono ovunque.',
-                gradient: 'from-cyan-400 to-blue-500'
+                icon: '🤸',
+                title: 'Jumping Jacks',
+                description: 'Velocità e coordinazione. Ogni ripetizione conta per la vittoria!',
+                gradient: 'from-cyan-400 to-blue-500',
+                image: 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=400&h=300&fit=crop'
               },
               {
                 icon: '🎮',
-                title: 'Gaming Experience',
-                description: 'Interfaccia gaming, effetti epici, progression system. Il fitness diventa un gioco.',
-                gradient: 'from-red-400 to-rose-500'
+                title: 'Avatar Bonus',
+                description: 'Ogni avatar ha bonus unici per diversi esercizi. Scegli la tua strategia!',
+                gradient: 'from-yellow-400 to-red-500',
+                image: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400&h=300&fit=crop'
               }
             ].map((feature, index) => (
               <motion.div
@@ -519,25 +532,93 @@ export default function LandingPage() {
                 whileHover={{ scale: 1.05, y: -10 }}
                 className="relative group cursor-pointer"
               >
-                <div className="bg-gray-900/50 backdrop-blur rounded-2xl p-8 border border-gray-800 hover:border-green-400 transition-all duration-300">
-                  {/* Icon with gradient background */}
-                  <div className={`w-24 h-24 bg-gradient-to-br ${feature.gradient} rounded-2xl flex items-center justify-center text-5xl mx-auto mb-6 shadow-2xl`}>
-                    {feature.icon}
+                <div className="bg-gray-900/50 backdrop-blur rounded-2xl overflow-hidden border border-gray-800 hover:border-green-400 transition-all duration-300">
+                  {/* Exercise Image */}
+                  <div className="relative h-48 overflow-hidden">
+                    <Image
+                      src={feature.image}
+                      alt={feature.title}
+                      fill
+                      className="object-cover group-hover:scale-110 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                    {/* Icon overlay */}
+                    <div className={`absolute bottom-4 left-4 w-16 h-16 bg-gradient-to-br ${feature.gradient} rounded-xl flex items-center justify-center text-3xl shadow-2xl`}>
+                      {feature.icon}
+                    </div>
                   </div>
                   
-                  {/* Title */}
-                  <h3 className="text-2xl font-black mb-4 text-white">
-                    {feature.title}
-                  </h3>
-                  
-                  {/* Description */}
-                  <p className="text-gray-400 leading-relaxed">
-                    {feature.description}
-                  </p>
+                  <div className="p-6">
+                    {/* Title */}
+                    <h3 className="text-2xl font-black mb-3 text-white">
+                      {feature.title}
+                    </h3>
+                    
+                    {/* Description */}
+                    <p className="text-gray-400 leading-relaxed">
+                      {feature.description}
+                    </p>
+                  </div>
                 </div>
               </motion.div>
             ))}
           </div>
+
+          {/* Character Bonus System Explanation */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="mt-20 bg-gradient-to-r from-green-400/10 to-blue-500/10 rounded-3xl p-8 border border-green-400/30"
+          >
+            <h3 className="text-3xl font-black text-center mb-8 text-white">
+              SISTEMA BONUS AVATAR
+            </h3>
+            
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="text-center">
+                <div className="text-4xl mb-3">🔥</div>
+                <h4 className="font-bold text-green-400 mb-2">TITAN</h4>
+                <p className="text-sm text-gray-400">+8% Push-ups, Pull-ups</p>
+                <p className="text-xs text-gray-500">-5% Cardio</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="text-4xl mb-3">⚡</div>
+                <h4 className="font-bold text-yellow-400 mb-2">SPEEDSTER</h4>
+                <p className="text-sm text-gray-400">+8% Burpees, Cardio</p>
+                <p className="text-xs text-gray-500">-5% Forza</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="text-4xl mb-3">🥷</div>
+                <h4 className="font-bold text-purple-400 mb-2">NINJA</h4>
+                <p className="text-sm text-gray-400">+8% Jump Rope, Agilità</p>
+                <p className="text-xs text-gray-500">-5% Isometrici</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="text-4xl mb-3">🦍</div>
+                <h4 className="font-bold text-cyan-400 mb-2">SAGE</h4>
+                <p className="text-sm text-gray-400">+8% Plank, Wall Sit</p>
+                <p className="text-xs text-gray-500">-5% Esplosivi</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="text-4xl mb-3">🐊</div>
+                <h4 className="font-bold text-emerald-400 mb-2">WARRIOR</h4>
+                <p className="text-sm text-gray-400">+8% Squats, Lunges</p>
+                <p className="text-xs text-gray-500">-4% Cardio</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="text-4xl mb-3">🦈</div>
+                <h4 className="font-bold text-blue-400 mb-2">HYBRID</h4>
+                <p className="text-sm text-gray-400">+5% Tutto</p>
+                <p className="text-xs text-green-400">Nessun Malus!</p>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </section>
 
