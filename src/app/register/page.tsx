@@ -1,381 +1,533 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Mail, Lock, User, Flame, AlertCircle, CheckCircle, Info, Calendar, Eye, EyeOff } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
-import { Input } from '@/components/ui/Input'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import Link from 'next/link'
+import { motion } from 'framer-motion'
+import { 
+  Eye, EyeOff, Mail, Lock, User, ArrowRight, 
+  Loader2, AlertCircle, CheckCircle, Flame,
+  Rocket, ArrowLeft, Calendar, Target
+} from 'lucide-react'
+import { useUserStore } from '@/store/useUserStore'
 
 export default function RegisterPage() {
   const router = useRouter()
-  const supabase = createClientComponentClient()
+  const { register, isLoading, error, isAuthenticated, clearUser } = useUserStore()
   
-  const [username, setUsername] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [birthDate, setBirthDate] = useState('')
-  const [acceptTerms, setAcceptTerms] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  // Form state
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    username: '',
+    birthDate: '',
+    fitnessLevel: 'beginner' as 'beginner' | 'intermediate' | 'advanced',
+    goals: [] as string[],
+    newsletter: false,
+    terms: false
+  })
   const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+  const [formErrors, setFormErrors] = useState<any>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [usernameCheck, setUsernameCheck] = useState<{
+    available: boolean | null,
+    checking: boolean
+  }>({ available: null, checking: false })
 
-  // Check if user is already logged in
+  // Available goals
+  const availableGoals = [
+    { id: 'lose_weight', label: 'Perdere peso', icon: '🎯' },
+    { id: 'build_muscle', label: 'Aumentare muscoli', icon: '💪' },
+    { id: 'improve_endurance', label: 'Resistenza', icon: '🏃' },
+    { id: 'get_stronger', label: 'Diventare più forte', icon: '🔥' },
+    { id: 'stay_healthy', label: 'Mantenersi in salute', icon: '❤️' },
+    { id: 'compete', label: 'Competere', icon: '🏆' }
+  ]
+
+  // Check if already logged in
   useEffect(() => {
-    checkUser()
+    if (isAuthenticated) {
+      router.push('/dashboard')
+    }
+  }, [isAuthenticated, router])
+
+  // Clear any existing errors
+  useEffect(() => {
+    clearUser()
   }, [])
 
-  const checkUser = async () => {
+  // Check username availability
+  const checkUsernameAvailability = async (username: string) => {
+    if (username.length < 3) return
+    
+    setUsernameCheck({ available: null, checking: true })
+    
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        router.push('/dashboard')
-      }
+      const response = await fetch(`/api/auth/register?username=${encodeURIComponent(username)}`)
+      const data = await response.json()
+      setUsernameCheck({ available: data.available, checking: false })
     } catch (error) {
-      console.error('Error checking user:', error)
+      setUsernameCheck({ available: null, checking: false })
     }
   }
 
-  // Real-time validation
-  useEffect(() => {
-    const errors: Record<string, string> = {}
+  // Handle input change
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target
+    const checked = (e.target as HTMLInputElement).checked
     
-    // Username validation
-    if (username && username.length < 3) {
-      errors.username = 'Username deve essere almeno 3 caratteri'
-    } else if (username && !/^[a-zA-Z0-9_]+$/.test(username)) {
-      errors.username = 'Username può contenere solo lettere, numeri e underscore'
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }))
+    
+    // Clear field error when user starts typing
+    if (formErrors[name]) {
+      setFormErrors((prev: any) => ({
+        ...prev,
+        [name]: null
+      }))
     }
+
+    // Check username availability
+    if (name === 'username' && value.length >= 3) {
+      checkUsernameAvailability(value)
+    }
+  }
+
+  // Handle goal toggle
+  const toggleGoal = (goalId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      goals: prev.goals.includes(goalId)
+        ? prev.goals.filter(g => g !== goalId)
+        : [...prev.goals, goalId]
+    }))
+  }
+
+  // Validate form
+  const validateForm = () => {
+    const errors: any = {}
     
-    // Email validation
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!formData.email) {
+      errors.email = 'Email è richiesta'
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       errors.email = 'Email non valida'
     }
     
-    // Password validation
-    if (password && password.length < 6) {
+    if (!formData.password) {
+      errors.password = 'Password è richiesta'
+    } else if (formData.password.length < 6) {
       errors.password = 'Password deve essere almeno 6 caratteri'
+    } else if (!/[A-Z]/.test(formData.password)) {
+      errors.password = 'Password deve contenere almeno una maiuscola'
+    } else if (!/[0-9]/.test(formData.password)) {
+      errors.password = 'Password deve contenere almeno un numero'
     }
     
-    // Confirm password validation
-    if (confirmPassword && password !== confirmPassword) {
-      errors.confirmPassword = 'Le password non corrispondono'
+    if (!formData.username) {
+      errors.username = 'Username è richiesto'
+    } else if (formData.username.length < 3) {
+      errors.username = 'Username deve essere almeno 3 caratteri'
+    } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
+      errors.username = 'Username può contenere solo lettere, numeri e underscore'
+    } else if (usernameCheck.available === false) {
+      errors.username = 'Username già in uso'
     }
     
-    // Birth date validation (must be at least 13 years old)
-    if (birthDate) {
-      const birth = new Date(birthDate)
+    if (formData.birthDate) {
+      const birthDate = new Date(formData.birthDate)
       const today = new Date()
-      const age = today.getFullYear() - birth.getFullYear()
+      const age = today.getFullYear() - birthDate.getFullYear()
       if (age < 13) {
         errors.birthDate = 'Devi avere almeno 13 anni'
-      } else if (age > 100) {
-        errors.birthDate = 'Data di nascita non valida'
       }
     }
     
-    setValidationErrors(errors)
-  }, [username, email, password, confirmPassword, birthDate])
+    if (!formData.terms) {
+      errors.terms = 'Devi accettare i termini e condizioni'
+    }
+    
+    setFormErrors(errors)
+    return Object.keys(errors).length === 0
+  }
 
+  // Handle form submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Final validation
-    if (Object.keys(validationErrors).length > 0) {
-      setError('Correggi gli errori nel form')
-      return
-    }
+    if (!validateForm()) return
     
-    if (!acceptTerms) {
-      setError('Devi accettare i termini e condizioni')
-      return
-    }
-    
-    setIsLoading(true)
-    setError(null)
-    setSuccess(null)
+    setIsSubmitting(true)
     
     try {
-      // 1. Sign up the user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            username,
-            date_of_birth: birthDate
-          }
-        }
-      })
+      const success = await register(formData)
       
-      if (authError) throw authError
-      
-      if (authData.user) {
-        // 2. Create profile in profiles table
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: authData.user.id,
-            username,
-            email,
-            display_name: username,
-            date_of_birth: birthDate,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-        
-        if (profileError) {
-          console.error('Profile creation error:', profileError)
-          // Continue anyway - the profile might be created by a trigger
-        }
-        
-        // Success!
-        setSuccess('Account creato con successo! 🎉')
-        
-        // Check if email confirmation is required
-        if (authData.session) {
-          // Auto-login successful
-          setTimeout(() => {
-            router.push('/dashboard')
-          }, 1500)
-        } else {
-          // Email confirmation required
-          setSuccess('Account creato! Controlla la tua email per confermare la registrazione.')
-          setTimeout(() => {
-            router.push('/login')
-          }, 3000)
-        }
+      if (success) {
+        // Redirect to dashboard or welcome page
+        router.push('/dashboard')
       }
-      
-    } catch (error: any) {
+    } catch (error) {
       console.error('Registration error:', error)
-      
-      // Handle specific error messages
-      if (error.message?.includes('already registered')) {
-        setError('Questa email è già registrata')
-      } else if (error.message?.includes('Username already taken')) {
-        setError('Username già in uso')
-      } else if (error.message?.includes('Password')) {
-        setError('Password non abbastanza sicura')
-      } else if (error.message?.includes('rate limit')) {
-        setError('Troppi tentativi. Riprova tra qualche minuto')
-      } else {
-        setError(error.message || 'Errore durante la registrazione. Riprova.')
-      }
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 to-purple-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <Card variant="glass" className="p-8">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center mx-auto mb-4">
-              <Flame className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-white">Unisciti a FitDuel</h1>
-            <p className="text-gray-400 mt-2">Inizia il tuo viaggio fitness</p>
-          </div>
+    <div className="min-h-screen bg-black text-white relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="fixed inset-0 overflow-hidden">
+        <div 
+          className="absolute inset-0 opacity-10"
+          style={{
+            backgroundImage: `
+              linear-gradient(rgba(0, 255, 136, 0.1) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(0, 136, 255, 0.1) 1px, transparent 1px)
+            `,
+            backgroundSize: '50px 50px',
+          }}
+        />
+        <motion.div 
+          className="absolute top-20 left-20 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl"
+          animate={{
+            x: [0, 50, 0],
+            y: [0, -50, 0],
+          }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+      </div>
 
-          {/* Error Alert */}
+      {/* Header */}
+      <header className="relative z-20 p-6">
+        <div className="flex items-center justify-between">
+          <Link href="/auth">
+            <motion.div 
+              className="flex items-center gap-3"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <div className="w-10 h-10 bg-gradient-to-r from-green-400 to-blue-500 rounded-xl flex items-center justify-center">
+                <Flame className="w-6 h-6 text-black" />
+              </div>
+              <h1 className="text-xl font-black bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
+                FITDUEL
+              </h1>
+            </motion.div>
+          </Link>
+
+          <Link 
+            href="/auth"
+            className="flex items-center gap-2 text-gray-400 hover:text-green-400 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Indietro
+          </Link>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="relative z-10 container mx-auto px-4 py-8">
+        <div className="max-w-lg mx-auto">
+          
+          {/* Hero */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center mb-8"
+          >
+            <div className="w-20 h-20 bg-gradient-to-r from-blue-400 to-purple-500 rounded-2xl mx-auto mb-6 flex items-center justify-center">
+              <Rocket className="w-10 h-10 text-black" />
+            </div>
+            <h1 className="text-4xl font-black mb-3">
+              UNISCITI ALLA BATTAGLIA
+            </h1>
+            <p className="text-gray-400">
+              Crea il tuo account FitDuel
+            </p>
+          </motion.div>
+
+          {/* Error Display */}
           {error && (
-            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start space-x-2">
-              <AlertCircle className="w-5 h-5 text-red-400 mt-0.5" />
-              <p className="text-sm text-red-400">{error}</p>
-            </div>
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6 flex items-center gap-3"
+            >
+              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+              <span className="text-red-400 text-sm">{error}</span>
+            </motion.div>
           )}
 
-          {/* Success Alert */}
-          {success && (
-            <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-start space-x-2">
-              <CheckCircle className="w-5 h-5 text-green-400 mt-0.5" />
-              <p className="text-sm text-green-400">{success}</p>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Username */}
+          {/* Registration Form */}
+          <motion.form
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            onSubmit={handleSubmit}
+            className="space-y-6"
+          >
+            {/* Email Field */}
             <div>
-              <Input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                placeholder="Username"
-                icon={<User className="w-5 h-5" />}
-                required
-                disabled={isLoading}
-                maxLength={20}
-              />
-              {validationErrors.username && (
-                <p className="text-xs text-red-400 mt-1">{validationErrors.username}</p>
-              )}
-            </div>
-
-            {/* Email */}
-            <div>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email"
-                icon={<Mail className="w-5 h-5" />}
-                required
-                disabled={isLoading}
-              />
-              {validationErrors.email && (
-                <p className="text-xs text-red-400 mt-1">{validationErrors.email}</p>
-              )}
-            </div>
-
-            {/* Birth Date */}
-            <div>
-              <Input
-                type="date"
-                value={birthDate}
-                onChange={(e) => setBirthDate(e.target.value)}
-                placeholder="Data di nascita"
-                icon={<Calendar className="w-5 h-5" />}
-                required
-                disabled={isLoading}
-                max={new Date().toISOString().split('T')[0]}
-              />
-              {validationErrors.birthDate && (
-                <p className="text-xs text-red-400 mt-1">{validationErrors.birthDate}</p>
-              )}
-            </div>
-
-            {/* Password */}
-            <div>
+              <label className="block text-sm font-bold text-gray-300 mb-2">
+                Email *
+              </label>
               <div className="relative">
-                <Input
+                <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className={`w-full bg-gray-900/50 border rounded-xl py-4 pl-12 pr-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 transition-all ${
+                    formErrors.email 
+                      ? 'border-red-500 focus:ring-red-500/50' 
+                      : 'border-gray-700 focus:border-blue-400 focus:ring-blue-400/50'
+                  }`}
+                  placeholder="mario@email.com"
+                  disabled={isSubmitting}
+                />
+              </div>
+              {formErrors.email && (
+                <p className="text-red-400 text-sm mt-2">{formErrors.email}</p>
+              )}
+            </div>
+
+            {/* Username Field */}
+            <div>
+              <label className="block text-sm font-bold text-gray-300 mb-2">
+                Username *
+              </label>
+              <div className="relative">
+                <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleChange}
+                  className={`w-full bg-gray-900/50 border rounded-xl py-4 pl-12 pr-12 text-white placeholder-gray-500 focus:outline-none focus:ring-2 transition-all ${
+                    formErrors.username 
+                      ? 'border-red-500 focus:ring-red-500/50' 
+                      : usernameCheck.available === true
+                      ? 'border-green-500 focus:ring-green-500/50'
+                      : usernameCheck.available === false
+                      ? 'border-red-500 focus:ring-red-500/50'
+                      : 'border-gray-700 focus:border-blue-400 focus:ring-blue-400/50'
+                  }`}
+                  placeholder="mariothewarrior"
+                  disabled={isSubmitting}
+                />
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                  {usernameCheck.checking ? (
+                    <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+                  ) : usernameCheck.available === true ? (
+                    <CheckCircle className="w-5 h-5 text-green-400" />
+                  ) : usernameCheck.available === false ? (
+                    <AlertCircle className="w-5 h-5 text-red-400" />
+                  ) : null}
+                </div>
+              </div>
+              {formErrors.username && (
+                <p className="text-red-400 text-sm mt-2">{formErrors.username}</p>
+              )}
+              {usernameCheck.available === true && (
+                <p className="text-green-400 text-sm mt-2">Username disponibile!</p>
+              )}
+            </div>
+
+            {/* Password Field */}
+            <div>
+              <label className="block text-sm font-bold text-gray-300 mb-2">
+                Password *
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
                   type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
-                  icon={<Lock className="w-5 h-5" />}
-                  required
-                  disabled={isLoading}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className={`w-full bg-gray-900/50 border rounded-xl py-4 pl-12 pr-12 text-white placeholder-gray-500 focus:outline-none focus:ring-2 transition-all ${
+                    formErrors.password 
+                      ? 'border-red-500 focus:ring-red-500/50' 
+                      : 'border-gray-700 focus:border-blue-400 focus:ring-blue-400/50'
+                  }`}
+                  placeholder="Almeno 6 caratteri, 1 maiuscola e 1 numero"
+                  disabled={isSubmitting}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-blue-400 transition-colors"
+                  disabled={isSubmitting}
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-              {validationErrors.password && (
-                <p className="text-xs text-red-400 mt-1">{validationErrors.password}</p>
-              )}
-              {!validationErrors.password && password && (
-                <div className="mt-1 flex gap-1">
-                  <div className={`h-1 flex-1 rounded ${password.length >= 6 ? 'bg-green-500' : 'bg-gray-700'}`} />
-                  <div className={`h-1 flex-1 rounded ${/[A-Z]/.test(password) ? 'bg-green-500' : 'bg-gray-700'}`} />
-                  <div className={`h-1 flex-1 rounded ${/[0-9]/.test(password) ? 'bg-green-500' : 'bg-gray-700'}`} />
-                </div>
+              {formErrors.password && (
+                <p className="text-red-400 text-sm mt-2">{formErrors.password}</p>
               )}
             </div>
 
-            {/* Confirm Password */}
+            {/* Birth Date Field */}
             <div>
+              <label className="block text-sm font-bold text-gray-300 mb-2">
+                Data di nascita (opzionale)
+              </label>
               <div className="relative">
-                <Input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Conferma Password"
-                  icon={<Lock className="w-5 h-5" />}
-                  required
-                  disabled={isLoading}
+                <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="date"
+                  name="birthDate"
+                  value={formData.birthDate}
+                  onChange={handleChange}
+                  className={`w-full bg-gray-900/50 border rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:ring-2 transition-all ${
+                    formErrors.birthDate 
+                      ? 'border-red-500 focus:ring-red-500/50' 
+                      : 'border-gray-700 focus:border-blue-400 focus:ring-blue-400/50'
+                  }`}
+                  disabled={isSubmitting}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
-                >
-                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
               </div>
-              {validationErrors.confirmPassword && (
-                <p className="text-xs text-red-400 mt-1">{validationErrors.confirmPassword}</p>
+              {formErrors.birthDate && (
+                <p className="text-red-400 text-sm mt-2">{formErrors.birthDate}</p>
               )}
             </div>
 
-            {/* Terms and Conditions */}
-            <div className="flex items-start space-x-2">
-              <input
-                type="checkbox"
-                id="terms"
-                checked={acceptTerms}
-                onChange={(e) => setAcceptTerms(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-0 mt-0.5"
-                disabled={isLoading}
-              />
-              <label htmlFor="terms" className="text-sm text-gray-400">
-                Accetto i{' '}
-                <Link href="/terms" className="text-indigo-400 hover:text-indigo-300">
-                  Termini di Servizio
-                </Link>{' '}
-                e la{' '}
-                <Link href="/privacy" className="text-indigo-400 hover:text-indigo-300">
-                  Privacy Policy
-                </Link>
+            {/* Fitness Level */}
+            <div>
+              <label className="block text-sm font-bold text-gray-300 mb-2">
+                Livello di fitness
               </label>
+              <select
+                name="fitnessLevel"
+                value={formData.fitnessLevel}
+                onChange={handleChange}
+                className="w-full bg-gray-900/50 border border-gray-700 rounded-xl py-4 px-4 text-white focus:outline-none focus:ring-2 focus:border-blue-400 focus:ring-blue-400/50 transition-all"
+                disabled={isSubmitting}
+              >
+                <option value="beginner">🌱 Principiante</option>
+                <option value="intermediate">💪 Intermedio</option>
+                <option value="advanced">🔥 Avanzato</option>
+              </select>
             </div>
 
-            {/* Info Box */}
-            <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-lg flex items-start space-x-2">
-              <Info className="w-5 h-5 text-indigo-400 mt-0.5" />
-              <div className="text-xs text-indigo-300">
-                <p className="font-semibold mb-1">Perché registrarsi?</p>
-                <ul className="space-y-0.5">
-                  <li>• 100 XP bonus di benvenuto 🎁</li>
-                  <li>• Sfida giocatori da tutto il mondo</li>
-                  <li>• Traccia i tuoi progressi</li>
-                  <li>• Partecipa ai tornei settimanali</li>
-                </ul>
+            {/* Goals Selection */}
+            <div>
+              <label className="block text-sm font-bold text-gray-300 mb-2">
+                I tuoi obiettivi (opzionale)
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {availableGoals.map(goal => (
+                  <motion.button
+                    key={goal.id}
+                    type="button"
+                    onClick={() => toggleGoal(goal.id)}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`p-3 rounded-xl border transition-all text-left ${
+                      formData.goals.includes(goal.id)
+                        ? 'bg-blue-500/20 border-blue-400 text-blue-400'
+                        : 'bg-gray-900/50 border-gray-700 text-gray-400 hover:border-blue-400/50'
+                    }`}
+                    disabled={isSubmitting}
+                  >
+                    <div className="text-lg mb-1">{goal.icon}</div>
+                    <div className="text-sm font-medium">{goal.label}</div>
+                  </motion.button>
+                ))}
               </div>
             </div>
 
-            <Button
+            {/* Newsletter & Terms */}
+            <div className="space-y-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="newsletter"
+                  checked={formData.newsletter}
+                  onChange={handleChange}
+                  className="w-5 h-5 rounded border-gray-600 bg-gray-900 text-blue-400 focus:ring-blue-400 focus:ring-2"
+                  disabled={isSubmitting}
+                />
+                <span className="text-sm text-gray-400">
+                  Voglio ricevere aggiornamenti e offerte speciali
+                </span>
+              </label>
+              
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="terms"
+                  checked={formData.terms}
+                  onChange={handleChange}
+                  className="w-5 h-5 mt-0.5 rounded border-gray-600 bg-gray-900 text-blue-400 focus:ring-blue-400 focus:ring-2"
+                  disabled={isSubmitting}
+                />
+                <span className="text-sm text-gray-400">
+                  Accetto i{' '}
+                  <Link href="/terms" className="text-blue-400 hover:text-blue-300 underline">
+                    Termini e Condizioni
+                  </Link>{' '}
+                  e la{' '}
+                  <Link href="/privacy" className="text-blue-400 hover:text-blue-300 underline">
+                    Privacy Policy
+                  </Link>
+                  *
+                </span>
+              </label>
+              {formErrors.terms && (
+                <p className="text-red-400 text-sm">{formErrors.terms}</p>
+              )}
+            </div>
+
+            {/* Submit Button */}
+            <motion.button
               type="submit"
-              variant="gradient"
-              size="lg"
-              className="w-full"
-              disabled={isLoading || Object.keys(validationErrors).length > 0 || !acceptTerms}
+              disabled={isSubmitting || usernameCheck.checking}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full bg-gradient-to-r from-blue-400 to-purple-500 text-black font-bold py-4 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {isLoading ? 'Creazione account...' : 'Crea Account'}
-            </Button>
-          </form>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Creazione account...
+                </>
+              ) : (
+                <>
+                  CREA ACCOUNT
+                  <ArrowRight className="w-5 h-5" />
+                </>
+              )}
+            </motion.button>
+          </motion.form>
 
-          <div className="mt-6 relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-700"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-gray-900 text-gray-400">oppure</span>
-            </div>
+          {/* Login Link */}
+          <div className="text-center mt-8">
+            <p className="text-gray-400">
+              Hai già un account?{' '}
+              <Link 
+                href="/login" 
+                className="text-blue-400 hover:text-blue-300 font-bold transition-colors"
+              >
+                Accedi qui
+              </Link>
+            </p>
           </div>
+        </div>
+      </main>
 
-          <p className="text-center mt-6 text-gray-400">
-            Hai già un account?{' '}
-            <Link 
-              href="/login" 
-              className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
-            >
-              Accedi ora
-            </Link>
-          </p>
-        </Card>
-      </div>
+      {/* Footer */}
+      <footer className="relative z-10 mt-auto p-6 text-center">
+        <p className="text-sm text-gray-500">
+          © 2024 FitDuel Arena. Game on, fit on.
+        </p>
+      </footer>
     </div>
   )
 }
