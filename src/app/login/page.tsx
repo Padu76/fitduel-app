@@ -9,7 +9,7 @@ import {
   Loader2, AlertCircle, CheckCircle, Flame,
   Gamepad2, ArrowLeft
 } from 'lucide-react'
-import { useUserStore } from '../store/useUserStore'
+import { useUserStore } from '../../stores/useUserStore'
 
 export default function LoginPage() {
   const router = useRouter()
