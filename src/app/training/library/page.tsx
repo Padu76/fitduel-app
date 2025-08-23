@@ -7,530 +7,413 @@ import {
   ArrowLeft, Play, Search, Filter, MonitorPlay, 
   Clock, Target, Star, BookOpen, Video, 
   AlertCircle, CheckCircle, Info, Eye,
-  Heart, Zap, Award, TrendingUp
+  Users, Trophy, Zap, X
 } from 'lucide-react'
 
-// Mock data for exercises library
-const mockExercises = [
-  {
-    id: 1,
-    name: 'Push-ups',
-    category: 'Upper Body',
-    difficulty: 'Easy',
-    duration: '30s',
-    calories: 15,
-    rating: 4.8,
-    views: 1234,
-    equipment: 'Nessuno',
-    videoUrl: '#',
-    description: 'Esercizio base per la parte superiore del corpo',
-    instructions: [
-      'Posizionati a terra in posizione prona',
-      'Appoggia le mani al suolo alla larghezza delle spalle',
-      'Mantieni il corpo dritto dalla testa ai talloni',
-      'Abbassa il corpo fino a sfiorare il suolo',
-      'Spingi verso l\'alto tornando alla posizione iniziale'
-    ],
-    muscles: ['Pettorali', 'Tricipiti', 'Core', 'Spalle'],
-    tips: ['Mantieni il core contratto', 'Non alzare i fianchi', 'Controlla la discesa']
-  },
-  {
-    id: 2,
-    name: 'Squats',
-    category: 'Lower Body', 
-    difficulty: 'Easy',
-    duration: '45s',
-    calories: 20,
-    rating: 4.9,
-    views: 2156,
-    equipment: 'Nessuno',
-    videoUrl: '#',
-    description: 'Esercizio fondamentale per gambe e glutei',
-    instructions: [
-      'Posiziona i piedi alla larghezza delle spalle',
-      'Abbassa il corpo come se ti stessi sedendo',
-      'Mantieni il peso sui talloni',
-      'Scendi fino a che le cosce sono parallele al suolo',
-      'Risali spingendo sui talloni'
-    ],
-    muscles: ['Quadricipiti', 'Glutei', 'Polpacci', 'Core'],
-    tips: ['Ginocchia allineate ai piedi', 'Petto in fuori', 'Non incurvare la schiena']
-  },
-  {
-    id: 3,
-    name: 'Burpees',
-    category: 'Full Body',
-    difficulty: 'Hard',
-    duration: '60s', 
-    calories: 35,
-    rating: 4.6,
-    views: 987,
-    equipment: 'Nessuno',
-    videoUrl: '#',
-    description: 'Esercizio completo ad alta intensità',
-    instructions: [
-      'Inizia in posizione eretta',
-      'Scendi in squat e appoggia le mani',
-      'Salta indietro in posizione plank',
-      'Esegui un push-up',
-      'Torna in squat e salta in alto'
-    ],
-    muscles: ['Full Body', 'Cardio', 'Core', 'Resistenza'],
-    tips: ['Mantieni il ritmo costante', 'Atterraggio morbido', 'Respira regolarmente']
-  },
-  {
-    id: 4,
-    name: 'Plank',
-    category: 'Core',
-    difficulty: 'Medium',
-    duration: '60s',
-    calories: 12,
-    rating: 4.7,
-    views: 1876,
-    equipment: 'Nessuno',
-    videoUrl: '#',
-    description: 'Esercizio isometrico per il core',
-    instructions: [
-      'Posizionati in posizione prona',
-      'Appoggia gli avambracci al suolo',
-      'Mantieni il corpo dritto',
-      'Contrai addominali e glutei',
-      'Mantieni la posizione'
-    ],
-    muscles: ['Core', 'Spalle', 'Schiena'],
-    tips: ['Non alzare i fianchi', 'Respira normalmente', 'Guarda il pavimento']
-  },
-  {
-    id: 5,
-    name: 'Mountain Climbers',
-    category: 'Cardio',
-    difficulty: 'Medium',
-    duration: '30s',
-    calories: 25,
-    rating: 4.5,
-    views: 1543,
-    equipment: 'Nessuno', 
-    videoUrl: '#',
-    description: 'Esercizio cardio dinamico',
-    instructions: [
-      'Inizia in posizione plank',
-      'Porta un ginocchio al petto',
-      'Alterna rapidamente le gambe',
-      'Mantieni il core stabile',
-      'Continua il movimento alternato'
-    ],
-    muscles: ['Core', 'Gambe', 'Cardio', 'Spalle'],
-    tips: ['Mantieni i fianchi stabili', 'Ritmo sostenuto', 'Core sempre attivo']
-  },
-  {
-    id: 6,
-    name: 'Lunges',
-    category: 'Lower Body',
-    difficulty: 'Easy',
-    duration: '45s',
-    calories: 18,
-    rating: 4.8,
-    views: 1321,
-    equipment: 'Nessuno',
-    videoUrl: '#',
-    description: 'Esercizio unilaterale per gambe e equilibrio',
-    instructions: [
-      'Posizione eretta con piedi uniti',
-      'Fai un passo avanti con una gamba',
-      'Abbassa il corpo verso il basso',
-      'Il ginocchio anteriore a 90 gradi',
-      'Torna alla posizione iniziale'
-    ],
-    muscles: ['Quadricipiti', 'Glutei', 'Polpacci'],
-    tips: ['Non toccare il suolo con il ginocchio', 'Busto dritto', 'Peso distribuito']
-  }
-]
-
-const categories = ['All', 'Upper Body', 'Lower Body', 'Core', 'Cardio', 'Full Body']
-const difficulties = ['All', 'Easy', 'Medium', 'Hard']
-const equipment = ['All', 'Nessuno', 'Manubri', 'Elastici']
-
 export default function TrainingLibrary() {
-  const [selectedCategory, setSelectedCategory] = useState('All')
-  const [selectedDifficulty, setSelectedDifficulty] = useState('All')
-  const [selectedEquipment, setSelectedEquipment] = useState('All')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedExercise, setSelectedExercise] = useState(null)
+  const [selectedCategory, setSelectedCategory] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedVideo, setSelectedVideo] = useState(null)
 
-  const filteredExercises = mockExercises.filter(exercise => {
-    return (selectedCategory === 'All' || exercise.category === selectedCategory) &&
-           (selectedDifficulty === 'All' || exercise.difficulty === selectedDifficulty) &&
-           (selectedEquipment === 'All' || exercise.equipment === selectedEquipment) &&
-           (searchTerm === '' || exercise.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  const categories = [
+    { id: 'all', name: 'Tutti', count: 156 },
+    { id: 'strength', name: 'Forza', count: 45 },
+    { id: 'cardio', name: 'Cardio', count: 38 },
+    { id: 'flexibility', name: 'Flessibilità', count: 23 },
+    { id: 'technique', name: 'Tecnica', count: 30 },
+    { id: 'nutrition', name: 'Nutrizione', count: 20 }
+  ]
+
+  // Mock data - da sostituire con dati reali dal backend
+  const videos = [
+    {
+      id: 1,
+      title: "Squat Perfetto: Tecnica Base",
+      description: "Impara la tecnica corretta per eseguire lo squat in modo sicuro ed efficace",
+      category: "strength",
+      duration: "12:30",
+      difficulty: "Easy",
+      instructor: "Marco Fitness",
+      thumbnail: "/api/placeholder/400/225",
+      views: "12.5K",
+      rating: 4.8,
+      tags: ["squat", "gambe", "tecnica base"]
+    },
+    {
+      id: 2,
+      title: "HIIT Cardio Intenso",
+      description: "Allenamento ad alta intensità per bruciare calorie e migliorare la resistenza",
+      category: "cardio",
+      duration: "20:00",
+      difficulty: "Hard",
+      instructor: "Sara Cardio",
+      thumbnail: "/api/placeholder/400/225",
+      views: "8.3K",
+      rating: 4.9,
+      tags: ["hiit", "cardio", "intenso"]
+    },
+    {
+      id: 3,
+      title: "Stretching Completo",
+      description: "Routine di stretching per tutto il corpo, ideale dopo l'allenamento",
+      category: "flexibility",
+      duration: "15:45",
+      difficulty: "Easy",
+      instructor: "Anna Yoga",
+      thumbnail: "/api/placeholder/400/225",
+      views: "15.2K",
+      rating: 4.7,
+      tags: ["stretching", "flessibilità", "relax"]
+    },
+    {
+      id: 4,
+      title: "Deadlift: Tecnica Avanzata",
+      description: "Perfeziona la tua tecnica del deadlift con consigli avanzati",
+      category: "strength",
+      duration: "18:20",
+      difficulty: "Hard",
+      instructor: "Luca Power",
+      thumbnail: "/api/placeholder/400/225",
+      views: "6.7K",
+      rating: 4.9,
+      tags: ["deadlift", "schiena", "avanzato"]
+    },
+    {
+      id: 5,
+      title: "Alimentazione Pre-Workout",
+      description: "Come alimentarsi correttamente prima dell'allenamento",
+      category: "nutrition",
+      duration: "8:30",
+      difficulty: "Easy",
+      instructor: "Dr. Nutri",
+      thumbnail: "/api/placeholder/400/225",
+      views: "9.1K",
+      rating: 4.6,
+      tags: ["nutrizione", "pre-workout", "energia"]
+    },
+    {
+      id: 6,
+      title: "Corsa: Tecnica di Respirazione",
+      description: "Migliora le tue performance di corsa con la tecnica di respirazione corretta",
+      category: "cardio",
+      duration: "10:15",
+      difficulty: "Medium",
+      instructor: "Roberto Runner",
+      thumbnail: "/api/placeholder/400/225",
+      views: "11.8K",
+      rating: 4.8,
+      tags: ["corsa", "respirazione", "resistenza"]
+    }
+  ]
+
+  const filteredVideos = videos.filter(video => {
+    const matchesCategory = selectedCategory === 'all' || video.category === selectedCategory
+    const matchesSearch = video.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         video.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+    return matchesCategory && matchesSearch
   })
 
-  const getDifficultyColor = (difficulty) => {
+  const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case 'Easy': return 'text-green-400 bg-green-400/20'
-      case 'Medium': return 'text-yellow-400 bg-yellow-400/20'  
+      case 'Medium': return 'text-yellow-400 bg-yellow-400/20'
       case 'Hard': return 'text-red-400 bg-red-400/20'
       default: return 'text-gray-400 bg-gray-400/20'
     }
   }
 
-  const getCategoryIcon = (category) => {
-    switch (category) {
-      case 'Upper Body': return <TrendingUp className="w-4 h-4" />
-      case 'Lower Body': return <Target className="w-4 h-4" />
-      case 'Core': return <Zap className="w-4 h-4" />
-      case 'Cardio': return <Heart className="w-4 h-4" />
-      case 'Full Body': return <Award className="w-4 h-4" />
-      default: return <BookOpen className="w-4 h-4" />
-    }
-  }
-
-  // Simple inline components
-  const Button = ({ children, onClick, variant = 'primary', className = '', ...props }) => {
-    const baseClass = "px-4 py-2 rounded-lg font-medium transition-all duration-200"
-    const variants = {
-      primary: "bg-purple-600 hover:bg-purple-700 text-white",
-      secondary: "bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600",
-      ghost: "bg-transparent hover:bg-gray-800 text-gray-400"
-    }
-    
-    return (
-      <button 
-        className={`${baseClass} ${variants[variant]} ${className}`}
-        onClick={onClick}
-        {...props}
+  const VideoModal = ({ video, onClose }: { video: any, onClose: () => void }) => (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="bg-gray-900 rounded-2xl overflow-hidden max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
       >
-        {children}
-      </button>
-    )
-  }
-
-  const Card = ({ children, className = '' }) => (
-    <div className={`bg-gray-900/50 border border-gray-800 rounded-xl ${className}`}>
-      {children}
-    </div>
-  )
-
-  const Modal = ({ isOpen, onClose, children }) => {
-    if (!isOpen) return null
-    
-    return (
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-gray-900 border border-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-          {children}
+        <div className="relative">
+          <img 
+            src={video.thumbnail} 
+            alt={video.title}
+            className="w-full h-64 object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent" />
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 bg-black/50 rounded-full hover:bg-black/70 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <div className="absolute bottom-4 left-4 right-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(video.difficulty)}`}>
+                {video.difficulty}
+              </span>
+              <span className="text-sm text-gray-300">{video.duration}</span>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">{video.title}</h2>
+          </div>
         </div>
-      </div>
-    )
-  }
+        
+        <div className="p-6">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center gap-2">
+              <Star className="w-4 h-4 text-yellow-400 fill-current" />
+              <span className="text-sm text-gray-300">{video.rating}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Eye className="w-4 h-4 text-gray-400" />
+              <span className="text-sm text-gray-300">{video.views} visualizzazioni</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-gray-400" />
+              <span className="text-sm text-gray-300">{video.instructor}</span>
+            </div>
+          </div>
+          
+          <p className="text-gray-300 mb-4">{video.description}</p>
+          
+          <div className="flex flex-wrap gap-2 mb-6">
+            {video.tags.map((tag: string) => (
+              <span key={tag} className="px-3 py-1 bg-gray-800 rounded-full text-sm text-gray-300">
+                #{tag}
+              </span>
+            ))}
+          </div>
+          
+          <div className="flex gap-3">
+            <button className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center justify-center gap-2">
+              <Play className="w-5 h-5" />
+              Guarda Video
+            </button>
+            <button className="px-6 py-3 bg-gray-800 text-gray-300 rounded-xl font-medium hover:bg-gray-700 transition-colors">
+              Aggiungi ai Preferiti
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
 
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
-      <div className="border-b border-gray-800 bg-gray-900/30 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/training">
-                <Button variant="ghost" className="p-2">
-                  <ArrowLeft className="w-5 h-5" />
-                </Button>
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
-                  Libreria Esercizi
-                </h1>
-                <p className="text-gray-400 text-sm">
-                  Scopri tutti gli esercizi disponibili
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <BookOpen className="w-6 h-6 text-purple-400" />
-              <span className="text-sm text-gray-400">
-                {filteredExercises.length} esercizi
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Search and Filters */}
-        <div className="mb-8 space-y-4">
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Cerca esercizi..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-gray-900/50 border border-gray-800 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            />
-          </div>
-
-          {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Category Filter */}
+      <div className="border-b border-gray-800">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="flex items-center gap-4 mb-6">
+            <Link 
+              href="/training"
+              className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Categoria</label>
-              <select
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                Libreria Tecniche
+              </h1>
+              <p className="text-gray-400">Video tutorial e guide per perfezionare la tua tecnica</p>
+            </div>
+          </div>
+
+          {/* Search and Filter */}
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Cerca video, esercizi, tecniche..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-gray-900 border border-gray-800 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div className="flex items-center gap-2 bg-gray-900 rounded-xl p-1">
+              <Filter className="w-4 h-4 text-gray-400 ml-2" />
+              <select 
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-900/50 border border-gray-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="bg-transparent text-white border-none outline-none cursor-pointer pr-2"
               >
                 {categories.map(category => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Difficulty Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Difficoltà</label>
-              <select
-                value={selectedDifficulty}
-                onChange={(e) => setSelectedDifficulty(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-900/50 border border-gray-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                {difficulties.map(difficulty => (
-                  <option key={difficulty} value={difficulty}>{difficulty}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Equipment Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Attrezzatura</label>
-              <select
-                value={selectedEquipment}
-                onChange={(e) => setSelectedEquipment(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-900/50 border border-gray-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                {equipment.map(eq => (
-                  <option key={eq} value={eq}>{eq}</option>
+                  <option key={category.id} value={category.id} className="bg-gray-900">
+                    {category.name} ({category.count})
+                  </option>
                 ))}
               </select>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Exercise Grid */}
-        <motion.div 
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-        >
-          {filteredExercises.map((exercise, index) => (
-            <motion.div
-              key={exercise.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
+      {/* Categories */}
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-8">
+          {categories.map(category => (
+            <button
+              key={category.id}
+              onClick={() => setSelectedCategory(category.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap transition-all ${
+                selectedCategory === category.id
+                  ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
             >
-              <Card className="overflow-hidden hover:ring-2 hover:ring-purple-500 transition-all cursor-pointer">
-                <div onClick={() => setSelectedExercise(exercise)}>
-                  {/* Video Thumbnail */}
-                  <div className="relative h-48 bg-gradient-to-br from-purple-900/30 to-cyan-900/30 flex items-center justify-center">
-                    <div className="absolute inset-0 bg-black/20" />
-                    <Play className="w-12 h-12 text-white opacity-80" />
-                    <div className="absolute top-3 left-3">
-                      {getCategoryIcon(exercise.category)}
-                    </div>
-                    <div className="absolute top-3 right-3">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getDifficultyColor(exercise.difficulty)}`}>
-                        {exercise.difficulty}
-                      </span>
-                    </div>
+              <span>{category.name}</span>
+              <span className="text-xs opacity-70">({category.count})</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Results Info */}
+        <div className="flex items-center justify-between mb-6">
+          <p className="text-gray-400">
+            Trovati {filteredVideos.length} video
+            {searchQuery && ` per "${searchQuery}"`}
+            {selectedCategory !== 'all' && ` nella categoria "${categories.find(c => c.id === selectedCategory)?.name}"`}
+          </p>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-400">Ordina per:</span>
+            <select className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1 text-sm text-white">
+              <option>Più Popolari</option>
+              <option>Più Recenti</option>
+              <option>Durata</option>
+              <option>Difficoltà</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Videos Grid */}
+        {filteredVideos.length === 0 ? (
+          <div className="text-center py-12">
+            <BookOpen className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-400 mb-2">Nessun video trovato</h3>
+            <p className="text-gray-500">Prova a modificare i filtri di ricerca</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredVideos.map(video => (
+              <motion.div
+                key={video.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-gray-900 rounded-2xl overflow-hidden hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 cursor-pointer group"
+                onClick={() => setSelectedVideo(video)}
+              >
+                <div className="relative">
+                  <img 
+                    src={video.thumbnail} 
+                    alt={video.title}
+                    className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  <div className="absolute top-3 left-3">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(video.difficulty)}`}>
+                      {video.difficulty}
+                    </span>
                   </div>
-
-                  {/* Exercise Info */}
-                  <div className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="text-lg font-semibold text-white">{exercise.name}</h3>
-                      <div className="flex items-center gap-1 text-yellow-400">
-                        <Star className="w-4 h-4 fill-current" />
-                        <span className="text-sm">{exercise.rating}</span>
-                      </div>
-                    </div>
-
-                    <p className="text-gray-400 text-sm mb-3">{exercise.description}</p>
-
-                    <div className="grid grid-cols-3 gap-2 mb-3">
-                      <div className="text-center">
-                        <Clock className="w-4 h-4 text-purple-400 mx-auto mb-1" />
-                        <span className="text-xs text-gray-400">{exercise.duration}</span>
-                      </div>
-                      <div className="text-center">
-                        <Zap className="w-4 h-4 text-orange-400 mx-auto mb-1" />
-                        <span className="text-xs text-gray-400">{exercise.calories} cal</span>
-                      </div>
-                      <div className="text-center">
-                        <Eye className="w-4 h-4 text-cyan-400 mx-auto mb-1" />
-                        <span className="text-xs text-gray-400">{exercise.views}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {exercise.muscles.slice(0, 2).map(muscle => (
-                        <span key={muscle} className="px-2 py-1 text-xs bg-gray-800 text-gray-300 rounded-full">
-                          {muscle}
-                        </span>
-                      ))}
-                      {exercise.muscles.length > 2 && (
-                        <span className="px-2 py-1 text-xs bg-gray-800 text-gray-400 rounded-full">
-                          +{exercise.muscles.length - 2}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-400">
-                        {exercise.equipment}
-                      </span>
-                      <Button variant="secondary" className="text-xs px-3 py-1">
-                        Dettagli
-                      </Button>
+                  <div className="absolute top-3 right-3">
+                    <span className="bg-black/70 px-2 py-1 rounded text-sm text-white">
+                      {video.duration}
+                    </span>
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="bg-white/20 backdrop-blur-sm rounded-full p-4">
+                      <Play className="w-8 h-8 text-white fill-current" />
                     </div>
                   </div>
                 </div>
-              </Card>
-            </motion.div>
-          ))}
-        </motion.div>
 
-        {/* No Results */}
-        {filteredExercises.length === 0 && (
-          <div className="text-center py-12">
-            <AlertCircle className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-400 mb-2">Nessun esercizio trovato</h3>
-            <p className="text-gray-500">Prova a modificare i filtri di ricerca</p>
+                <div className="p-4">
+                  <h3 className="font-semibold text-white mb-2 line-clamp-2 group-hover:text-blue-400 transition-colors">
+                    {video.title}
+                  </h3>
+                  <p className="text-gray-400 text-sm mb-3 line-clamp-2">
+                    {video.description}
+                  </p>
+                  
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-300">{video.instructor}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                      <span className="text-sm text-gray-300">{video.rating}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Eye className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-400">{video.views}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {video.tags.slice(0, 2).map((tag: string) => (
+                        <span key={tag} className="px-2 py-1 bg-gray-800 rounded text-xs text-gray-400">
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+
+        {/* Load More Button */}
+        {filteredVideos.length > 0 && (
+          <div className="text-center mt-8">
+            <button className="bg-gray-800 hover:bg-gray-700 text-white px-6 py-3 rounded-xl font-medium transition-colors">
+              Carica Altri Video
+            </button>
           </div>
         )}
       </div>
 
-      {/* Exercise Detail Modal */}
-      <Modal isOpen={!!selectedExercise} onClose={() => setSelectedExercise(null)}>
-        {selectedExercise && (
-          <div>
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-800">
-              <div className="flex items-center gap-3">
-                {getCategoryIcon(selectedExercise.category)}
-                <div>
-                  <h2 className="text-xl font-bold text-white">{selectedExercise.name}</h2>
-                  <p className="text-gray-400 text-sm">{selectedExercise.category}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedExercise(null)}
-                className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-            </div>
+      {/* Video Modal */}
+      {selectedVideo && (
+        <VideoModal 
+          video={selectedVideo} 
+          onClose={() => setSelectedVideo(null)} 
+        />
+      )}
 
-            {/* Modal Content */}
-            <div className="p-6 space-y-6">
-              {/* Video Player */}
-              <div className="relative h-64 bg-gradient-to-br from-purple-900/30 to-cyan-900/30 rounded-xl flex items-center justify-center">
-                <Play className="w-16 h-16 text-white opacity-80" />
-                <div className="absolute top-3 right-3">
-                  <span className={`px-3 py-1 text-sm font-medium rounded-full ${getDifficultyColor(selectedExercise.difficulty)}`}>
-                    {selectedExercise.difficulty}
-                  </span>
+      {/* Integration Notice */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-500/20 rounded-2xl p-6">
+          <div className="flex items-start gap-4">
+            <Info className="w-6 h-6 text-blue-400 flex-shrink-0 mt-1" />
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-2">Integrazione Backend in Corso</h3>
+              <p className="text-gray-300 mb-4">
+                La libreria tecniche sarà presto collegata al database per caricare video reali, 
+                permettere il salvataggio dei progressi e personalizzare i contenuti in base al tuo livello.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <CheckCircle className="w-4 h-4 text-green-400" />
+                  <span>UI Completa</span>
                 </div>
-              </div>
-
-              {/* Stats */}
-              <div className="grid grid-cols-4 gap-4">
-                <div className="text-center p-3 bg-gray-800/30 rounded-lg">
-                  <Clock className="w-6 h-6 text-purple-400 mx-auto mb-2" />
-                  <span className="text-sm text-gray-400">Durata</span>
-                  <p className="font-semibold text-white">{selectedExercise.duration}</p>
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <AlertCircle className="w-4 h-4 text-yellow-400" />
+                  <span>Integrazione Video</span>
                 </div>
-                <div className="text-center p-3 bg-gray-800/30 rounded-lg">
-                  <Zap className="w-6 h-6 text-orange-400 mx-auto mb-2" />
-                  <span className="text-sm text-gray-400">Calorie</span>
-                  <p className="font-semibold text-white">{selectedExercise.calories}</p>
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <AlertCircle className="w-4 h-4 text-yellow-400" />
+                  <span>Sistema Progressi</span>
                 </div>
-                <div className="text-center p-3 bg-gray-800/30 rounded-lg">
-                  <Star className="w-6 h-6 text-yellow-400 mx-auto mb-2" />
-                  <span className="text-sm text-gray-400">Rating</span>
-                  <p className="font-semibold text-white">{selectedExercise.rating}</p>
-                </div>
-                <div className="text-center p-3 bg-gray-800/30 rounded-lg">
-                  <Eye className="w-6 h-6 text-cyan-400 mx-auto mb-2" />
-                  <span className="text-sm text-gray-400">Views</span>
-                  <p className="font-semibold text-white">{selectedExercise.views}</p>
-                </div>
-              </div>
-
-              {/* Description */}
-              <div>
-                <h3 className="text-lg font-semibold text-white mb-2">Descrizione</h3>
-                <p className="text-gray-400">{selectedExercise.description}</p>
-              </div>
-
-              {/* Instructions */}
-              <div>
-                <h3 className="text-lg font-semibold text-white mb-3">Istruzioni</h3>
-                <div className="space-y-2">
-                  {selectedExercise.instructions.map((instruction, index) => (
-                    <div key={index} className="flex items-start gap-3 p-3 bg-gray-800/30 rounded-lg">
-                      <span className="flex-shrink-0 w-6 h-6 bg-purple-600 text-white rounded-full text-xs flex items-center justify-center font-medium">
-                        {index + 1}
-                      </span>
-                      <span className="text-gray-300">{instruction}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Muscles & Tips */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Muscles */}
-                <div>
-                  <h3 className="text-lg font-semibold text-white mb-3">Muscoli Coinvolti</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedExercise.muscles.map(muscle => (
-                      <span key={muscle} className="px-3 py-1 bg-purple-600/20 border border-purple-500/30 text-purple-300 rounded-full text-sm">
-                        {muscle}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Tips */}
-                <div>
-                  <h3 className="text-lg font-semibold text-white mb-3">Suggerimenti</h3>
-                  <div className="space-y-2">
-                    {selectedExercise.tips.map((tip, index) => (
-                      <div key={index} className="flex items-start gap-2">
-                        <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                        <span className="text-sm text-gray-300">{tip}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-4 border-t border-gray-800">
-                <Button className="flex-1">
-                  <Play className="w-4 h-4 mr-2" />
-                  Inizia Esercizio
-                </Button>
-                <Button variant="secondary">
-                  <Heart className="w-4 h-4 mr-2" />
-                  Preferiti
-                </Button>
               </div>
             </div>
           </div>
-        )}
-      </Modal>
+        </div>
+      </div>
     </div>
   )
 }
