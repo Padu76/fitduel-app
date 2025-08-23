@@ -1,315 +1,324 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { 
   Mail, Lock, Eye, EyeOff, AlertCircle, 
-  Gamepad2, Zap, Trophy, Target
+  Gamepad2, Zap, Trophy, Target, CheckCircle 
 } from 'lucide-react'
 
 export default function LoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  // Form state
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    rememberMe: false
+  })
+  
+  // UI state
   const [showPassword, setShowPassword] = useState(false)
-  const [rememberMe, setRememberMe] = useState(true)
-  const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  
+  // Handle form input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }))
+    setError('') // Clear error when user types
+  }
 
-  // Load saved credentials on mount
-  useEffect(() => {
-    const savedEmail = localStorage.getItem('fitduel_email')
-    const savedPassword = localStorage.getItem('fitduel_password')
-    const savedRemember = localStorage.getItem('fitduel_remember') === 'true'
-    
-    if (savedEmail && savedRemember) {
-      setEmail(savedEmail)
-      setRememberMe(savedRemember)
-    }
-    if (savedPassword && savedRemember) {
-      setPassword(savedPassword)
-    }
-  }, [])
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
+  // Handle form submission with API call
+  const handleSubmit = async () => {
     setIsLoading(true)
-
-    // Basic validation
-    if (!email || !password) {
-      setError('Email e password sono obbligatori')
-      setIsLoading(false)
-      return
-    }
-
-    if (!email.includes('@')) {
-      setError('Inserisci un indirizzo email valido')
-      setIsLoading(false)
-      return
-    }
-
-    if (password.length < 6) {
-      setError('La password deve essere di almeno 6 caratteri')
-      setIsLoading(false)
-      return
-    }
+    setError('')
+    setSuccess('')
 
     try {
-      // Simulate API call - Replace with real authentication
-      await new Promise(resolve => setTimeout(resolve, 1500))
-
-      // For now, accept any valid email/password format
-      // TODO: Replace with real Supabase authentication
-      
-      // Save credentials if remember me is checked
-      if (rememberMe) {
-        localStorage.setItem('fitduel_email', email)
-        localStorage.setItem('fitduel_password', password)
-        localStorage.setItem('fitduel_remember', 'true')
-      } else {
-        localStorage.removeItem('fitduel_email')
-        localStorage.removeItem('fitduel_password')
-        localStorage.setItem('fitduel_remember', 'false')
+      // Validate form
+      if (!formData.email || !formData.password) {
+        throw new Error('Inserisci email e password')
       }
 
-      // Set user session
-      localStorage.setItem('fitduel_user', JSON.stringify({
-        email: email,
-        name: email.split('@')[0],
-        loginTime: new Date().toISOString()
-      }))
+      // Call login API
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          rememberMe: formData.rememberMe
+        })
+      })
 
-      // Redirect to dashboard
-      router.push('/dashboard')
-    } catch (err) {
-      setError('Errore durante il login. Riprova.')
+      const result = await response.json()
+
+      if (result.success) {
+        setSuccess('Login effettuato con successo! 🎉')
+        
+        // Store remember me preference
+        if (formData.rememberMe) {
+          localStorage.setItem('fitduel-remember', 'true')
+        }
+        
+        // Redirect to dashboard
+        setTimeout(() => {
+          window.location.href = '/dashboard'
+        }, 1000)
+      } else {
+        setError(result.message || 'Errore durante il login')
+      }
+
+    } catch (error: any) {
+      console.error('Login error:', error)
+      setError(error.message || 'Errore durante il login')
     } finally {
       setIsLoading(false)
     }
   }
 
+  // Handle Enter key press
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !isLoading) {
+      handleSubmit()
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
-      {/* Background Effects */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-600/20 to-purple-600/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-green-600/20 to-blue-600/20 rounded-full blur-3xl" />
+    <div className="min-h-screen bg-black text-white overflow-hidden">
+      {/* Animated Background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-red-900/20 via-black to-orange-900/20" />
+      <div className="absolute inset-0">
+        {[...Array(50)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-1 h-1 bg-red-500/30"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+            }}
+            animate={{
+              opacity: [0, 1, 0],
+              scale: [0, 1, 0],
+            }}
+            transition={{
+              duration: Math.random() * 3 + 2,
+              repeat: Infinity,
+              delay: Math.random() * 2,
+            }}
+          />
+        ))}
       </div>
 
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative w-full max-w-md"
-      >
-        {/* Header */}
-        <div className="text-center mb-8">
+      <div className="relative z-10 min-h-screen flex">
+        {/* Left Side - Branding */}
+        <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-center p-12">
           <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2 }}
-            className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-green-400 to-blue-500 rounded-2xl flex items-center justify-center"
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-center mb-8"
           >
-            <Gamepad2 className="w-8 h-8 text-white" />
+            <div className="flex items-center justify-center mb-6">
+              <Gamepad2 className="h-16 w-16 text-red-500 mr-4" />
+              <h1 className="text-6xl font-black bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
+                FITDUEL
+              </h1>
+            </div>
+            <p className="text-2xl text-gray-300 font-semibold mb-8">
+              DOVE I CAMPIONI SI SFIDANO
+            </p>
           </motion.div>
-          
-          <motion.h1 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            className="text-4xl font-bold text-white mb-2"
+
+          {/* Features */}
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="space-y-6 max-w-md"
           >
-            BENTORNATO
-          </motion.h1>
-          
-          <motion.p 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="text-gray-400"
-          >
-            Accedi al tuo account FitDuel
-          </motion.p>
+            <div className="flex items-center text-gray-300">
+              <Zap className="h-6 w-6 text-yellow-500 mr-4" />
+              <span className="text-lg">Sfide in tempo reale</span>
+            </div>
+            <div className="flex items-center text-gray-300">
+              <Trophy className="h-6 w-6 text-yellow-500 mr-4" />
+              <span className="text-lg">Classifiche competitive</span>
+            </div>
+            <div className="flex items-center text-gray-300">
+              <Target className="h-6 w-6 text-yellow-500 mr-4" />
+              <span className="text-lg">Training personalizzato</span>
+            </div>
+          </motion.div>
         </div>
 
-        {/* Competitive Stats */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="grid grid-cols-3 gap-4 mb-8"
-        >
-          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-3 text-center">
-            <Zap className="w-6 h-6 text-yellow-400 mx-auto mb-1" />
-            <div className="text-white font-bold text-lg">24/7</div>
-            <div className="text-gray-400 text-xs">Sfide</div>
-          </div>
-          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-3 text-center">
-            <Trophy className="w-6 h-6 text-orange-400 mx-auto mb-1" />
-            <div className="text-white font-bold text-lg">ELITE</div>
-            <div className="text-gray-400 text-xs">Training</div>
-          </div>
-          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-3 text-center">
-            <Target className="w-6 h-6 text-red-400 mx-auto mb-1" />
-            <div className="text-white font-bold text-lg">PRO</div>
-            <div className="text-gray-400 text-xs">Level</div>
-          </div>
-        </motion.div>
-
-        {/* Login Form */}
-        <motion.form 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          onSubmit={handleLogin}
-          className="space-y-6"
-        >
-          {error && (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-red-900/20 border border-red-500/20 rounded-xl p-4"
-            >
-              <div className="flex items-center gap-3">
-                <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                <span className="text-red-300 text-sm">{error}</span>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Email Field */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Email
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                placeholder="tuo@email.com"
-                required
-              />
-            </div>
-          </div>
-
-          {/* Password Field */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Password
-            </label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl pl-10 pr-12 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                placeholder="••••••••"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
-              >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
-          </div>
-
-          {/* Remember Me & Forgot Password */}
-          <div className="flex items-center justify-between">
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="sr-only"
-              />
-              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-                rememberMe 
-                  ? 'bg-blue-500 border-blue-500' 
-                  : 'border-gray-600 hover:border-gray-500'
-              }`}>
-                {rememberMe && (
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="w-2 h-2 bg-white rounded-sm"
-                  />
-                )}
-              </div>
-              <span className="ml-2 text-sm text-gray-300">Ricordami</span>
-            </label>
-
-            <Link 
-              href="/forgot-password" 
-              className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
-            >
-              Password dimenticata?
-            </Link>
-          </div>
-
-          {/* Login Button */}
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-gradient-to-r from-green-500 to-blue-500 text-white font-bold py-4 rounded-xl hover:shadow-lg hover:shadow-blue-500/25 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        {/* Right Side - Login Form */}
+        <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
+          <motion.div
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8 }}
+            className="w-full max-w-md space-y-8"
           >
-            {isLoading ? (
-              <div className="flex items-center justify-center gap-2">
-                <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                <span>ACCESSO IN CORSO...</span>
+            {/* Mobile Logo */}
+            <div className="lg:hidden text-center mb-8">
+              <div className="flex items-center justify-center mb-4">
+                <Gamepad2 className="h-12 w-12 text-red-500 mr-3" />
+                <h1 className="text-4xl font-black bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
+                  FITDUEL
+                </h1>
               </div>
-            ) : (
-              <span className="flex items-center justify-center gap-2">
-                <span>ACCEDI</span>
-                <span>→</span>
-              </span>
+            </div>
+
+            {/* Header */}
+            <div className="text-center">
+              <h2 className="text-3xl font-bold text-white mb-2">
+                Accedi al Combat
+              </h2>
+              <p className="text-gray-400">
+                Entra nell'arena e domina la competizione
+              </p>
+            </div>
+
+            {/* Success Message */}
+            {success && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center p-4 bg-green-900/50 border border-green-500 rounded-lg"
+              >
+                <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                <span className="text-green-200">{success}</span>
+              </motion.div>
             )}
-          </motion.button>
 
-          {/* Divider */}
-          <div className="relative py-4">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-700" />
+            {/* Error Message */}
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center p-4 bg-red-900/50 border border-red-500 rounded-lg"
+              >
+                <AlertCircle className="h-5 w-5 text-red-500 mr-3" />
+                <span className="text-red-200">{error}</span>
+              </motion.div>
+            )}
+
+            {/* Login Form */}
+            <div className="space-y-6" onKeyPress={handleKeyPress}>
+              {/* Email Input */}
+              <div className="space-y-2">
+                <label htmlFor="email" className="text-sm font-medium text-gray-300">
+                  Email
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className="w-full pl-10 pr-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-red-500 focus:ring-1 focus:ring-red-500 text-white placeholder-gray-400"
+                    placeholder="Il tuo indirizzo email"
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
+              {/* Password Input */}
+              <div className="space-y-2">
+                <label htmlFor="password" className="text-sm font-medium text-gray-300">
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    className="w-full pl-10 pr-12 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:border-red-500 focus:ring-1 focus:ring-red-500 text-white placeholder-gray-400"
+                    placeholder="La tua password"
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 hover:text-white"
+                    disabled={isLoading}
+                  >
+                    {showPassword ? <EyeOff /> : <Eye />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Remember Me & Forgot Password */}
+              <div className="flex items-center justify-between">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    name="rememberMe"
+                    checked={formData.rememberMe}
+                    onChange={handleInputChange}
+                    className="h-4 w-4 text-red-500 bg-gray-900 border-gray-600 rounded focus:ring-red-500"
+                    disabled={isLoading}
+                  />
+                  <span className="ml-2 text-sm text-gray-300">Ricordami</span>
+                </label>
+                <a 
+                  href="/forgot-password"
+                  className="text-sm text-red-500 hover:text-red-400 transition-colors"
+                >
+                  Password dimenticata?
+                </a>
+              </div>
+
+              {/* Login Button */}
+              <motion.button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isLoading}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className={`w-full py-3 px-4 rounded-lg font-semibold text-white transition-all duration-200 ${
+                  isLoading
+                    ? 'bg-gray-600 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 shadow-lg hover:shadow-red-500/25'
+                }`}
+              >
+                {isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
+                    Accesso in corso...
+                  </div>
+                ) : (
+                  'ENTRA IN BATTAGLIA'
+                )}
+              </motion.button>
             </div>
-            <div className="relative flex justify-center">
-              <span className="bg-gray-900 px-4 text-sm text-gray-400">OPPURE</span>
+
+            {/* Register Link */}
+            <div className="text-center pt-6 border-t border-gray-800">
+              <p className="text-gray-400">
+                Non hai ancora un account?{' '}
+                <a 
+                  href="/register"
+                  className="text-red-500 hover:text-red-400 font-semibold transition-colors"
+                >
+                  Registrati ora
+                </a>
+              </p>
             </div>
-          </div>
-
-          {/* Register Link */}
-          <div className="text-center">
-            <span className="text-gray-400">Non hai un account? </span>
-            <Link 
-              href="/register" 
-              className="text-green-400 hover:text-green-300 font-medium transition-colors"
-            >
-              Registrati qui
-            </Link>
-          </div>
-        </motion.form>
-
-        {/* Footer */}
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
-          className="text-center mt-8"
-        >
-          <p className="text-gray-500 text-sm">
-            © 2024 FitDuel Arena. Game on, fit on.
-          </p>
-        </motion.div>
-      </motion.div>
+          </motion.div>
+        </div>
+      </div>
     </div>
   )
 }
