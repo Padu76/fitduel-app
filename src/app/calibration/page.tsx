@@ -2,17 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   User, Calendar, Activity, Target, Award, ChevronRight, 
   AlertCircle, CheckCircle, Timer, Zap, TrendingUp, SkipForward,
-  FastForward, Save, Edit, X
+  FastForward, Save, Edit, X, ArrowLeft, Flame, Settings
 } from 'lucide-react'
-import AIExerciseTracker from '@/components/game/ai-tracker/AIExerciseTracker'
-import { supabase } from '@/lib/supabase-client'
-import { useUserStore } from '@/stores/useUserStore'
-import { calculateUserHandicap } from '@/utils/handicapSystem'
-import confetti from 'canvas-confetti'
+import { useUserStore } from '../../stores/useUserStore'
 
 // ====================================
 // TYPES
@@ -52,16 +49,6 @@ interface TestResults {
   lunges_count: number
   mountain_climbers_count: number
   high_knees_count: number
-}
-
-interface PerformanceData {
-  exerciseId: string
-  userId: string
-  formScore: number
-  repsCompleted: number
-  duration: number
-  caloriesBurned: number
-  timestamp: string
 }
 
 // ====================================
@@ -144,7 +131,7 @@ const CALIBRATION_STEPS: CalibrationStep[] = [
     field: 'has_limitations',
     type: 'info'
   },
-  // Test fisici
+  // Test fisici (semplificati per ora)
   {
     id: 'pushups',
     title: 'Test Push-ups',
@@ -154,38 +141,6 @@ const CALIBRATION_STEPS: CalibrationStep[] = [
     exercise: 'pushups',
     targetReps: 50,
     field: 'pushups_count'
-  },
-  {
-    id: 'squats',
-    title: 'Test Squats',
-    description: 'Fai il massimo numero di squats con forma corretta',
-    icon: Zap,
-    type: 'test',
-    exercise: 'squats',
-    targetReps: 50,
-    field: 'squats_count'
-  },
-  {
-    id: 'plank',
-    title: 'Test Plank',
-    description: 'Mantieni la posizione di plank il più a lungo possibile',
-    icon: Timer,
-    type: 'test',
-    exercise: 'plank',
-    duration: 120,
-    field: 'plank_duration',
-    unit: 'secondi'
-  },
-  {
-    id: 'jumping_jacks',
-    title: 'Test Jumping Jacks',
-    description: 'Fai il massimo numero di jumping jacks in 30 secondi',
-    icon: Zap,
-    type: 'test',
-    exercise: 'jumping_jacks',
-    targetReps: 50,
-    duration: 30,
-    field: 'jumping_jacks_count'
   },
   {
     id: 'complete',
@@ -204,7 +159,6 @@ export default function CalibrationPage() {
   const router = useRouter()
   const { user, updateUser } = useUserStore()
   const [currentStep, setCurrentStep] = useState(0)
-  const [showAITracker, setShowAITracker] = useState(false)
   const [loading, setLoading] = useState(false)
   const [manualInput, setManualInput] = useState(false)
   const [manualValue, setManualValue] = useState('')
@@ -244,7 +198,6 @@ export default function CalibrationPage() {
   const handleNext = () => {
     if (currentStep < CALIBRATION_STEPS.length - 1) {
       setCurrentStep(prev => prev + 1)
-      setShowAITracker(false)
       setManualInput(false)
       setManualValue('')
     }
@@ -253,7 +206,6 @@ export default function CalibrationPage() {
   const handlePrevious = () => {
     if (currentStep > 0) {
       setCurrentStep(prev => prev - 1)
-      setShowAITracker(false)
       setManualInput(false)
     }
   }
@@ -261,23 +213,11 @@ export default function CalibrationPage() {
   const handleSkipTest = () => {
     // Imposta valore di default per il test corrente
     if (currentStepData.field) {
-      const defaultValues: Record<string, number> = {
-        pushups_count: 15,
-        squats_count: 20,
-        plank_duration: 30,
-        jumping_jacks_count: 25,
-        burpees_count: 10,
-        lunges_count: 15,
-        mountain_climbers_count: 20,
-        high_knees_count: 30
-      }
-      
       setTestResults(prev => ({
         ...prev,
-        [currentStepData.field!]: defaultValues[currentStepData.field!] || 0
+        [currentStepData.field!]: 20
       }))
     }
-    
     handleNext()
   }
 
@@ -295,8 +235,6 @@ export default function CalibrationPage() {
     }
     
     setTestResults(quickResults)
-    
-    // Vai direttamente al completamento
     setCurrentStep(CALIBRATION_STEPS.length - 1)
     
     // Salva automaticamente
@@ -307,7 +245,6 @@ export default function CalibrationPage() {
 
   const handleManualInput = () => {
     setManualInput(true)
-    setShowAITracker(false)
   }
 
   const handleSaveManualValue = () => {
@@ -322,26 +259,25 @@ export default function CalibrationPage() {
     handleNext()
   }
 
-  const handleStartTest = () => {
-    setShowAITracker(true)
-    setManualInput(false)
-  }
-
-  const handleExerciseComplete = (data: PerformanceData) => {
-    // Salva i risultati del test
+  const handleStartSimpleTest = () => {
+    // Test semplificato - assegna un punteggio basato sul livello fitness
+    const scoreMap = {
+      'beginner': 15,
+      'intermediate': 25,
+      'advanced': 35,
+      'elite': 45
+    }
+    
+    const score = scoreMap[userInfo.fitness_level] || 20
+    
     if (currentStepData.field) {
-      const value = currentStepData.exercise === 'plank' 
-        ? Math.round(data.duration)
-        : data.repsCompleted
-        
       setTestResults(prev => ({
         ...prev,
-        [currentStepData.field!]: value
+        [currentStepData.field!]: score
       }))
     }
     
-    setShowAITracker(false)
-    handleNext()
+    setTimeout(() => handleNext(), 1500)
   }
 
   const handleComplete = async (customResults?: TestResults) => {
@@ -350,52 +286,21 @@ export default function CalibrationPage() {
     try {
       const finalResults = customResults || testResults
       
-      // Calcola l'handicap score
+      // Calcola livello basato sui risultati
       const calibrationData = {
         ...userInfo,
         ...finalResults,
-        calibration_score: calculateUserHandicap({
-          ...userInfo,
-          ...finalResults,
-          calibration_score: 0,
-          assigned_level: 'bronze',
-          base_handicap: 1
-        }),
+        calibration_score: calculateScore(finalResults),
         assigned_level: determineLevel(finalResults),
-        base_handicap: 1
       }
       
-      // Salva nel database
-      if (user?.id) {
-        const { error } = await supabase
-          .from('user_calibration')
-          .insert({
-            user_id: user.id,
-            ...calibrationData,
-            created_at: new Date().toISOString()
-          })
-        
-        if (error) {
-          console.error('Error saving calibration:', error)
-        }
-      }
-      
-      // Salva in localStorage come backup
+      // Salva in localStorage
       localStorage.setItem('fitduel_calibration', JSON.stringify(calibrationData))
       localStorage.setItem('fitduel_calibration_complete', 'true')
       
-      // Aggiorna user store con il nuovo livello
-      const newLevel = getLevelNumber(calibrationData.assigned_level)
+      // Aggiorna user store
       updateUser({
-        level: newLevel,
         fitnessLevel: calibrationData.fitness_level as 'beginner' | 'intermediate' | 'advanced'
-      })
-      
-      // Celebrazione
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
       })
       
       // Redirect dopo 2 secondi
@@ -405,7 +310,6 @@ export default function CalibrationPage() {
       
     } catch (error) {
       console.error('Calibration error:', error)
-      // Vai comunque alla dashboard
       router.push('/dashboard')
     } finally {
       setLoading(false)
@@ -416,29 +320,17 @@ export default function CalibrationPage() {
   // HELPERS
   // ====================================
 
+  const calculateScore = (results: TestResults): number => {
+    return results.pushups_count * 2 + results.squats_count + results.plank_duration
+  }
+
   const determineLevel = (results: TestResults): string => {
-    const score = 
-      results.pushups_count * 2 +
-      results.squats_count * 1.5 +
-      results.plank_duration +
-      results.jumping_jacks_count * 0.5
-    
+    const score = calculateScore(results)
     if (score > 200) return 'elite'
     if (score > 150) return 'gold'
     if (score > 100) return 'silver'
     if (score > 50) return 'bronze'
     return 'rookie'
-  }
-
-  const getLevelNumber = (level: string): number => {
-    const levels: Record<string, number> = {
-      rookie: 1,
-      bronze: 5,
-      silver: 10,
-      gold: 15,
-      elite: 20
-    }
-    return levels[level] || 1
   }
 
   // ====================================
@@ -455,9 +347,32 @@ export default function CalibrationPage() {
 
       <div className="relative z-10 container mx-auto px-4 py-8 max-w-4xl">
         {/* Header */}
-        <div className="mb-8">
+        <header className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-3xl font-bold text-white">Calibrazione Fitness</h1>
+            <div className="flex items-center gap-4">
+              <Link href="/dashboard">
+                <motion.div 
+                  className="flex items-center gap-3 hover:scale-105 transition-transform"
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <div className="w-10 h-10 bg-gradient-to-r from-green-400 to-blue-500 rounded-xl flex items-center justify-center">
+                    <Flame className="w-6 h-6 text-black" />
+                  </div>
+                  <h1 className="text-xl font-black bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
+                    FITDUEL
+                  </h1>
+                </motion.div>
+              </Link>
+              
+              <div className="h-6 w-px bg-gray-600 mx-2" />
+              
+              <div>
+                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                  <Settings className="w-6 h-6 text-green-400" />
+                  Calibrazione Fitness
+                </h2>
+              </div>
+            </div>
             
             {/* Quick Actions */}
             <div className="flex gap-2">
@@ -489,7 +404,7 @@ export default function CalibrationPage() {
           <p className="text-sm text-slate-400 mt-2">
             Step {currentStep + 1} di {CALIBRATION_STEPS.length}
           </p>
-        </div>
+        </header>
 
         {/* Main Content */}
         <AnimatePresence mode="wait">
@@ -683,7 +598,7 @@ export default function CalibrationPage() {
             {/* Test Content */}
             {currentStepData.type === 'test' && (
               <div className="space-y-6">
-                {!showAITracker && !manualInput ? (
+                {!manualInput ? (
                   <div className="space-y-4">
                     {/* Current Value Display */}
                     {testResults[currentStepData.field as keyof TestResults] > 0 && (
@@ -699,13 +614,13 @@ export default function CalibrationPage() {
                     {/* Test Options */}
                     <div className="grid grid-cols-1 gap-3">
                       <button
-                        onClick={handleStartTest}
+                        onClick={handleStartSimpleTest}
                         className="p-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg
                           text-white font-bold hover:shadow-lg hover:shadow-green-500/25 
                           transition-all flex items-center justify-center gap-2"
                       >
                         <Activity className="w-5 h-5" />
-                        Inizia Test con AI
+                        Test Rapido (Basato su Livello)
                       </button>
                       
                       <button
@@ -733,24 +648,7 @@ export default function CalibrationPage() {
                       Puoi sempre modificare questi valori in seguito
                     </p>
                   </div>
-                ) : showAITracker ? (
-                  <div>
-                    <AIExerciseTracker
-                      exerciseId={currentStepData.exercise!}
-                      targetReps={currentStepData.targetReps}
-                      targetTime={currentStepData.duration}
-                      onComplete={handleExerciseComplete}
-                      userId={user?.id || 'temp-user'}
-                    />
-                    <button
-                      onClick={() => setShowAITracker(false)}
-                      className="mt-4 w-full p-3 bg-slate-700/50 border border-slate-600 rounded-lg
-                        text-white font-bold hover:bg-slate-700 transition-all"
-                    >
-                      Annulla Test
-                    </button>
-                  </div>
-                ) : manualInput ? (
+                ) : (
                   <div className="space-y-4">
                     <div className="text-center">
                       <p className="text-sm text-slate-400 mb-2">
@@ -793,7 +691,7 @@ export default function CalibrationPage() {
                       </button>
                     </div>
                   </div>
-                ) : null}
+                )}
               </div>
             )}
 
@@ -825,16 +723,8 @@ export default function CalibrationPage() {
                       <p className="text-xl font-bold text-white">{testResults.pushups_count}</p>
                     </div>
                     <div className="bg-slate-900/50 rounded-lg p-3">
-                      <p className="text-xs text-slate-500">Squats</p>
-                      <p className="text-xl font-bold text-white">{testResults.squats_count}</p>
-                    </div>
-                    <div className="bg-slate-900/50 rounded-lg p-3">
-                      <p className="text-xs text-slate-500">Plank</p>
-                      <p className="text-xl font-bold text-white">{testResults.plank_duration}s</p>
-                    </div>
-                    <div className="bg-slate-900/50 rounded-lg p-3">
-                      <p className="text-xs text-slate-500">Jumping Jacks</p>
-                      <p className="text-xl font-bold text-white">{testResults.jumping_jacks_count}</p>
+                      <p className="text-xs text-slate-500">Livello</p>
+                      <p className="text-xl font-bold text-white">{userInfo.fitness_level}</p>
                     </div>
                   </div>
                 </div>
@@ -852,15 +742,16 @@ export default function CalibrationPage() {
             )}
 
             {/* Navigation */}
-            {currentStepData.type !== 'complete' && !showAITracker && !manualInput && (
+            {currentStepData.type !== 'complete' && !manualInput && (
               <div className="flex justify-between mt-8">
                 <button
                   onClick={handlePrevious}
                   disabled={currentStep === 0}
                   className="px-6 py-3 bg-slate-700/50 border border-slate-600 rounded-lg
                     text-white font-bold hover:bg-slate-700 transition-all
-                    disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
+                  <ArrowLeft className="w-4 h-4" />
                   Indietro
                 </button>
                 
@@ -878,7 +769,7 @@ export default function CalibrationPage() {
           </motion.div>
         </AnimatePresence>
 
-        {/* Quick Complete Button (sempre visibile) */}
+        {/* Quick Complete Button */}
         {currentStep > 0 && currentStep < CALIBRATION_STEPS.length - 1 && (
           <div className="mt-6 text-center">
             <button
