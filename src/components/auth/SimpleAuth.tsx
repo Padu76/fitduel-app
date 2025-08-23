@@ -307,7 +307,7 @@ export default function SimpleAuth({
   }
 
   const handleModeSwitch = () => {
-    debugLog('🔍 Switching mode from', mode, 'to', mode === 'login' ? 'register' : 'login')
+    debugLog(`🔍 Switching mode from ${mode} to ${mode === 'login' ? 'register' : 'login'}`)
     setMode(mode === 'login' ? 'register' : 'login')
     setErrors({})
     setGeneralError(null)
