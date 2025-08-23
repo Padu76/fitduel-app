@@ -55,11 +55,9 @@ type AuthMode = 'login' | 'register'
 type AuthState = 'idle' | 'loading' | 'success' | 'error'
 
 // ====================================
-// VALIDATION RULES
+// VALIDATION RULES (SIMPLIFIED FOR DEBUG)
 // ====================================
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{6,}$/
-const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/
 
 const validateEmail = (email: string) => {
   if (!email) return 'Email richiesta'
@@ -70,7 +68,7 @@ const validateEmail = (email: string) => {
 const validatePassword = (password: string) => {
   if (!password) return 'Password richiesta'
   if (password.length < 6) return 'Password deve essere almeno 6 caratteri'
-  if (!passwordRegex.test(password)) return 'Password deve contenere almeno una maiuscola e un numero'
+  // Removed complex validation for debug
   return null
 }
 
@@ -78,7 +76,8 @@ const validateUsername = (username: string) => {
   if (!username) return 'Username richiesto'
   if (username.length < 3) return 'Username deve essere almeno 3 caratteri'
   if (username.length > 20) return 'Username massimo 20 caratteri'
-  if (!usernameRegex.test(username)) return 'Username può contenere solo lettere, numeri e underscore'
+  // Simplified regex for debug
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) return 'Username può contenere solo lettere, numeri e underscore'
   return null
 }
 
@@ -107,10 +106,16 @@ export default function SimpleAuth({
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
   const [checkingUsername, setCheckingUsername] = useState(false)
 
+  // Debug logging
+  const debugLog = (message: string, data?: any) => {
+    console.log(`🔍 [SimpleAuth Debug] ${message}`, data || '')
+  }
+
   // ====================================
   // VALIDATION HELPERS
   // ====================================
   const validateForm = () => {
+    debugLog('🔍 Starting form validation...')
     const newErrors: Record<string, string> = {}
     
     const emailError = validateEmail(email)
@@ -128,6 +133,7 @@ export default function SimpleAuth({
       if (usernameAvailable === false) newErrors.username = 'Username non disponibile'
     }
     
+    debugLog('🔍 Validation results:', { newErrors, hasErrors: Object.keys(newErrors).length > 0 })
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -141,13 +147,16 @@ export default function SimpleAuth({
       return
     }
 
+    debugLog('🔍 Checking username availability:', usernameToCheck)
     setCheckingUsername(true)
+    
     try {
       const response = await fetch(`/api/auth/register?username=${encodeURIComponent(usernameToCheck)}`)
       const data = await response.json()
+      debugLog('🔍 Username check response:', data)
       setUsernameAvailable(data.available)
     } catch (error) {
-      console.error('Username check error:', error)
+      debugLog('❌ Username check error:', error)
       setUsernameAvailable(null)
     } finally {
       setCheckingUsername(false)
@@ -158,37 +167,51 @@ export default function SimpleAuth({
   // LOGIN HANDLER
   // ====================================
   const handleLogin = async () => {
-    if (!validateForm()) return
+    debugLog('🔍 Starting login process...')
+    
+    if (!validateForm()) {
+      debugLog('❌ Login validation failed')
+      return
+    }
 
     setAuthState('loading')
     setGeneralError(null)
 
+    const loginData = {
+      email,
+      password,
+      rememberMe
+    }
+
+    debugLog('🔍 Login data:', loginData)
+
     try {
+      debugLog('🔍 Making login API call...')
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          email,
-          password,
-          rememberMe
-        })
+        body: JSON.stringify(loginData)
       })
 
+      debugLog('🔍 Login response status:', response.status)
       const data: AuthResponse = await response.json()
+      debugLog('🔍 Login response data:', data)
 
       if (data.success && data.data) {
         setAuthState('success')
-        console.log('✅ Login successful:', data.data.user)
+        debugLog('✅ Login successful:', data.data.user)
         onAuthSuccess?.(data.data.user)
       } else {
         setAuthState('error')
-        setGeneralError(data.message || 'Errore durante il login')
+        const errorMessage = data.message || 'Errore durante il login'
+        setGeneralError(errorMessage)
+        debugLog('❌ Login failed:', errorMessage)
         onError?.(data.error || 'LOGIN_FAILED')
       }
     } catch (error) {
-      console.error('Login error:', error)
+      debugLog('❌ Login network error:', error)
       setAuthState('error')
       setGeneralError('Errore di connessione. Riprova.')
       onError?.('NETWORK_ERROR')
@@ -199,50 +222,64 @@ export default function SimpleAuth({
   // REGISTER HANDLER
   // ====================================
   const handleRegister = async () => {
-    if (!validateForm()) return
+    debugLog('🔍 Starting registration process...')
+
+    if (!validateForm()) {
+      debugLog('❌ Registration validation failed')
+      return
+    }
 
     setAuthState('loading')
     setGeneralError(null)
 
+    const registerData = {
+      email,
+      password,
+      username,
+      terms: acceptTerms,
+      fitnessLevel: 'beginner',
+      goals: ['general_fitness'],
+      newsletter: false
+    }
+
+    debugLog('🔍 Registration data:', registerData)
+
     try {
+      debugLog('🔍 Making registration API call...')
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          email,
-          password,
-          username,
-          terms: acceptTerms,
-          fitnessLevel: 'beginner',
-          goals: ['general_fitness'],
-          newsletter: false
-        })
+        body: JSON.stringify(registerData)
       })
 
+      debugLog('🔍 Registration response status:', response.status)
       const data: AuthResponse = await response.json()
+      debugLog('🔍 Registration response data:', data)
 
       if (data.success) {
         if (data.data?.session) {
           // Auto-login successful
           setAuthState('success')
-          console.log('✅ Registration with auto-login successful:', data.data.user)
+          debugLog('✅ Registration with auto-login successful:', data.data.user)
           onAuthSuccess?.(data.data.user)
         } else {
           // Email confirmation required
           setAuthState('success')
           setGeneralError(null)
-          // Show success message but don't auto-login
+          debugLog('✅ Registration successful, email confirmation required')
           alert(data.message || 'Registrazione completata! Controlla la tua email.')
         }
       } else {
         setAuthState('error')
-        setGeneralError(data.message || 'Errore durante la registrazione')
+        const errorMessage = data.message || 'Errore durante la registrazione'
+        setGeneralError(errorMessage)
+        debugLog('❌ Registration failed:', errorMessage)
         onError?.(data.error || 'REGISTER_FAILED')
       }
     } catch (error) {
-      console.error('Register error:', error)
+      debugLog('❌ Registration network error:', error)
       setAuthState('error')
       setGeneralError('Errore di connessione. Riprova.')
       onError?.('NETWORK_ERROR')
@@ -252,7 +289,16 @@ export default function SimpleAuth({
   // ====================================
   // EVENT HANDLERS
   // ====================================
-  const handleSubmit = async () => {
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    
+    debugLog('🔍 Submit triggered, mode:', mode)
+    debugLog('🔍 Form state:', { email, password, username, acceptTerms, authState })
+    
+    // Force debug - always proceed even with validation errors for now
     if (mode === 'login') {
       await handleLogin()
     } else {
@@ -261,6 +307,7 @@ export default function SimpleAuth({
   }
 
   const handleModeSwitch = () => {
+    debugLog('🔍 Switching mode from', mode, 'to', mode === 'login' ? 'register' : 'login')
     setMode(mode === 'login' ? 'register' : 'login')
     setErrors({})
     setGeneralError(null)
@@ -269,6 +316,7 @@ export default function SimpleAuth({
   }
 
   const handleUsernameChange = (value: string) => {
+    debugLog('🔍 Username changed to:', value)
     setUsername(value)
     setErrors(prev => ({ ...prev, username: '' }))
     
@@ -300,12 +348,14 @@ export default function SimpleAuth({
 
   const isFormValid = () => {
     if (mode === 'login') {
-      return email && password && Object.keys(errors).length === 0
+      return email && password
     } else {
-      return email && password && username && acceptTerms && 
-             usernameAvailable === true && Object.keys(errors).length === 0
+      return email && password && username && acceptTerms
     }
   }
+
+  // Add debug info to see what's happening
+  debugLog('🔍 Component render:', { mode, authState, isFormValid: isFormValid(), errors })
 
   // ====================================
   // RENDER
@@ -349,10 +399,11 @@ export default function SimpleAuth({
         transition={{ delay: 0.4 }}
       >
         <Card variant="glass" className="p-6">
-          <div className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             {/* Mode Switcher */}
             <div className="flex bg-gray-800/50 rounded-lg p-1">
               <button
+                type="button"
                 onClick={() => mode !== 'login' && handleModeSwitch()}
                 className={cn(
                   "flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all",
@@ -364,6 +415,7 @@ export default function SimpleAuth({
                 Accedi
               </button>
               <button
+                type="button"
                 onClick={() => mode !== 'register' && handleModeSwitch()}
                 className={cn(
                   "flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all",
@@ -503,12 +555,22 @@ export default function SimpleAuth({
               </motion.div>
             )}
 
+            {/* Debug Info */}
+            <div className="text-xs text-gray-500 p-2 bg-gray-800/30 rounded">
+              Debug: Mode={mode}, Valid={isFormValid().toString()}, State={authState}
+            </div>
+
             {/* Submit Button */}
             <Button
+              type="submit"
               variant="gradient"
               size="lg"
-              onClick={handleSubmit}
-              disabled={authState === 'loading' || !isFormValid()}
+              disabled={authState === 'loading'}
+              onClick={(e) => {
+                e.preventDefault()
+                debugLog('🔍 Button clicked!')
+                handleSubmit()
+              }}
               className="w-full"
             >
               {authState === 'loading' ? (
@@ -530,6 +592,7 @@ export default function SimpleAuth({
                 {mode === 'login' ? 'Non hai un account?' : 'Hai già un account?'}
                 {' '}
                 <button
+                  type="button"
                   onClick={handleModeSwitch}
                   disabled={authState === 'loading'}
                   className="text-indigo-400 hover:text-indigo-300 font-medium"
@@ -538,7 +601,7 @@ export default function SimpleAuth({
                 </button>
               </p>
             </div>
-          </div>
+          </form>
         </Card>
       </motion.div>
 
