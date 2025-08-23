@@ -28,12 +28,20 @@ const Card = ({ className, children, ...props }: any) => (
 const Button = ({ 
   variant = 'primary', 
   size = 'md', 
-  className, 
+  className = '', 
   children, 
   disabled,
   onClick,
   ...props 
-}: any) => {
+}: {
+  variant?: 'primary' | 'secondary' | 'gradient' | 'ghost'
+  size?: 'sm' | 'md' | 'lg'
+  className?: string
+  children?: React.ReactNode
+  disabled?: boolean
+  onClick?: () => void
+  [key: string]: any
+}) => {
   const baseClasses = 'inline-flex items-center justify-center font-medium rounded-lg transition-all'
   const variants = {
     primary: 'bg-indigo-600 hover:bg-indigo-700 text-white',
