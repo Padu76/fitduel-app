@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -50,7 +50,8 @@ interface NotificationSettings {
   push_notifications: boolean
 }
 
-export default function SettingsPage() {
+// Settings Content Component
+function SettingsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const initialTab = searchParams.get('tab') || 'calibration'
@@ -1040,5 +1041,21 @@ export default function SettingsPage() {
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+// Main Settings Page with Suspense wrapper
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-green-500/20 border-t-green-500 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-400">Caricamento impostazioni...</p>
+        </div>
+      </div>
+    }>
+      <SettingsContent />
+    </Suspense>
   )
 }
