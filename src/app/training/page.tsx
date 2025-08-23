@@ -12,7 +12,7 @@ import {
   Pause, StopCircle, Info, CameraOff, Wifi
 } from 'lucide-react'
 
-// Import your REAL AI system components
+// Import your REAL AI system components - VERSIONE MODULARE
 import { AIExerciseTracker } from '@/components/game/ai-tracker/AIExerciseTracker'
 import { useGameStore } from '@/stores/useGameStore'
 
@@ -327,7 +327,7 @@ export default function TrainingPage() {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 py-8">
-          {/* REAL AI EXERCISE TRACKER COMPONENT */}
+          {/* REAL AI EXERCISE TRACKER COMPONENT - VERSIONE MODULARE */}
           <AIExerciseTracker
             exerciseId={selectedExercise.id}
             userId={user.id}
@@ -337,6 +337,7 @@ export default function TrainingPage() {
             targetTime={duelMode?.target_time || selectedExercise.targetTime}
             onComplete={handleTrainingComplete}
             onProgress={handleTrainingProgress}
+            strictMode={duelMode ? true : false} // Anti-cheat per duelli
           />
 
           {/* Training Info Panel */}
@@ -351,21 +352,23 @@ export default function TrainingPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div className="space-y-2">
-                <p className="text-blue-400 font-medium">Tecnologie Attive:</p>
+                <p className="text-blue-400 font-medium">Sistema AI Modulare:</p>
                 <ul className="text-gray-300 space-y-1">
                   <li>• MediaPipe Pose Detection</li>
                   <li>• Real-time Form Analysis</li>
                   <li>• Automatic Rep Counting</li>
                   <li>• Voice Feedback System</li>
+                  <li>• Anti-cheat Validation</li>
                 </ul>
               </div>
               <div className="space-y-2">
-                <p className="text-blue-400 font-medium">Funzionalità:</p>
+                <p className="text-blue-400 font-medium">Funzionalità Avanzate:</p>
                 <ul className="text-gray-300 space-y-1">
                   <li>• Video Performance Recording</li>
                   <li>• Supabase Data Saving</li>
-                  <li>• Anti-cheat Validation</li>
+                  <li>• Trust Score & Validation</li>
                   <li>• Live Performance Metrics</li>
+                  <li>• Calibration System</li>
                 </ul>
               </div>
             </div>
