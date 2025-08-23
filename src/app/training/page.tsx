@@ -697,7 +697,7 @@ export default function TrainingPage() {
                 className="px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-green-500/25 transition-all"
               >
                 <Camera className="w-6 h-6 inline mr-3" />
-                Inizia Sistema AI - {selectedExercise.name}
+                Inizia Sistema AI - {selectedExercise?.name || 'Esercizio Selezionato'}
               </button>
             </motion.div>
           )}
