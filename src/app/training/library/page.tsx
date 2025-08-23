@@ -10,10 +10,25 @@ import {
   Users, Trophy, Zap, X
 } from 'lucide-react'
 
+// Define video type
+interface VideoType {
+  id: number
+  title: string
+  description: string
+  category: string
+  duration: string
+  difficulty: string
+  instructor: string
+  thumbnail: string
+  views: string
+  rating: number
+  tags: string[]
+}
+
 export default function TrainingLibrary() {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedVideo, setSelectedVideo] = useState(null)
+  const [selectedVideo, setSelectedVideo] = useState<VideoType | null>(null)
 
   const categories = [
     { id: 'all', name: 'Tutti', count: 156 },
@@ -25,7 +40,7 @@ export default function TrainingLibrary() {
   ]
 
   // Mock data - da sostituire con dati reali dal backend
-  const videos = [
+  const videos: VideoType[] = [
     {
       id: 1,
       title: "Squat Perfetto: Tecnica Base",
@@ -122,7 +137,7 @@ export default function TrainingLibrary() {
     }
   }
 
-  const VideoModal = ({ video, onClose }: { video: any, onClose: () => void }) => (
+  const VideoModal = ({ video, onClose }: { video: VideoType, onClose: () => void }) => (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
