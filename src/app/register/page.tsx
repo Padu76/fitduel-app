@@ -1,533 +1,421 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { 
-  Eye, EyeOff, Mail, Lock, User, ArrowRight, 
-  Loader2, AlertCircle, CheckCircle, Flame,
-  Rocket, ArrowLeft, Calendar, Target
+  Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle,
+  User, Gamepad2, Zap, Trophy, Target, Shield
 } from 'lucide-react'
-import { useUserStore } from '../../stores/useUserStore'
 
 export default function RegisterPage() {
   const router = useRouter()
-  const { register, isLoading, error, isAuthenticated, clearUser } = useUserStore()
-  
-  // Form state
   const [formData, setFormData] = useState({
+    name: '',
     email: '',
     password: '',
-    username: '',
-    birthDate: '',
-    fitnessLevel: 'beginner' as 'beginner' | 'intermediate' | 'advanced',
-    goals: [] as string[],
-    newsletter: false,
-    terms: false
+    confirmPassword: ''
   })
   const [showPassword, setShowPassword] = useState(false)
-  const [formErrors, setFormErrors] = useState<any>({})
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [usernameCheck, setUsernameCheck] = useState<{
-    available: boolean | null,
-    checking: boolean
-  }>({ available: null, checking: false })
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [acceptTerms, setAcceptTerms] = useState(false)
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
-  // Available goals
-  const availableGoals = [
-    { id: 'lose_weight', label: 'Perdere peso', icon: '🎯' },
-    { id: 'build_muscle', label: 'Aumentare muscoli', icon: '💪' },
-    { id: 'improve_endurance', label: 'Resistenza', icon: '🏃' },
-    { id: 'get_stronger', label: 'Diventare più forte', icon: '🔥' },
-    { id: 'stay_healthy', label: 'Mantenersi in salute', icon: '❤️' },
-    { id: 'compete', label: 'Competere', icon: '🏆' }
-  ]
-
-  // Check if already logged in
-  useEffect(() => {
-    if (isAuthenticated) {
-      router.push('/dashboard')
-    }
-  }, [isAuthenticated, router])
-
-  // Clear any existing errors
-  useEffect(() => {
-    clearUser()
-  }, [])
-
-  // Check username availability
-  const checkUsernameAvailability = async (username: string) => {
-    if (username.length < 3) return
-    
-    setUsernameCheck({ available: null, checking: true })
-    
-    try {
-      const response = await fetch(`/api/auth/register?username=${encodeURIComponent(username)}`)
-      const data = await response.json()
-      setUsernameCheck({ available: data.available, checking: false })
-    } catch (error) {
-      setUsernameCheck({ available: null, checking: false })
-    }
+  const passwordStrength = (password: string) => {
+    let strength = 0
+    if (password.length >= 8) strength++
+    if (/[a-z]/.test(password)) strength++
+    if (/[A-Z]/.test(password)) strength++
+    if (/[0-9]/.test(password)) strength++
+    if (/[^A-Za-z0-9]/.test(password)) strength++
+    return strength
   }
 
-  // Handle input change
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target
-    const checked = (e.target as HTMLInputElement).checked
-    
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }))
-    
-    // Clear field error when user starts typing
-    if (formErrors[name]) {
-      setFormErrors((prev: any) => ({
-        ...prev,
-        [name]: null
-      }))
-    }
-
-    // Check username availability
-    if (name === 'username' && value.length >= 3) {
-      checkUsernameAvailability(value)
-    }
+  const getPasswordStrengthColor = (strength: number) => {
+    if (strength < 2) return 'bg-red-500'
+    if (strength < 4) return 'bg-yellow-500'
+    return 'bg-green-500'
   }
 
-  // Handle goal toggle
-  const toggleGoal = (goalId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      goals: prev.goals.includes(goalId)
-        ? prev.goals.filter(g => g !== goalId)
-        : [...prev.goals, goalId]
-    }))
+  const getPasswordStrengthLabel = (strength: number) => {
+    if (strength < 2) return 'Debole'
+    if (strength < 4) return 'Media'
+    return 'Forte'
   }
 
-  // Validate form
-  const validateForm = () => {
-    const errors: any = {}
-    
-    if (!formData.email) {
-      errors.email = 'Email è richiesta'
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      errors.email = 'Email non valida'
-    }
-    
-    if (!formData.password) {
-      errors.password = 'Password è richiesta'
-    } else if (formData.password.length < 6) {
-      errors.password = 'Password deve essere almeno 6 caratteri'
-    } else if (!/[A-Z]/.test(formData.password)) {
-      errors.password = 'Password deve contenere almeno una maiuscola'
-    } else if (!/[0-9]/.test(formData.password)) {
-      errors.password = 'Password deve contenere almeno un numero'
-    }
-    
-    if (!formData.username) {
-      errors.username = 'Username è richiesto'
-    } else if (formData.username.length < 3) {
-      errors.username = 'Username deve essere almeno 3 caratteri'
-    } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
-      errors.username = 'Username può contenere solo lettere, numeri e underscore'
-    } else if (usernameCheck.available === false) {
-      errors.username = 'Username già in uso'
-    }
-    
-    if (formData.birthDate) {
-      const birthDate = new Date(formData.birthDate)
-      const today = new Date()
-      const age = today.getFullYear() - birthDate.getFullYear()
-      if (age < 13) {
-        errors.birthDate = 'Devi avere almeno 13 anni'
-      }
-    }
-    
-    if (!formData.terms) {
-      errors.terms = 'Devi accettare i termini e condizioni'
-    }
-    
-    setFormErrors(errors)
-    return Object.keys(errors).length === 0
-  }
-
-  // Handle form submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!validateForm()) return
-    
-    setIsSubmitting(true)
-    
+    setError('')
+    setIsLoading(true)
+
+    // Validation
+    if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
+      setError('Tutti i campi sono obbligatori')
+      setIsLoading(false)
+      return
+    }
+
+    if (!formData.email.includes('@')) {
+      setError('Inserisci un indirizzo email valido')
+      setIsLoading(false)
+      return
+    }
+
+    if (formData.password.length < 8) {
+      setError('La password deve essere di almeno 8 caratteri')
+      setIsLoading(false)
+      return
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Le password non coincidono')
+      setIsLoading(false)
+      return
+    }
+
+    if (passwordStrength(formData.password) < 3) {
+      setError('La password deve essere più sicura')
+      setIsLoading(false)
+      return
+    }
+
+    if (!acceptTerms) {
+      setError('Devi accettare i termini e condizioni')
+      setIsLoading(false)
+      return
+    }
+
     try {
-      const success = await register(formData)
+      // Simulate API call - Replace with real Supabase registration
+      await new Promise(resolve => setTimeout(resolve, 2000))
+
+      // TODO: Replace with real Supabase authentication
       
-      if (success) {
-        // Redirect to dashboard or welcome page
-        router.push('/dashboard')
-      }
-    } catch (error) {
-      console.error('Registration error:', error)
+      // Set user session
+      localStorage.setItem('fitduel_user', JSON.stringify({
+        email: formData.email,
+        name: formData.name,
+        loginTime: new Date().toISOString()
+      }))
+
+      // Save credentials
+      localStorage.setItem('fitduel_email', formData.email)
+      localStorage.setItem('fitduel_remember', 'true')
+
+      // Redirect to dashboard
+      router.push('/dashboard')
+    } catch (err) {
+      setError('Errore durante la registrazione. Riprova.')
     } finally {
-      setIsSubmitting(false)
+      setIsLoading(false)
     }
   }
 
+  const strength = passwordStrength(formData.password)
+
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
-      {/* Animated Background */}
-      <div className="fixed inset-0 overflow-hidden">
-        <div 
-          className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage: `
-              linear-gradient(rgba(0, 255, 136, 0.1) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(0, 136, 255, 0.1) 1px, transparent 1px)
-            `,
-            backgroundSize: '50px 50px',
-          }}
-        />
-        <motion.div 
-          className="absolute top-20 left-20 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl"
-          animate={{
-            x: [0, 50, 0],
-            y: [0, -50, 0],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
+      {/* Background Effects */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-purple-600/20 to-pink-600/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-600/20 to-purple-600/20 rounded-full blur-3xl" />
       </div>
 
-      {/* Header */}
-      <header className="relative z-20 p-6">
-        <div className="flex items-center justify-between">
-          <Link href="/auth">
-            <motion.div 
-              className="flex items-center gap-3"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <div className="w-10 h-10 bg-gradient-to-r from-green-400 to-blue-500 rounded-xl flex items-center justify-center">
-                <Flame className="w-6 h-6 text-black" />
-              </div>
-              <h1 className="text-xl font-black bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
-                FITDUEL
-              </h1>
-            </motion.div>
-          </Link>
-
-          <Link 
-            href="/auth"
-            className="flex items-center gap-2 text-gray-400 hover:text-green-400 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Indietro
-          </Link>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="relative z-10 container mx-auto px-4 py-8">
-        <div className="max-w-lg mx-auto">
-          
-          {/* Hero */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative w-full max-w-md"
+      >
+        {/* Header */}
+        <div className="text-center mb-8">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-8"
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2 }}
+            className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center"
           >
-            <div className="w-20 h-20 bg-gradient-to-r from-blue-400 to-purple-500 rounded-2xl mx-auto mb-6 flex items-center justify-center">
-              <Rocket className="w-10 h-10 text-black" />
-            </div>
-            <h1 className="text-4xl font-black mb-3">
-              UNISCITI ALLA BATTAGLIA
-            </h1>
-            <p className="text-gray-400">
-              Crea il tuo account FitDuel
-            </p>
+            <Gamepad2 className="w-8 h-8 text-white" />
           </motion.div>
+          
+          <motion.h1 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="text-4xl font-bold text-white mb-2"
+          >
+            UNISCITI ALLA ELITE
+          </motion.h1>
+          
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="text-gray-400"
+          >
+            Crea il tuo account FitDuel
+          </motion.p>
+        </div>
 
-          {/* Error Display */}
+        {/* Elite Features */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="grid grid-cols-3 gap-4 mb-8"
+        >
+          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-3 text-center">
+            <Shield className="w-6 h-6 text-blue-400 mx-auto mb-1" />
+            <div className="text-white font-bold text-sm">SICURO</div>
+            <div className="text-gray-400 text-xs">Encrypted</div>
+          </div>
+          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-3 text-center">
+            <Zap className="w-6 h-6 text-yellow-400 mx-auto mb-1" />
+            <div className="text-white font-bold text-sm">VELOCE</div>
+            <div className="text-gray-400 text-xs">Setup</div>
+          </div>
+          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-3 text-center">
+            <Trophy className="w-6 h-6 text-orange-400 mx-auto mb-1" />
+            <div className="text-white font-bold text-sm">ELITE</div>
+            <div className="text-gray-400 text-xs">Access</div>
+          </div>
+        </motion.div>
+
+        {/* Registration Form */}
+        <motion.form 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          onSubmit={handleSubmit}
+          className="space-y-6"
+        >
           {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6 flex items-center gap-3"
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-red-900/20 border border-red-500/20 rounded-xl p-4"
             >
-              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-              <span className="text-red-400 text-sm">{error}</span>
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                <span className="text-red-300 text-sm">{error}</span>
+              </div>
             </motion.div>
           )}
 
-          {/* Registration Form */}
-          <motion.form
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            onSubmit={handleSubmit}
-            className="space-y-6"
-          >
-            {/* Email Field */}
-            <div>
-              <label className="block text-sm font-bold text-gray-300 mb-2">
-                Email *
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className={`w-full bg-gray-900/50 border rounded-xl py-4 pl-12 pr-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 transition-all ${
-                    formErrors.email 
-                      ? 'border-red-500 focus:ring-red-500/50' 
-                      : 'border-gray-700 focus:border-blue-400 focus:ring-blue-400/50'
-                  }`}
-                  placeholder="mario@email.com"
-                  disabled={isSubmitting}
-                />
-              </div>
-              {formErrors.email && (
-                <p className="text-red-400 text-sm mt-2">{formErrors.email}</p>
-              )}
+          {/* Name Field */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Nome Utente
+            </label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                className="w-full bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                placeholder="Il tuo nome da fighter"
+                required
+              />
             </div>
+          </div>
 
-            {/* Username Field */}
-            <div>
-              <label className="block text-sm font-bold text-gray-300 mb-2">
-                Username *
-              </label>
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleChange}
-                  className={`w-full bg-gray-900/50 border rounded-xl py-4 pl-12 pr-12 text-white placeholder-gray-500 focus:outline-none focus:ring-2 transition-all ${
-                    formErrors.username 
-                      ? 'border-red-500 focus:ring-red-500/50' 
-                      : usernameCheck.available === true
-                      ? 'border-green-500 focus:ring-green-500/50'
-                      : usernameCheck.available === false
-                      ? 'border-red-500 focus:ring-red-500/50'
-                      : 'border-gray-700 focus:border-blue-400 focus:ring-blue-400/50'
-                  }`}
-                  placeholder="mariothewarrior"
-                  disabled={isSubmitting}
-                />
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                  {usernameCheck.checking ? (
-                    <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
-                  ) : usernameCheck.available === true ? (
-                    <CheckCircle className="w-5 h-5 text-green-400" />
-                  ) : usernameCheck.available === false ? (
-                    <AlertCircle className="w-5 h-5 text-red-400" />
-                  ) : null}
+          {/* Email Field */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Email
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                className="w-full bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                placeholder="tuo@email.com"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Password Field */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Password
+            </label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={formData.password}
+                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                className="w-full bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl pl-10 pr-12 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                placeholder="••••••••"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+            
+            {/* Password Strength Indicator */}
+            {formData.password && (
+              <div className="mt-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="flex-1 bg-gray-700 rounded-full h-1">
+                    <div 
+                      className={`h-1 rounded-full transition-all duration-300 ${getPasswordStrengthColor(strength)}`}
+                      style={{ width: `${(strength / 5) * 100}%` }}
+                    />
+                  </div>
+                  <span className={`text-xs font-medium ${
+                    strength < 2 ? 'text-red-400' : 
+                    strength < 4 ? 'text-yellow-400' : 'text-green-400'
+                  }`}>
+                    {getPasswordStrengthLabel(strength)}
+                  </span>
                 </div>
               </div>
-              {formErrors.username && (
-                <p className="text-red-400 text-sm mt-2">{formErrors.username}</p>
-              )}
-              {usernameCheck.available === true && (
-                <p className="text-green-400 text-sm mt-2">Username disponibile!</p>
-              )}
-            </div>
+            )}
+          </div>
 
-            {/* Password Field */}
-            <div>
-              <label className="block text-sm font-bold text-gray-300 mb-2">
-                Password *
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className={`w-full bg-gray-900/50 border rounded-xl py-4 pl-12 pr-12 text-white placeholder-gray-500 focus:outline-none focus:ring-2 transition-all ${
-                    formErrors.password 
-                      ? 'border-red-500 focus:ring-red-500/50' 
-                      : 'border-gray-700 focus:border-blue-400 focus:ring-blue-400/50'
-                  }`}
-                  placeholder="Almeno 6 caratteri, 1 maiuscola e 1 numero"
-                  disabled={isSubmitting}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-blue-400 transition-colors"
-                  disabled={isSubmitting}
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-              {formErrors.password && (
-                <p className="text-red-400 text-sm mt-2">{formErrors.password}</p>
-              )}
-            </div>
-
-            {/* Birth Date Field */}
-            <div>
-              <label className="block text-sm font-bold text-gray-300 mb-2">
-                Data di nascita (opzionale)
-              </label>
-              <div className="relative">
-                <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="date"
-                  name="birthDate"
-                  value={formData.birthDate}
-                  onChange={handleChange}
-                  className={`w-full bg-gray-900/50 border rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:ring-2 transition-all ${
-                    formErrors.birthDate 
-                      ? 'border-red-500 focus:ring-red-500/50' 
-                      : 'border-gray-700 focus:border-blue-400 focus:ring-blue-400/50'
-                  }`}
-                  disabled={isSubmitting}
-                />
-              </div>
-              {formErrors.birthDate && (
-                <p className="text-red-400 text-sm mt-2">{formErrors.birthDate}</p>
-              )}
-            </div>
-
-            {/* Fitness Level */}
-            <div>
-              <label className="block text-sm font-bold text-gray-300 mb-2">
-                Livello di fitness
-              </label>
-              <select
-                name="fitnessLevel"
-                value={formData.fitnessLevel}
-                onChange={handleChange}
-                className="w-full bg-gray-900/50 border border-gray-700 rounded-xl py-4 px-4 text-white focus:outline-none focus:ring-2 focus:border-blue-400 focus:ring-blue-400/50 transition-all"
-                disabled={isSubmitting}
+          {/* Confirm Password Field */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Conferma Password
+            </label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
+                className="w-full bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl pl-10 pr-12 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                placeholder="••••••••"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
               >
-                <option value="beginner">🌱 Principiante</option>
-                <option value="intermediate">💪 Intermedio</option>
-                <option value="advanced">🔥 Avanzato</option>
-              </select>
+                {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
-
-            {/* Goals Selection */}
-            <div>
-              <label className="block text-sm font-bold text-gray-300 mb-2">
-                I tuoi obiettivi (opzionale)
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                {availableGoals.map(goal => (
-                  <motion.button
-                    key={goal.id}
-                    type="button"
-                    onClick={() => toggleGoal(goal.id)}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className={`p-3 rounded-xl border transition-all text-left ${
-                      formData.goals.includes(goal.id)
-                        ? 'bg-blue-500/20 border-blue-400 text-blue-400'
-                        : 'bg-gray-900/50 border-gray-700 text-gray-400 hover:border-blue-400/50'
-                    }`}
-                    disabled={isSubmitting}
-                  >
-                    <div className="text-lg mb-1">{goal.icon}</div>
-                    <div className="text-sm font-medium">{goal.label}</div>
-                  </motion.button>
-                ))}
+            {/* Password Match Indicator */}
+            {formData.confirmPassword && (
+              <div className="mt-2">
+                {formData.password === formData.confirmPassword ? (
+                  <div className="flex items-center gap-2 text-green-400 text-sm">
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Le password coincidono</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-red-400 text-sm">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>Le password non coincidono</span>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
+          </div>
 
-            {/* Newsletter & Terms */}
-            <div className="space-y-4">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="newsletter"
-                  checked={formData.newsletter}
-                  onChange={handleChange}
-                  className="w-5 h-5 rounded border-gray-600 bg-gray-900 text-blue-400 focus:ring-blue-400 focus:ring-2"
-                  disabled={isSubmitting}
-                />
-                <span className="text-sm text-gray-400">
-                  Voglio ricevere aggiornamenti e offerte speciali
-                </span>
-              </label>
-              
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="terms"
-                  checked={formData.terms}
-                  onChange={handleChange}
-                  className="w-5 h-5 mt-0.5 rounded border-gray-600 bg-gray-900 text-blue-400 focus:ring-blue-400 focus:ring-2"
-                  disabled={isSubmitting}
-                />
-                <span className="text-sm text-gray-400">
-                  Accetto i{' '}
-                  <Link href="/terms" className="text-blue-400 hover:text-blue-300 underline">
-                    Termini e Condizioni
-                  </Link>{' '}
-                  e la{' '}
-                  <Link href="/privacy" className="text-blue-400 hover:text-blue-300 underline">
-                    Privacy Policy
-                  </Link>
-                  *
-                </span>
-              </label>
-              {formErrors.terms && (
-                <p className="text-red-400 text-sm">{formErrors.terms}</p>
-              )}
-            </div>
-
-            {/* Submit Button */}
-            <motion.button
-              type="submit"
-              disabled={isSubmitting || usernameCheck.checking}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full bg-gradient-to-r from-blue-400 to-purple-500 text-black font-bold py-4 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          {/* Terms and Conditions */}
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              checked={acceptTerms}
+              onChange={(e) => setAcceptTerms(e.target.checked)}
+              className="sr-only"
+            />
+            <div 
+              onClick={() => setAcceptTerms(!acceptTerms)}
+              className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer transition-all ${
+                acceptTerms 
+                  ? 'bg-purple-500 border-purple-500' 
+                  : 'border-gray-600 hover:border-gray-500'
+              }`}
             >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Creazione account...
-                </>
-              ) : (
-                <>
-                  CREA ACCOUNT
-                  <ArrowRight className="w-5 h-5" />
-                </>
+              {acceptTerms && (
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="w-2 h-2 bg-white rounded-sm"
+                />
               )}
-            </motion.button>
-          </motion.form>
+            </div>
+            <div className="text-sm text-gray-300">
+              Accetto i{' '}
+              <Link href="/terms" className="text-purple-400 hover:text-purple-300 underline">
+                termini e condizioni
+              </Link>
+              {' '}e la{' '}
+              <Link href="/privacy" className="text-purple-400 hover:text-purple-300 underline">
+                privacy policy
+              </Link>
+            </div>
+          </div>
+
+          {/* Register Button */}
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            type="submit"
+            disabled={isLoading}
+            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-4 rounded-xl hover:shadow-lg hover:shadow-purple-500/25 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading ? (
+              <div className="flex items-center justify-center gap-2">
+                <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                <span>CREAZIONE ACCOUNT...</span>
+              </div>
+            ) : (
+              <span className="flex items-center justify-center gap-2">
+                <span>ENTRA NELLA ELITE</span>
+                <Target className="w-5 h-5" />
+              </span>
+            )}
+          </motion.button>
+
+          {/* Divider */}
+          <div className="relative py-4">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-700" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-gray-900 px-4 text-sm text-gray-400">OPPURE</span>
+            </div>
+          </div>
 
           {/* Login Link */}
-          <div className="text-center mt-8">
-            <p className="text-gray-400">
-              Hai già un account?{' '}
-              <Link 
-                href="/login" 
-                className="text-blue-400 hover:text-blue-300 font-bold transition-colors"
-              >
-                Accedi qui
-              </Link>
-            </p>
+          <div className="text-center">
+            <span className="text-gray-400">Hai già un account? </span>
+            <Link 
+              href="/login" 
+              className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
+            >
+              Accedi qui
+            </Link>
           </div>
-        </div>
-      </main>
+        </motion.form>
 
-      {/* Footer */}
-      <footer className="relative z-10 mt-auto p-6 text-center">
-        <p className="text-sm text-gray-500">
-          © 2024 FitDuel Arena. Game on, fit on.
-        </p>
-      </footer>
+        {/* Footer */}
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8 }}
+          className="text-center mt-8"
+        >
+          <p className="text-gray-500 text-sm">
+            © 2024 FitDuel Arena. Game on, fit on.
+          </p>
+        </motion.div>
+      </motion.div>
     </div>
   )
 }
