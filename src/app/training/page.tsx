@@ -1,434 +1,413 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { 
-  ArrowLeft, Play, Settings, Camera, Zap, Award,
-  BookOpen, Dumbbell, Activity, Target, Gauge,
-  CheckCircle, Lock, ChevronRight, Info, Volume2,
-  MonitorPlay, Timer, TrendingUp, BarChart3, Sparkles
+  ArrowLeft, Camera, Zap, Target, Trophy, 
+  Flame, Timer, Activity, Eye, Settings,
+  Play, Square, RotateCcw, CheckCircle,
+  AlertTriangle, Dumbbell, Swords, TrendingUp
 } from 'lucide-react'
 
-export default function TrainingCenter() {
-  const router = useRouter()
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
-  const [userStats, setUserStats] = useState({
-    totalSessions: 42,
-    perfectForms: 28,
-    exercisesLearned: 15,
-    calibrationScore: 85
-  })
+export default function TrainingPage() {
+  const [cameraStatus, setCameraStatus] = useState<'idle' | 'requesting' | 'active' | 'error'>('idle')
+  const [calibrationStatus, setCalibrationStatus] = useState<'pending' | 'calibrating' | 'completed' | 'failed'>('pending')
+  const [isRecording, setIsRecording] = useState(false)
+  const [countdown, setCountdown] = useState<number | null>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
 
-  // Mouse tracking
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({ x: e.clientX, y: e.clientY })
+  const requestCameraAccess = async () => {
+    setCameraStatus('requesting')
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user'
+        },
+        audio: false
+      })
+      
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+      }
+      
+      setCameraStatus('active')
+    } catch (error) {
+      console.error('Camera access denied:', error)
+      setCameraStatus('error')
     }
-    window.addEventListener('mousemove', handleMouseMove)
-    return () => window.removeEventListener('mousemove', handleMouseMove)
-  }, [])
+  }
 
-  const trainingCategories = [
+  const startCalibration = async () => {
+    if (cameraStatus !== 'active') {
+      await requestCameraAccess()
+    }
+    
+    setCalibrationStatus('calibrating')
+    
+    // Simulate calibration process
+    setTimeout(() => {
+      setCalibrationStatus('completed')
+    }, 5000)
+  }
+
+  const startCountdown = () => {
+    setCountdown(3)
+    const interval = setInterval(() => {
+      setCountdown(prev => {
+        if (prev === null || prev <= 1) {
+          clearInterval(interval)
+          setCountdown(null)
+          setIsRecording(true)
+          return null
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }
+
+  const stopRecording = () => {
+    setIsRecording(false)
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current = null
+    }
+    setCameraStatus('idle')
+  }
+
+  const trainingModes = [
     {
-      id: 'free-training',
-      title: 'ALLENAMENTO LIBERO',
-      subtitle: 'Pratica senza pressione',
-      description: 'Esercitati al tuo ritmo, senza timer o punteggi',
-      icon: <Dumbbell className="w-8 h-8" />,
-      color: 'from-green-500 to-emerald-500',
-      glow: 'green',
-      features: ['No Timer', 'No Score', 'Form Focus'],
-      locked: false,
-      route: '/training/free',
-      items: [
-        { name: 'Push-Up Practice', difficulty: 'Facile', duration: 'Libero' },
-        { name: 'Squat Form', difficulty: 'Facile', duration: 'Libero' },
-        { name: 'Burpees Slow', difficulty: 'Medio', duration: 'Libero' },
-        { name: 'Plank Hold', difficulty: 'Facile', duration: 'Libero' }
-      ]
+      id: 'intensive',
+      title: 'Allenamento Intensivo',
+      description: 'HIIT estremo per massima performance',
+      icon: Flame,
+      color: 'from-red-500 to-orange-500',
+      difficulty: 'EXTREME',
+      duration: '25-45 min',
+      calories: '400-800',
+      features: ['AI Tracking', 'Real-time Score', 'Performance Analytics']
     },
     {
-      id: 'guided-programs',
-      title: 'PROGRAMMI GUIDATI',
-      subtitle: 'Percorsi strutturati',
-      description: 'Segui programmi progressivi per migliorare la tecnica',
-      icon: <BookOpen className="w-8 h-8" />,
-      color: 'from-blue-500 to-cyan-500',
-      glow: 'blue',
-      features: ['Video Guide', 'Step by Step', 'Progress Track'],
-      locked: false,
-      route: '/training/programs',
-      items: [
-        { name: 'Beginner Basics', difficulty: '7 giorni', duration: '15 min/giorno' },
-        { name: 'Form Perfection', difficulty: '14 giorni', duration: '20 min/giorno' },
-        { name: 'Flexibility Flow', difficulty: '7 giorni', duration: '10 min/giorno' },
-        { name: 'Core Stability', difficulty: '21 giorni', duration: '15 min/giorno' }
-      ]
-    },
-    {
-      id: 'ai-calibration',
-      title: 'CALIBRAZIONE AI',
-      subtitle: 'Ottimizza il riconoscimento',
-      description: 'Configura e testa il motion detection per risultati perfetti',
-      icon: <Settings className="w-8 h-8" />,
+      id: 'combat',
+      title: 'Combat Training',
+      description: 'Preparazione per sfide competitive',
+      icon: Swords,
       color: 'from-purple-500 to-pink-500',
-      glow: 'purple',
-      features: ['Motion Test', 'Light Check', 'Distance Setup'],
-      locked: false,
-      route: '/calibration',
-      items: [
-        { name: 'Camera Setup', difficulty: 'Quick', duration: '2 min' },
-        { name: 'Motion Sensitivity', difficulty: 'Test', duration: '3 min' },
-        { name: 'Light Optimization', difficulty: 'Check', duration: '1 min' },
-        { name: 'Full Calibration', difficulty: 'Complete', duration: '5 min' }
-      ]
+      difficulty: 'ELITE',
+      duration: '30-60 min',
+      calories: '500-900',
+      features: ['Combat Moves', 'Reaction Time', 'Endurance Test']
     },
     {
-      id: 'technique-library',
-      title: 'LIBRERIA TECNICHE',
-      subtitle: 'Enciclopedia esercizi',
-      description: 'Video tutorial dettagliati per ogni esercizio',
-      icon: <MonitorPlay className="w-8 h-8" />,
-      color: 'from-orange-500 to-red-500',
-      glow: 'orange',
-      features: ['HD Videos', 'Slow Motion', 'Common Mistakes'],
-      locked: false,
-      route: '/training/library',
-      items: [
-        { name: 'Upper Body', difficulty: '12 esercizi', duration: 'Video' },
-        { name: 'Lower Body', difficulty: '15 esercizi', duration: 'Video' },
-        { name: 'Core & Abs', difficulty: '10 esercizi', duration: 'Video' },
-        { name: 'Full Body', difficulty: '8 esercizi', duration: 'Video' }
-      ]
+      id: 'performance',
+      title: 'Performance Elite',
+      description: 'Ottimizzazione per atleti professionisti',
+      icon: Trophy,
+      color: 'from-yellow-500 to-orange-500',
+      difficulty: 'PRO',
+      duration: '45-90 min',
+      calories: '600-1200',
+      features: ['Advanced Metrics', 'Biomechanics', 'Peak Performance']
     }
   ]
 
-  const achievements = [
-    { name: 'Prima Sessione', icon: '🌟', unlocked: true },
-    { name: 'Forma Perfetta', icon: '🎯', unlocked: true },
-    { name: 'Settimana Completa', icon: '📅', unlocked: false },
-    { name: 'Master Technique', icon: '🏆', unlocked: false }
+  const quickWorkouts = [
+    { name: 'Burpee Challenge', duration: '10 min', intensity: 'INSANE' },
+    { name: 'Sprint HIIT', duration: '15 min', intensity: 'EXTREME' },
+    { name: 'Core Destroyer', duration: '12 min', intensity: 'BRUTAL' },
+    { name: 'Power Circuit', duration: '20 min', intensity: 'ELITE' }
   ]
-
-  const handleCategoryClick = (category: any) => {
-    router.push(category.route)
-  }
-
-  const handleRecalibrate = () => {
-    router.push('/calibration')
-  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 relative overflow-hidden">
-      {/* Animated Background */}
-      <div className="absolute inset-0">
-        <div 
-          className="absolute inset-0 bg-[url('/grid.svg')] bg-center opacity-20"
-          style={{
-            transform: `translate(${mousePosition.x * 0.01}px, ${mousePosition.y * 0.01}px)`
-          }}
-        />
-        
-        {/* Floating orbs */}
-        {[...Array(3)].map((_, i) => (
-          <motion.div
-            key={i}
-            className={`absolute w-96 h-96 rounded-full blur-3xl opacity-20
-              ${i === 0 ? 'bg-green-500' : i === 1 ? 'bg-blue-500' : 'bg-purple-500'}`}
-            animate={{
-              x: [0, 100, 0],
-              y: [0, -100, 0],
-            }}
-            transition={{
-              duration: 20 + i * 5,
-              repeat: Infinity,
-              ease: "linear"
-            }}
-            style={{
-              left: `${20 + i * 30}%`,
-              top: `${20 + i * 20}%`,
-            }}
-          />
-        ))}
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
+      {/* Header */}
+      <div className="border-b border-gray-800 bg-gray-900/80 backdrop-blur-sm sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center gap-4">
+            <Link 
+              href="/dashboard"
+              className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5 text-gray-400" />
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold text-white">Training Elite</h1>
+              <p className="text-gray-400">Modalità competitive - Nessun compromesso</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Main Content */}
-      <div className="relative z-10 p-8 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard">
-              <motion.button
-                className="p-3 bg-slate-800/50 backdrop-blur rounded-xl border border-slate-700/50
-                  hover:border-green-500/50 transition-all duration-300"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <ArrowLeft className="w-6 h-6 text-green-400" />
-              </motion.button>
-            </Link>
-            
-            <div>
-              <h1 className="text-4xl font-bold text-white flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-xl">
-                  <Dumbbell className="w-8 h-8 text-white" />
-                </div>
-                Training Center
-              </h1>
-              <p className="text-slate-400 mt-1">Allenati e migliora la tua tecnica</p>
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Camera & Calibration Section */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 mb-8"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
+                <Camera className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">AI Motion Tracking</h2>
+                <p className="text-gray-400">Sistema di calibrazione professionale</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={`w-3 h-3 rounded-full ${
+                cameraStatus === 'active' ? 'bg-green-400' : 
+                cameraStatus === 'error' ? 'bg-red-400' : 'bg-gray-400'
+              }`} />
+              <span className="text-sm text-gray-400 capitalize">{cameraStatus}</span>
             </div>
           </div>
 
-          {/* Stats Summary */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex gap-4"
-          >
-            {[
-              { label: 'Sessioni', value: userStats.totalSessions, icon: Activity },
-              { label: 'Form Perfette', value: userStats.perfectForms, icon: Target },
-              { label: 'Esercizi', value: userStats.exercisesLearned, icon: Award }
-            ].map((stat, i) => (
-              <div key={i} className="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700/50">
-                <div className="flex items-center gap-3">
-                  <stat.icon className="w-5 h-5 text-green-400" />
-                  <div>
-                    <p className="text-2xl font-bold text-white">{stat.value}</p>
-                    <p className="text-xs text-slate-400">{stat.label}</p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Camera Feed */}
+            <div className="relative">
+              <div className="aspect-video bg-gray-900 rounded-xl overflow-hidden border-2 border-dashed border-gray-600">
+                {cameraStatus === 'active' ? (
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <div className="text-center">
+                      <Camera className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                      <p className="text-gray-400 mb-4">
+                        {cameraStatus === 'error' ? 'Errore accesso camera' : 'Camera non attiva'}
+                      </p>
+                      <button
+                        onClick={requestCameraAccess}
+                        disabled={cameraStatus === 'requesting'}
+                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white rounded-lg transition-colors"
+                      >
+                        {cameraStatus === 'requesting' ? 'Connessione...' : 'Attiva Camera'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Countdown Overlay */}
+                {countdown && (
+                  <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
+                    <motion.div
+                      key={countdown}
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="text-8xl font-bold text-white"
+                    >
+                      {countdown}
+                    </motion.div>
+                  </div>
+                )}
+
+                {/* Recording Indicator */}
+                {isRecording && (
+                  <div className="absolute top-4 right-4 flex items-center gap-2 bg-red-500 text-white px-3 py-1 rounded-full">
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                    <span className="text-sm font-medium">REC</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Calibration Controls */}
+            <div className="space-y-6">
+              <div className="bg-gray-900/50 rounded-xl p-6">
+                <h3 className="text-lg font-bold text-white mb-4">Calibrazione Sistema</h3>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-300">Posizione corporea</span>
+                    <div className={`px-2 py-1 rounded text-xs font-medium ${
+                      calibrationStatus === 'completed' ? 'bg-green-500/20 text-green-400' :
+                      calibrationStatus === 'calibrating' ? 'bg-yellow-500/20 text-yellow-400' :
+                      'bg-gray-500/20 text-gray-400'
+                    }`}>
+                      {calibrationStatus === 'completed' ? 'Calibrato' :
+                       calibrationStatus === 'calibrating' ? 'In corso...' : 'Pending'}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-300">Tracking movimento</span>
+                    <div className={`px-2 py-1 rounded text-xs font-medium ${
+                      calibrationStatus === 'completed' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'
+                    }`}>
+                      {calibrationStatus === 'completed' ? 'Attivo' : 'Inattivo'}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </motion.div>
-        </div>
 
-        {/* Info Banner */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-2xl p-6 mb-8
-            border border-blue-500/30 backdrop-blur-xl"
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-500/20 rounded-xl">
-              <Info className="w-6 h-6 text-blue-400" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-white mb-1">Zona Training - No Competition</h3>
-              <p className="text-slate-300 text-sm">
-                Qui puoi allenarti liberamente senza timer o punteggi. Concentrati sulla forma perfetta e migliora la tua tecnica.
-                <span className="text-yellow-400 ml-2">Nessun XP o Coins in questa sezione.</span>
-              </p>
+                <div className="mt-6 space-y-3">
+                  <button
+                    onClick={startCalibration}
+                    disabled={cameraStatus !== 'active' || calibrationStatus === 'calibrating'}
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:shadow-lg disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-all"
+                  >
+                    {calibrationStatus === 'calibrating' ? 'Calibrazione in corso...' : 'Inizia Calibrazione'}
+                  </button>
+                  
+                  {calibrationStatus === 'completed' && (
+                    <button
+                      onClick={startCountdown}
+                      disabled={isRecording}
+                      className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:shadow-lg text-white font-medium py-3 rounded-xl transition-all"
+                    >
+                      <Play className="w-5 h-5 inline mr-2" />
+                      Inizia Allenamento
+                    </button>
+                  )}
+                  
+                  {isRecording && (
+                    <button
+                      onClick={stopRecording}
+                      className="w-full bg-gradient-to-r from-red-600 to-pink-600 hover:shadow-lg text-white font-medium py-3 rounded-xl transition-all"
+                    >
+                      <Square className="w-5 h-5 inline mr-2" />
+                      Termina Sessione
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </motion.div>
 
-        {/* Training Categories Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {trainingCategories.map((category, index) => (
-            <motion.div
-              key={category.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="relative group"
-            >
-              <div 
-                className={`relative bg-gradient-to-br from-slate-800/50 to-slate-900/50 
-                  backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50
-                  hover:border-green-500/50 transition-all duration-500
-                  cursor-pointer overflow-hidden ${selectedCategory === category.id ? 'ring-2 ring-green-500' : ''}`}
-              >
-                {/* Background gradient */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${category.color} opacity-5 
-                  group-hover:opacity-10 transition-opacity duration-500`} />
-                
-                {/* Content */}
-                <div className="relative z-10">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className={`p-3 bg-gradient-to-br ${category.color} rounded-xl
-                      shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                      {category.icon}
+        {/* Training Modes */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mb-8"
+        >
+          <h2 className="text-2xl font-bold text-white mb-6">Modalità Elite</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {trainingModes.map((mode) => {
+              const Icon = mode.icon
+              return (
+                <div key={mode.id} className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 group">
+                  <div className={`w-16 h-16 bg-gradient-to-r ${mode.color} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
+                    <Icon className="w-8 h-8 text-white" />
+                  </div>
+                  
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="text-xl font-bold text-white">{mode.title}</h3>
+                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                      mode.difficulty === 'EXTREME' ? 'bg-red-500/20 text-red-400' :
+                      mode.difficulty === 'ELITE' ? 'bg-purple-500/20 text-purple-400' :
+                      'bg-yellow-500/20 text-yellow-400'
+                    }`}>
+                      {mode.difficulty}
+                    </span>
+                  </div>
+                  
+                  <p className="text-gray-400 mb-6">{mode.description}</p>
+                  
+                  <div className="space-y-3 mb-6">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Durata:</span>
+                      <span className="text-white font-medium">{mode.duration}</span>
                     </div>
-                    
-                    {/* Features badges */}
-                    <div className="flex gap-2">
-                      {category.features.map((feature, i) => (
-                        <span key={i} className="px-2 py-1 bg-slate-700/50 rounded-lg text-xs text-slate-400">
-                          {feature}
-                        </span>
-                      ))}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Calorie:</span>
+                      <span className="text-white font-medium">{mode.calories}</span>
                     </div>
                   </div>
                   
-                  <h3 className="text-2xl font-bold text-white mb-1">{category.title}</h3>
-                  <p className="text-green-400 text-sm mb-2">{category.subtitle}</p>
-                  <p className="text-slate-400 text-sm mb-4">{category.description}</p>
-                  
-                  {/* Items Preview */}
-                  <div className="space-y-2">
-                    {category.items.slice(0, 2).map((item, i) => (
-                      <div key={i} className="flex items-center justify-between p-2 bg-slate-800/30 
-                        rounded-lg border border-slate-700/30">
-                        <span className="text-sm text-white">{item.name}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-slate-500">{item.difficulty}</span>
-                          <span className="text-xs text-green-400">{item.duration}</span>
-                        </div>
+                  <div className="space-y-2 mb-6">
+                    {mode.features.map((feature, index) => (
+                      <div key={index} className="flex items-center gap-2 text-sm">
+                        <CheckCircle className="w-4 h-4 text-green-400" />
+                        <span className="text-gray-300">{feature}</span>
                       </div>
                     ))}
-                    {category.items.length > 2 && (
-                      <div className="text-center text-xs text-slate-500">
-                        +{category.items.length - 2} altri
-                      </div>
-                    )}
                   </div>
                   
-                  {/* Action Button */}
-                  <motion.button
-                    onClick={() => handleCategoryClick(category)}
-                    className={`w-full mt-4 py-3 bg-gradient-to-r ${category.color} 
-                      rounded-xl text-white font-bold flex items-center justify-center gap-2
-                      shadow-lg hover:shadow-lg transition-all duration-300`}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                  <Link
+                    href={`/training/${mode.id}`}
+                    className={`block w-full bg-gradient-to-r ${mode.color} text-white font-bold py-3 text-center rounded-xl hover:shadow-lg transition-all duration-200`}
                   >
-                    <Play className="w-5 h-5" />
-                    INIZIA
-                    <ChevronRight className="w-4 h-4" />
-                  </motion.button>
+                    INIZIA TRAINING
+                  </Link>
                 </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+              )
+            })}
+          </div>
+        </motion.div>
 
-        {/* Bottom Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Calibration Status */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl 
-              rounded-2xl p-6 border border-purple-500/20"
-          >
-            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <Gauge className="w-5 h-5 text-purple-400" />
-              Stato Calibrazione
-            </h3>
-            
-            <div className="space-y-3">
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-slate-400">Motion Detection</span>
-                  <span className="text-green-400">95%</span>
+        {/* Quick Workouts */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="mb-8"
+        >
+          <h2 className="text-2xl font-bold text-white mb-6">Quick Burn Sessions</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {quickWorkouts.map((workout, index) => (
+              <div key={index} className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-4 hover:bg-gray-700/50 transition-all duration-300 cursor-pointer group">
+                <div className="flex items-center justify-between mb-3">
+                  <Zap className="w-6 h-6 text-yellow-400" />
+                  <span className={`px-2 py-1 rounded text-xs font-bold ${
+                    workout.intensity === 'INSANE' ? 'bg-red-500/20 text-red-400' :
+                    workout.intensity === 'EXTREME' ? 'bg-orange-500/20 text-orange-400' :
+                    workout.intensity === 'BRUTAL' ? 'bg-purple-500/20 text-purple-400' :
+                    'bg-blue-500/20 text-blue-400'
+                  }`}>
+                    {workout.intensity}
+                  </span>
                 </div>
-                <div className="h-2 bg-slate-700/50 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-green-400 to-green-500 rounded-full"
-                    style={{ width: '95%' }} />
-                </div>
+                <h3 className="font-bold text-white mb-2 group-hover:text-blue-400 transition-colors">{workout.name}</h3>
+                <p className="text-gray-400 text-sm">{workout.duration}</p>
               </div>
-              
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-slate-400">Illuminazione</span>
-                  <span className="text-yellow-400">75%</span>
-                </div>
-                <div className="h-2 bg-slate-700/50 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full"
-                    style={{ width: '75%' }} />
-                </div>
-              </div>
-              
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-slate-400">Distanza Camera</span>
-                  <span className="text-green-400">Ottimale</span>
-                </div>
-                <div className="h-2 bg-slate-700/50 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-green-400 to-green-500 rounded-full"
-                    style={{ width: '100%' }} />
-                </div>
-              </div>
-            </div>
-            
-            <button 
-              onClick={handleRecalibrate}
-              className="w-full mt-4 py-2 bg-purple-500/20 border border-purple-500/50 
-                rounded-lg text-purple-400 font-bold hover:bg-purple-500/30 transition-all"
-            >
-              Ricalibra
-            </button>
-          </motion.div>
+            ))}
+          </div>
+        </motion.div>
 
-          {/* Recent Progress */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl 
-              rounded-2xl p-6 border border-green-500/20"
-          >
-            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-green-400" />
-              Progressi Recenti
-            </h3>
-            
-            <div className="space-y-3">
-              {[
-                { exercise: 'Push-Up', improvement: '+15%', badge: '🎯' },
-                { exercise: 'Squat', improvement: '+8%', badge: '📈' },
-                { exercise: 'Plank', improvement: '+20s', badge: '⏱️' },
-                { exercise: 'Burpees', improvement: 'New!', badge: '✨' }
-              ].map((progress, i) => (
-                <div key={i} className="flex items-center justify-between p-2 bg-slate-800/30 
-                  rounded-lg hover:bg-slate-800/50 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{progress.badge}</span>
-                    <span className="text-sm text-white">{progress.exercise}</span>
-                  </div>
-                  <span className="text-sm font-bold text-green-400">{progress.improvement}</span>
-                </div>
-              ))}
+        {/* Additional Links */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-6"
+        >
+          <Link href="/training/library" className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-6 hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 group">
+            <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+              <Target className="w-6 h-6 text-white" />
             </div>
-          </motion.div>
+            <h3 className="text-lg font-bold text-white mb-2 group-hover:text-purple-400 transition-colors">Libreria Tecniche</h3>
+            <p className="text-gray-400">Perfeziona movimenti e tecniche avanzate</p>
+          </Link>
 
-          {/* Achievements */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl 
-              rounded-2xl p-6 border border-yellow-500/20"
-          >
-            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <Award className="w-5 h-5 text-yellow-400" />
-              Achievement Tecnici
-            </h3>
-            
-            <div className="grid grid-cols-2 gap-3">
-              {achievements.map((achievement, i) => (
-                <div key={i} className={`flex flex-col items-center p-3 rounded-lg border
-                  ${achievement.unlocked 
-                    ? 'bg-yellow-500/10 border-yellow-500/30' 
-                    : 'bg-slate-800/30 border-slate-700/30 opacity-50'}`}>
-                  <span className="text-2xl mb-1">{achievement.icon}</span>
-                  <span className="text-xs text-center text-slate-300">{achievement.name}</span>
-                  {!achievement.unlocked && <Lock className="w-3 h-3 text-slate-500 mt-1" />}
-                </div>
-              ))}
+          <Link href="/training/programs" className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-6 hover:shadow-2xl hover:shadow-green-500/10 transition-all duration-300 group">
+            <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-blue-500 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+              <TrendingUp className="w-6 h-6 text-white" />
             </div>
-            
-            <Link href="/achievements">
-              <button className="w-full mt-4 py-2 bg-yellow-500/20 border border-yellow-500/50 
-                rounded-lg text-yellow-400 font-bold hover:bg-yellow-500/30 transition-all">
-                Vedi Tutti
-              </button>
-            </Link>
-          </motion.div>
-        </div>
+            <h3 className="text-lg font-bold text-white mb-2 group-hover:text-green-400 transition-colors">Programmi Elite</h3>
+            <p className="text-gray-400">Piani di allenamento personalizzati</p>
+          </Link>
+
+          <Link href="/challenges" className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-6 hover:shadow-2xl hover:shadow-orange-500/10 transition-all duration-300 group">
+            <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+              <Swords className="w-6 h-6 text-white" />
+            </div>
+            <h3 className="text-lg font-bold text-white mb-2 group-hover:text-orange-400 transition-colors">Sfide Live</h3>
+            <p className="text-gray-400">Combatti contro altri atleti</p>
+          </Link>
+        </motion.div>
       </div>
     </div>
   )
