@@ -6,374 +6,417 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
   Swords, Trophy, Zap, Users, Target, Timer, Shield,
-  Plus, Search, Filter, ChevronRight, Flame, Crown,
-  Star, Medal, Activity, TrendingUp, Calendar, Bell,
-  ArrowLeft, RefreshCw, AlertCircle, CheckCircle, Clock,
-  Info, Loader2, User, Play
+  Plus, Search, Filter, ArrowLeft, Flame, Crown,
+  Clock, Star, TrendingUp, CheckCircle, XCircle,
+  AlertTriangle, Gamepad2, Award, Eye
 } from 'lucide-react'
 
-// ====================================
-// SIMPLE UI COMPONENTS
-// ====================================
-
-const Card = ({ className, children, ...props }: any) => (
-  <div 
-    className={`rounded-lg border border-gray-800 bg-gray-900/50 backdrop-blur-sm ${className}`} 
-    {...props}
-  >
-    {children}
-  </div>
-)
-
-const Button = ({ 
-  variant = 'primary', 
-  size = 'md', 
-  className = '', 
-  children, 
-  disabled,
-  onClick,
-  ...props 
-}: {
-  variant?: 'primary' | 'secondary' | 'gradient' | 'ghost'
-  size?: 'sm' | 'md' | 'lg'
-  className?: string
-  children?: React.ReactNode
-  disabled?: boolean
-  onClick?: () => void
-  [key: string]: any
-}) => {
-  const baseClasses = 'inline-flex items-center justify-center font-medium rounded-lg transition-all'
-  const variants = {
-    primary: 'bg-indigo-600 hover:bg-indigo-700 text-white',
-    secondary: 'bg-gray-800 hover:bg-gray-700 text-white border border-gray-700',
-    gradient: 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white',
-    ghost: 'hover:bg-gray-800 text-gray-400 hover:text-white'
-  }
-  const sizes = {
-    sm: 'px-3 py-2 text-sm',
-    md: 'px-4 py-2',
-    lg: 'px-6 py-3 text-lg'
-  }
-  
-  return (
-    <button
-      className={`${baseClasses} ${variants[variant]} ${sizes[size]} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
-      disabled={disabled}
-      onClick={onClick}
-      {...props}
-    >
-      {children}
-    </button>
-  )
+interface Challenge {
+  id: string
+  title: string
+  challenger: string
+  challenged?: string
+  status: 'pending' | 'active' | 'completed' | 'expired'
+  type: 'quick' | 'endurance' | 'strength' | 'cardio'
+  difficulty: 'easy' | 'medium' | 'hard' | 'extreme'
+  duration: number // minutes
+  participants: number
+  maxParticipants: number
+  startTime: string
+  endTime?: string
+  prize: string
+  description: string
 }
-
-const Modal = ({ isOpen, onClose, title, size = 'md', children }: any) => {
-  if (!isOpen) return null
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/80" onClick={onClose} />
-      <div className={`relative bg-gray-900 rounded-xl border border-gray-700 p-6 max-h-[90vh] overflow-y-auto ${
-        size === 'sm' ? 'w-full max-w-sm' :
-        size === 'lg' ? 'w-full max-w-4xl' :
-        'w-full max-w-md'
-      }`}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-white">{title}</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white"
-          >
-            ✕
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  )
-}
-
-// ====================================
-// MAIN COMPONENT
-// ====================================
 
 export default function ChallengesPage() {
   const router = useRouter()
-  
-  const [currentUser] = useState({ id: 'current_user', username: 'Tu' })
-  const [exercises] = useState([])
-  const [duels] = useState([])
-  const [filteredDuels, setFilteredDuels] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
-  
-  const [selectedTab, setSelectedTab] = useState<'available' | 'my-duels' | 'history'>('available')
+  const [activeTab, setActiveTab] = useState<'available' | 'my-challenges' | 'completed'>('available')
+  const [challenges, setChallenges] = useState<Challenge[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterExercise, setFilterExercise] = useState<string>('all')
-  const [filterDifficulty, setFilterDifficulty] = useState<string>('all')
+  const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all')
+  const [selectedType, setSelectedType] = useState<string>('all')
   const [showCreateModal, setShowCreateModal] = useState(false)
 
-  // Auto-hide messages
+  // Check user authentication
   useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => setSuccess(null), 5000)
-      return () => clearTimeout(timer)
+    const userData = localStorage.getItem('fitduel_user')
+    if (!userData) {
+      router.push('/login')
+      return
     }
-  }, [success])
+    
+    // Simulate loading challenges from backend
+    setTimeout(() => {
+      setChallenges([]) // Empty for now - will be populated by backend
+      setIsLoading(false)
+    }, 1500)
+  }, [router])
 
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => setError(null), 5000)
-      return () => clearTimeout(timer)
-    }
-  }, [error])
+  const challengeTypes = [
+    { id: 'all', label: 'Tutti i tipi', icon: Swords, color: 'text-gray-400' },
+    { id: 'quick', label: 'Sfida Rapida', icon: Zap, color: 'text-yellow-400' },
+    { id: 'endurance', label: 'Resistenza', icon: Timer, color: 'text-blue-400' },
+    { id: 'strength', label: 'Forza', icon: Trophy, color: 'text-red-400' },
+    { id: 'cardio', label: 'Cardio', icon: Flame, color: 'text-orange-400' }
+  ]
 
-  const handleCreateDuel = async (duelData: any) => {
-    try {
-      setError(null)
-      setSuccess('Sfida creata con successo!')
-      
-      // Here you would integrate with your backend API
-      // const response = await createDuel(duelData)
-      
-    } catch (err: any) {
-      console.error('Error creating duel:', err)
-      setError(err.message || 'Errore nella creazione della sfida')
-    }
+  const difficultyLevels = [
+    { id: 'all', label: 'Tutti i livelli', color: 'bg-gray-500' },
+    { id: 'easy', label: 'Facile', color: 'bg-green-500' },
+    { id: 'medium', label: 'Medio', color: 'bg-yellow-500' },
+    { id: 'hard', label: 'Difficile', color: 'bg-orange-500' },
+    { id: 'extreme', label: 'Estremo', color: 'bg-red-500' }
+  ]
+
+  const handleCreateChallenge = () => {
+    setShowCreateModal(true)
   }
 
-  const handleAcceptDuel = async (duelId: string) => {
-    try {
-      setError(null)
-      setSuccess('Sfida accettata!')
-      
-      // Here you would integrate with your backend API
-      // const response = await acceptDuel(duelId)
-      
-      setTimeout(() => {
-        router.push(`/duel/${duelId}`)
-      }, 1000)
-    } catch (err: any) {
-      console.error('Error accepting duel:', err)
-      setError(err.message || 'Errore nell\'accettare la sfida')
-    }
+  const handleJoinChallenge = (challengeId: string) => {
+    // TODO: Implement join challenge logic with backend
+    console.log('Joining challenge:', challengeId)
   }
 
-  const handleViewDuel = (duelId: string) => {
-    router.push(`/duel/${duelId}`)
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-indigo-950 to-purple-950 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mx-auto mb-4" />
-          <p className="text-gray-400">Caricamento sfide...</p>
+  const CreateChallengeModal = () => (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={() => setShowCreateModal(false)}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="bg-gray-900 rounded-2xl p-6 max-w-md w-full"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="text-center mb-6">
+          <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="w-8 h-8 text-white" />
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">Backend Integration Richiesta</h3>
+          <p className="text-gray-400">
+            Per creare sfide è necessario configurare il database e l'API backend.
+          </p>
         </div>
+
+        <div className="space-y-4 mb-6">
+          <div className="bg-gray-800/50 rounded-xl p-4">
+            <h4 className="font-medium text-white mb-2">Componenti necessari:</h4>
+            <ul className="space-y-2 text-sm text-gray-300">
+              <li className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-400" />
+                <span>UI Sistema Sfide</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <XCircle className="w-4 h-4 text-red-400" />
+                <span>Database Supabase</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <XCircle className="w-4 h-4 text-red-400" />
+                <span>API Endpoint Sfide</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <XCircle className="w-4 h-4 text-red-400" />
+                <span>Sistema Matching</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <XCircle className="w-4 h-4 text-red-400" />
+                <span>Real-time Updates</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setShowCreateModal(false)}
+          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium py-3 rounded-xl hover:shadow-lg transition-all"
+        >
+          Chiudi
+        </button>
+      </motion.div>
+    </motion.div>
+  )
+
+  const EmptyState = ({ title, description, icon: Icon }: { title: string, description: string, icon: any }) => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-center py-12"
+    >
+      <div className="w-24 h-24 bg-gradient-to-r from-gray-800 to-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-6">
+        <Icon className="w-12 h-12 text-gray-400" />
       </div>
-    )
-  }
+      <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
+      <p className="text-gray-400 mb-6 max-w-md mx-auto">{description}</p>
+      
+      <div className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-500/20 rounded-xl p-4 max-w-md mx-auto">
+        <div className="flex items-center gap-3 mb-3">
+          <AlertTriangle className="w-5 h-5 text-yellow-400" />
+          <span className="text-yellow-400 font-medium">Sistema in Sviluppo</span>
+        </div>
+        <p className="text-gray-300 text-sm">
+          Le sfide saranno disponibili una volta completata l'integrazione con il backend Supabase.
+        </p>
+      </div>
+    </motion.div>
+  )
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-indigo-950 to-purple-950">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
       {/* Header */}
-      <header className="border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-4">
+      <div className="border-b border-gray-800 bg-gray-900/80 backdrop-blur-sm sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link href="/dashboard">
-                <Button variant="ghost" size="sm">
-                  <ArrowLeft className="w-5 h-5" />
-                </Button>
+              <Link 
+                href="/dashboard"
+                className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-400" />
               </Link>
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center">
-                  <Swords className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-white">Sfide</h1>
-                  <p className="text-sm text-gray-400">Trova e crea duelli</p>
-                </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                  <Swords className="w-6 h-6 text-red-400" />
+                  Sfide Elite
+                </h1>
+                <p className="text-gray-400">Combatti contro i migliori atleti</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => {/* Add refresh logic here */}}
-              >
-                <RefreshCw className="w-5 h-5" />
-              </Button>
-              <Button variant="gradient" onClick={() => setShowCreateModal(true)}>
-                <Plus className="w-5 h-5 mr-2" />
-                Crea Sfida
-              </Button>
-            </div>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleCreateChallenge}
+              className="bg-gradient-to-r from-orange-600 to-red-600 text-white px-6 py-2 rounded-xl font-medium hover:shadow-lg transition-all duration-200 flex items-center gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Crea Sfida</span>
+            </motion.button>
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        {/* Alerts */}
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-2"
-          >
-            <AlertCircle className="w-5 h-5 text-red-400 mt-0.5" />
-            <p className="text-sm text-red-400">{error}</p>
-          </motion.div>
-        )}
-
-        {success && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-start gap-2"
-          >
-            <CheckCircle className="w-5 h-5 text-green-400 mt-0.5" />
-            <p className="text-sm text-green-400">{success}</p>
-          </motion.div>
-        )}
-
-        {/* Integration Notice */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Stats Cards */}
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6 p-6 bg-blue-500/10 border border-blue-500/20 rounded-lg"
+          className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8"
         >
-          <div className="flex items-start gap-3">
-            <Info className="w-6 h-6 text-blue-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-lg font-medium text-blue-400 mb-2">Integrazione Backend Richiesta</p>
-              <div className="text-sm text-blue-300 space-y-2">
-                <p>Per completare la pagina delle sfide, è necessario integrare:</p>
-                <ul className="list-disc list-inside ml-4 space-y-1">
-                  <li>Database per salvare sfide e duelli</li>
-                  <li>API per creare, accettare e gestire sfide</li>
-                  <li>Autenticazione utenti</li>
-                  <li>Sistema di notifiche in tempo reale</li>
-                </ul>
-                <p className="mt-3">
-                  <strong>Tutti i dati mock sono stati rimossi come richiesto.</strong> 
-                  La pagina è ora pronta per l'integrazione con il backend.
-                </p>
+          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center">
+                <Flame className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-white">0</div>
+                <div className="text-gray-400 text-sm">Sfide Attive</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-blue-500 rounded-xl flex items-center justify-center">
+                <Trophy className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-white">0</div>
+                <div className="text-gray-400 text-sm">Vittorie</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                <Crown className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-white">#--</div>
+                <div className="text-gray-400 text-sm">Ranking</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
+                <Award className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-white">0</div>
+                <div className="text-gray-400 text-sm">Punti XP</div>
               </div>
             </div>
           </div>
         </motion.div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6">
-          <Button
-            variant={selectedTab === 'available' ? 'gradient' : 'secondary'}
-            onClick={() => setSelectedTab('available')}
-          >
-            Disponibili (0)
-          </Button>
-          <Button
-            variant={selectedTab === 'my-duels' ? 'gradient' : 'secondary'}
-            onClick={() => setSelectedTab('my-duels')}
-          >
-            Le Mie Sfide (0)
-          </Button>
-          <Button
-            variant={selectedTab === 'history' ? 'gradient' : 'secondary'}
-            onClick={() => setSelectedTab('history')}
-          >
-            Storico (0)
-          </Button>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mb-8"
+        >
+          <div className="flex space-x-1 bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-1">
+            {[
+              { id: 'available', label: 'Sfide Disponibili', icon: Target },
+              { id: 'my-challenges', label: 'Le Mie Sfide', icon: Gamepad2 },
+              { id: 'completed', label: 'Completate', icon: CheckCircle }
+            ].map((tab) => {
+              const Icon = tab.icon
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                    activeTab === tab.id
+                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{tab.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </motion.div>
 
         {/* Filters */}
-        <Card className="p-4 mb-6">
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="mb-8"
+        >
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
                 placeholder="Cerca sfide..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:border-indigo-500 focus:outline-none"
+                className="w-full bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
-            <select
-              value={filterExercise}
-              onChange={(e) => setFilterExercise(e.target.value)}
-              className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
-            >
-              <option value="all">Tutti gli esercizi</option>
-            </select>
+            {/* Type Filter */}
+            <div className="flex items-center gap-2 bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-1">
+              <Filter className="w-4 h-4 text-gray-400 ml-2" />
+              <select
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+                className="bg-transparent text-white border-none outline-none cursor-pointer pr-2"
+              >
+                {challengeTypes.map(type => (
+                  <option key={type.id} value={type.id} className="bg-gray-900">
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            <select
-              value={filterDifficulty}
-              onChange={(e) => setFilterDifficulty(e.target.value)}
-              className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
-            >
-              <option value="all">Tutte le difficoltà</option>
-              <option value="easy">Facile</option>
-              <option value="medium">Media</option>
-              <option value="hard">Difficile</option>
-              <option value="extreme">Estrema</option>
-            </select>
-          </div>
-        </Card>
-
-        {/* Empty State */}
-        <Card className="p-12 text-center">
-          <Swords className="w-20 h-20 text-gray-600 mx-auto mb-6" />
-          <h3 className="text-2xl font-bold text-white mb-3">Nessuna sfida disponibile</h3>
-          <p className="text-gray-400 mb-8 max-w-md mx-auto">
-            Connetti il database e l'API backend per visualizzare e gestire le sfide tra utenti.
-          </p>
-          
-          <div className="space-y-4">
-            <Button variant="gradient" onClick={() => setShowCreateModal(true)}>
-              <Plus className="w-5 h-5 mr-2" />
-              Crea Nuova Sfida
-            </Button>
-            
-            <div className="text-sm text-gray-500">
-              <p>Questa pagina è pronta per l'integrazione backend</p>
+            {/* Difficulty Filter */}
+            <div className="flex items-center gap-2 bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-1">
+              <Target className="w-4 h-4 text-gray-400 ml-2" />
+              <select
+                value={selectedDifficulty}
+                onChange={(e) => setSelectedDifficulty(e.target.value)}
+                className="bg-transparent text-white border-none outline-none cursor-pointer pr-2"
+              >
+                {difficultyLevels.map(level => (
+                  <option key={level.id} value={level.id} className="bg-gray-900">
+                    {level.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
-        </Card>
-      </main>
+        </motion.div>
 
-      {/* Create Duel Modal */}
-      <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Crea Nuova Sfida" size="md">
-        <div className="space-y-4">
-          <div className="text-center py-8">
-            <AlertCircle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-white mb-2">Integrazione Backend Richiesta</h3>
-            <p className="text-gray-400 mb-6">
-              Per creare sfide è necessario configurare il database e l'API backend.
-            </p>
-            
-            <div className="space-y-3 text-sm text-gray-500">
-              <p>Componenti necessari:</p>
-              <ul className="list-disc list-inside space-y-1">
-                <li>Database per esercizi e sfide</li>
-                <li>API per la creazione di duelli</li>
-                <li>Sistema di autenticazione</li>
-                <li>Gestione stati delle sfide</li>
-              </ul>
+        {/* Content */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-8 h-8 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
             </div>
+          ) : (
+            <>
+              {activeTab === 'available' && (
+                <EmptyState
+                  title="Nessuna Sfida Disponibile"
+                  description="Al momento non ci sono sfide attive. Il sistema di matchmaking sarà disponibile con l'integrazione backend."
+                  icon={Target}
+                />
+              )}
+
+              {activeTab === 'my-challenges' && (
+                <EmptyState
+                  title="Nessuna Sfida Creata"
+                  description="Non hai ancora creato nessuna sfida. Crea la tua prima sfida quando il sistema sarà attivo!"
+                  icon={Gamepad2}
+                />
+              )}
+
+              {activeTab === 'completed' && (
+                <EmptyState
+                  title="Nessuna Sfida Completata"
+                  description="Le tue sfide completate appariranno qui una volta che il sistema sarà operativo."
+                  icon={CheckCircle}
+                />
+              )}
+            </>
+          )}
+        </motion.div>
+
+        {/* Quick Actions */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="mt-12"
+        >
+          <h2 className="text-xl font-bold text-white mb-6">Preparati per le Sfide</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Link href="/training" className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 group">
+              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                <Zap className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2 group-hover:text-blue-400 transition-colors">Allenamento Intensivo</h3>
+              <p className="text-gray-400">Preparati per le sfide con sessioni di training elite</p>
+            </Link>
+
+            <Link href="/training/library" className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 group">
+              <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                <Star className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2 group-hover:text-purple-400 transition-colors">Perfeziona Tecniche</h3>
+              <p className="text-gray-400">Migliora le tue abilità con la libreria tecniche</p>
+            </Link>
+
+            <Link href="/profile" className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 hover:shadow-2xl hover:shadow-green-500/10 transition-all duration-300 group">
+              <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-blue-500 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                <TrendingUp className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2 group-hover:text-green-400 transition-colors">Analizza Performance</h3>
+              <p className="text-gray-400">Monitora i tuoi progressi e statistiche</p>
+            </Link>
           </div>
-          
-          <div className="flex gap-3 pt-4">
-            <Button variant="secondary" onClick={() => setShowCreateModal(false)} className="flex-1">
-              Chiudi
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        </motion.div>
+      </div>
+
+      {/* Create Challenge Modal */}
+      {showCreateModal && <CreateChallengeModal />}
     </div>
   )
 }
