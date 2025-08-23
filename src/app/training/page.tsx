@@ -313,7 +313,7 @@ export default function TrainingPage() {
               </button>
               <div>
                 <h1 className="text-2xl font-bold text-white">AI Motion Tracking - LIVE</h1>
-                <p className="text-gray-400">{selectedExercise.name} - Sistema attivo</p>
+                <p className="text-gray-400">{selectedExercise && 'name' in selectedExercise ? selectedExercise.name : 'Esercizio'} - Sistema attivo</p>
               </div>
               
               <div className="ml-auto flex items-center gap-2">
@@ -394,7 +394,7 @@ export default function TrainingPage() {
               </button>
               <div>
                 <h1 className="text-2xl font-bold text-white">Training Completato! 🎉</h1>
-                <p className="text-gray-400">Analisi performance - {selectedExercise?.name}</p>
+                <p className="text-gray-400">Analisi performance - {selectedExercise && 'name' in selectedExercise ? selectedExercise.name : 'Esercizio'}</p>
               </div>
             </div>
           </div>
@@ -697,7 +697,7 @@ export default function TrainingPage() {
                 className="px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-green-500/25 transition-all"
               >
                 <Camera className="w-6 h-6 inline mr-3" />
-                Inizia Sistema AI - {selectedExercise?.name || 'Esercizio Selezionato'}
+                Inizia Sistema AI - {selectedExercise && 'name' in selectedExercise ? selectedExercise.name : 'Esercizio Selezionato'}
               </button>
             </motion.div>
           )}
