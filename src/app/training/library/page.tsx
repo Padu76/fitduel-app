@@ -966,4 +966,6 @@ export default function TrainingLibraryOptimized() {
           </Card>
         </div>
       </div>
-    </div> 
+    </div>
+  )
+} 
