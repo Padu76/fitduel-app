@@ -7,111 +7,197 @@ import { motion } from 'framer-motion'
 import { 
   ArrowLeft, Play, Pause, RotateCcw, Settings, 
   Dumbbell, Activity, Target, Timer, Volume2,
-  Eye, Camera, Maximize, Minimize, Info, CheckCircle
+  Eye, Camera, Maximize, Minimize, Info, CheckCircle,
+  Filter, Search, Grid, List, Zap, Heart, Cpu,
+  TrendingUp, Award, Clock
 } from 'lucide-react'
 
 // ====================================
-// MOCK DATA
+// IMPORTS FROM REAL SYSTEM
 // ====================================
+import { 
+  EXERCISE_DEFINITIONS, 
+  EXERCISE_CATEGORIES,
+  DIFFICULTY_LEVELS,
+  getExercisesByCategory,
+  getExercisesByDifficulty
+} from '@/components/game/ai-tracker/constants/exercises'
+import type { ExerciseConfig } from '@/components/game/ai-tracker/types'
+import { AIExerciseTracker } from '@/components/game/ai-tracker/AIExerciseTracker'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 
-const EXERCISES = [
-  {
-    id: 'pushups',
-    name: 'Push-ups',
-    icon: '💪',
-    description: 'Esercizio per pettorali, spalle e tricipiti',
-    instructions: [
-      'Posizionati in plank con le mani sotto le spalle',
-      'Mantieni il corpo dritto dalla testa ai piedi',
-      'Scendi fino a toccare quasi il pavimento con il petto',
-      'Spingi verso l\'alto tornando alla posizione iniziale'
-    ],
-    tips: [
-      'Non fare "snake push-ups" - mantieni il corpo rigido',
-      'Respira verso il basso, espira verso l\'alto',
-      'Se troppo difficile, appoggia le ginocchia'
-    ],
-    muscles: ['Pettorali', 'Tricipiti', 'Spalle', 'Core'],
-    difficulty: 'Medium',
-    category: 'Upper Body'
-  },
-  {
-    id: 'squats',
-    name: 'Squats',
-    icon: '🦵',
-    description: 'Esercizio fondamentale per gambe e glutei',
-    instructions: [
-      'Stai in piedi con i piedi alla larghezza delle spalle',
-      'Abbassa il bacino come se ti stessi sedendo su una sedia',
-      'Scendi fino a quando le cosce sono parallele al pavimento',
-      'Torna su spingendo attraverso i talloni'
-    ],
-    tips: [
-      'Mantieni il peso sui talloni, non sulle punte',
-      'Le ginocchia devono seguire la direzione dei piedi',
-      'Mantieni il petto in fuori e la schiena dritta'
-    ],
-    muscles: ['Quadricipiti', 'Glutei', 'Polpacci', 'Core'],
-    difficulty: 'Easy',
-    category: 'Lower Body'
-  },
-  {
-    id: 'plank',
-    name: 'Plank',
-    icon: '⏱️',
-    description: 'Esercizio isometrico per il core',
-    instructions: [
-      'Posizionati a faccia in giù supportandoti su avambracci e piedi',
-      'Mantieni il corpo dritto come una tavola',
-      'Contrai gli addominali e i glutei',
-      'Respira normalmente mantenendo la posizione'
-    ],
-    tips: [
-      'Non alzare troppo i fianchi',
-      'Non far cadere i fianchi verso il basso',
-      'Guarda un punto fisso davanti a te'
-    ],
-    muscles: ['Core', 'Spalle', 'Glutei'],
-    difficulty: 'Easy',
-    category: 'Core',
-    isometric: true
-  },
-  {
-    id: 'burpees',
-    name: 'Burpees',
-    icon: '🔥',
-    description: 'Esercizio completo ad alta intensità',
-    instructions: [
-      'Inizia in posizione eretta',
-      'Scendi in squat e appoggia le mani a terra',
-      'Salta indietro in posizione di plank',
-      'Fai un push-up (opzionale)',
-      'Salta in avanti tornando in squat',
-      'Salta in alto con le braccia sopra la testa'
-    ],
-    tips: [
-      'Mantieni un ritmo costante',
-      'Respira in modo controllato',
-      'Modifica l\'esercizio se necessario'
-    ],
-    muscles: ['Full Body'],
-    difficulty: 'Hard',
-    category: 'Full Body'
-  }
-]
+// ====================================
+// TYPES
+// ====================================
+type ViewMode = 'grid' | 'list'
+type FilterType = 'all' | 'strength' | 'cardio' | 'core'
+type SortType = 'name' | 'difficulty' | 'calories'
 
 // ====================================
 // COMPONENTS
 // ====================================
 
-const ExerciseCard = ({ exercise, onSelect, isSelected }: any) => {
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty.toLowerCase()) {
-      case 'easy': return 'text-green-400 bg-green-500/10'
-      case 'medium': return 'text-yellow-400 bg-yellow-500/10'
-      case 'hard': return 'text-red-400 bg-red-500/10'
-      default: return 'text-gray-400 bg-gray-500/10'
-    }
+const ExerciseFilters = ({ 
+  activeFilter, 
+  onFilterChange, 
+  searchTerm, 
+  onSearchChange,
+  viewMode,
+  onViewModeChange,
+  sortBy,
+  onSortChange
+}: {
+  activeFilter: FilterType
+  onFilterChange: (filter: FilterType) => void
+  searchTerm: string
+  onSearchChange: (term: string) => void
+  viewMode: ViewMode
+  onViewModeChange: (mode: ViewMode) => void
+  sortBy: SortType
+  onSortChange: (sort: SortType) => void
+}) => {
+  return (
+    <div className="space-y-4">
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Cerca esercizio..."
+          value={searchTerm}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white placeholder-gray-400 focus:border-green-500/50 focus:outline-none transition-all"
+        />
+      </div>
+
+      {/* Filter Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        {/* Category Filters */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => onFilterChange('all')}
+            className={`px-4 py-2 rounded-lg font-medium transition-all ${
+              activeFilter === 'all'
+                ? 'bg-green-500 text-white'
+                : 'bg-slate-700/50 text-gray-300 hover:bg-slate-700'
+            }`}
+          >
+            Tutti (26)
+          </button>
+          {Object.entries(EXERCISE_CATEGORIES).map(([key, category]) => {
+            const count = getExercisesByCategory(key).length
+            return (
+              <button
+                key={key}
+                onClick={() => onFilterChange(key as FilterType)}
+                className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                  activeFilter === key
+                    ? `bg-gradient-to-r ${category.color} text-white`
+                    : 'bg-slate-700/50 text-gray-300 hover:bg-slate-700'
+                }`}
+              >
+                <span>{category.icon}</span>
+                {category.name} ({count})
+              </button>
+            )
+          })}
+        </div>
+
+        {/* View & Sort Controls */}
+        <div className="flex items-center gap-2">
+          {/* Sort Dropdown */}
+          <select
+            value={sortBy}
+            onChange={(e) => onSortChange(e.target.value as SortType)}
+            className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:border-green-500/50 focus:outline-none"
+          >
+            <option value="name">Ordina: Nome</option>
+            <option value="difficulty">Ordina: Difficoltà</option>
+            <option value="calories">Ordina: Calorie</option>
+          </select>
+
+          {/* View Mode Toggle */}
+          <div className="flex bg-slate-700/50 rounded-lg p-1">
+            <button
+              onClick={() => onViewModeChange('grid')}
+              className={`p-2 rounded-md transition-all ${
+                viewMode === 'grid'
+                  ? 'bg-green-500 text-white'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Grid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => onViewModeChange('list')}
+              className={`p-2 rounded-md transition-all ${
+                viewMode === 'list'
+                  ? 'bg-green-500 text-white'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const ExerciseCard = ({ 
+  exercise, 
+  onSelect, 
+  viewMode 
+}: { 
+  exercise: ExerciseConfig
+  onSelect: (exercise: ExerciseConfig) => void
+  viewMode: ViewMode
+}) => {
+  const difficulty = DIFFICULTY_LEVELS[exercise.difficulty]
+  const category = EXERCISE_CATEGORIES[exercise.category]
+
+  if (viewMode === 'list') {
+    return (
+      <motion.div
+        whileHover={{ scale: 1.01 }}
+        whileTap={{ scale: 0.99 }}
+        onClick={() => onSelect(exercise)}
+        className="bg-slate-800/50 backdrop-blur-xl rounded-xl p-4 border border-slate-700/50 hover:border-green-500/50 transition-all cursor-pointer"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 bg-gradient-to-br ${category.color} rounded-xl flex items-center justify-center`}>
+              <span className="text-xl">{category.icon}</span>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white">{exercise.name}</h3>
+              <p className="text-sm text-gray-400">{exercise.description}</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <div className="flex items-center gap-2 mb-1">
+                <Zap className="w-4 h-4 text-orange-400" />
+                <span className="text-sm text-orange-400 font-medium">
+                  {(exercise.caloriesPerRep * (exercise.targetReps || exercise.targetTime || 10)).toFixed(1)} cal
+                </span>
+              </div>
+              <span className={`px-2 py-1 rounded-full text-xs ${difficulty.bgColor} ${difficulty.color} border ${difficulty.borderColor}`}>
+                {difficulty.name}
+              </span>
+            </div>
+            
+            <Button variant="ghost" size="sm" className="text-green-400 hover:text-green-300">
+              <Play className="w-4 h-4 mr-1" />
+              Inizia
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+    )
   }
 
   return (
@@ -119,85 +205,107 @@ const ExerciseCard = ({ exercise, onSelect, isSelected }: any) => {
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={() => onSelect(exercise)}
-      className={`relative bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl 
-        rounded-2xl p-6 border transition-all duration-300 cursor-pointer
-        ${isSelected 
-          ? 'border-green-500 ring-2 ring-green-500/30' 
-          : 'border-slate-700/50 hover:border-green-500/50'}`}
+      className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50 hover:border-green-500/50 transition-all cursor-pointer group"
     >
+      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
-            <span className="text-2xl">{exercise.icon}</span>
+          <div className={`w-12 h-12 bg-gradient-to-br ${category.color} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform`}>
+            <span className="text-2xl">{category.icon}</span>
           </div>
           <div>
             <h3 className="text-xl font-bold text-white">{exercise.name}</h3>
-            <p className="text-sm text-gray-400">{exercise.category}</p>
+            <p className="text-sm text-gray-400">{category.name}</p>
           </div>
         </div>
-        <span className={`px-2 py-1 rounded-full text-xs ${getDifficultyColor(exercise.difficulty)}`}>
-          {exercise.difficulty}
+        <span className={`px-2 py-1 rounded-full text-xs ${difficulty.bgColor} ${difficulty.color} border ${difficulty.borderColor}`}>
+          {difficulty.name}
         </span>
       </div>
       
-      <p className="text-sm text-gray-300 mb-4">{exercise.description}</p>
+      {/* Description */}
+      <p className="text-sm text-gray-300 mb-4 line-clamp-2">{exercise.description}</p>
       
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="bg-slate-700/30 rounded-lg p-3 text-center">
+          <div className="flex items-center justify-center gap-1 mb-1">
+            {exercise.targetReps ? (
+              <>
+                <Target className="w-4 h-4 text-blue-400" />
+                <span className="text-xs text-blue-400">Reps</span>
+              </>
+            ) : (
+              <>
+                <Clock className="w-4 h-4 text-purple-400" />
+                <span className="text-xs text-purple-400">Tempo</span>
+              </>
+            )}
+          </div>
+          <p className="text-lg font-bold text-white">
+            {exercise.targetReps || `${exercise.targetTime}s`}
+          </p>
+        </div>
+        
+        <div className="bg-slate-700/30 rounded-lg p-3 text-center">
+          <div className="flex items-center justify-center gap-1 mb-1">
+            <Zap className="w-4 h-4 text-orange-400" />
+            <span className="text-xs text-orange-400">Calorie</span>
+          </div>
+          <p className="text-lg font-bold text-white">
+            {(exercise.caloriesPerRep * (exercise.targetReps || exercise.targetTime || 10)).toFixed(1)}
+          </p>
+        </div>
+      </div>
+      
+      {/* Muscle Groups */}
       <div className="flex flex-wrap gap-1 mb-4">
-        {exercise.muscles.map((muscle: string, i: number) => (
+        {exercise.muscleGroups.slice(0, 3).map((muscle, i) => (
           <span key={i} className="px-2 py-1 bg-slate-700/50 rounded text-xs text-slate-400">
             {muscle}
           </span>
         ))}
+        {exercise.muscleGroups.length > 3 && (
+          <span className="px-2 py-1 bg-slate-700/50 rounded text-xs text-slate-400">
+            +{exercise.muscleGroups.length - 3}
+          </span>
+        )}
       </div>
 
-      <div className="flex items-center justify-center">
-        <Play className="w-5 h-5 text-green-400 mr-2" />
+      {/* Action Button */}
+      <div className="flex items-center justify-center group-hover:bg-green-500/10 rounded-lg p-2 transition-all">
+        <Play className="w-5 h-5 text-green-400 mr-2 group-hover:scale-110 transition-transform" />
         <span className="text-green-400 font-medium">Inizia Allenamento</span>
       </div>
     </motion.div>
   )
 }
 
-const ExerciseSession = ({ exercise, onBack }: any) => {
-  const [isActive, setIsActive] = useState(false)
-  const [currentRep, setCurrentRep] = useState(0)
-  const [sessionTime, setSessionTime] = useState(0)
+const ExerciseSession = ({ 
+  exercise, 
+  onBack,
+  userId 
+}: { 
+  exercise: ExerciseConfig
+  onBack: () => void
+  userId: string
+}) => {
   const [showInstructions, setShowInstructions] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  
+  const category = EXERCISE_CATEGORIES[exercise.category]
+  const difficulty = DIFFICULTY_LEVELS[exercise.difficulty]
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout
-    if (isActive) {
-      interval = setInterval(() => {
-        setSessionTime(prev => prev + 1)
-      }, 1000)
-    }
-    return () => clearInterval(interval)
-  }, [isActive])
-
-  const handleStart = () => {
-    setIsActive(true)
-    setShowInstructions(false)
+  // Handle completion
+  const handleComplete = (data: any) => {
+    // Show completion screen or return to selection
+    console.log('Exercise completed:', data)
+    // Could show results modal here
+    onBack()
   }
 
-  const handlePause = () => {
-    setIsActive(false)
-  }
-
-  const handleReset = () => {
-    setIsActive(false)
-    setCurrentRep(0)
-    setSessionTime(0)
-  }
-
-  const handleRepComplete = () => {
-    setCurrentRep(prev => prev + 1)
-  }
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  const handleProgress = (progress: number) => {
+    console.log('Progress:', progress)
   }
 
   if (showInstructions) {
@@ -205,196 +313,190 @@ const ExerciseSession = ({ exercise, onBack }: any) => {
       <div className="space-y-6">
         {/* Exercise Header */}
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
-            <span className="text-3xl">{exercise.icon}</span>
+          <div className={`w-16 h-16 bg-gradient-to-br ${category.color} rounded-xl flex items-center justify-center`}>
+            <span className="text-3xl">{category.icon}</span>
           </div>
-          <div>
+          <div className="flex-1">
             <h2 className="text-3xl font-bold text-white">{exercise.name}</h2>
             <p className="text-gray-400">{exercise.description}</p>
+            <div className="flex items-center gap-4 mt-2">
+              <span className={`px-3 py-1 rounded-full text-sm ${difficulty.bgColor} ${difficulty.color} border ${difficulty.borderColor}`}>
+                {difficulty.name}
+              </span>
+              <div className="flex items-center gap-1 text-orange-400">
+                <Zap className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  {(exercise.caloriesPerRep * (exercise.targetReps || exercise.targetTime || 10)).toFixed(1)} cal
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Instructions */}
-        <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50">
-          <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <Info className="w-5 h-5 text-blue-400" />
-            Come Eseguire l'Esercizio
-          </h3>
-          <ol className="space-y-2">
-            {exercise.instructions.map((instruction: string, i: number) => (
-              <li key={i} className="flex gap-3">
-                <span className="flex-shrink-0 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-xs font-bold text-white">
-                  {i + 1}
-                </span>
-                <span className="text-gray-300">{instruction}</span>
-              </li>
-            ))}
-          </ol>
-        </div>
+        {exercise.instructions && (
+          <Card className="p-6">
+            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <Info className="w-5 h-5 text-blue-400" />
+              Come Eseguire l'Esercizio
+            </h3>
+            <ol className="space-y-3">
+              {exercise.instructions.map((instruction, i) => (
+                <li key={i} className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-xs font-bold text-white">
+                    {i + 1}
+                  </span>
+                  <span className="text-gray-300">{instruction}</span>
+                </li>
+              ))}
+            </ol>
+          </Card>
+        )}
 
-        {/* Tips */}
-        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-6">
-          <h3 className="text-xl font-bold text-yellow-400 mb-4">💡 Consigli Importanti</h3>
-          <ul className="space-y-2">
-            {exercise.tips.map((tip: string, i: number) => (
-              <li key={i} className="flex gap-2 text-yellow-100">
-                <span className="text-yellow-400">•</span>
-                <span>{tip}</span>
-              </li>
-            ))}
-          </ul>
+        {/* Common Mistakes */}
+        {exercise.commonMistakes && (
+          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-6">
+            <h3 className="text-xl font-bold text-yellow-400 mb-4 flex items-center gap-2">
+              <Award className="w-5 h-5" />
+              Errori Comuni da Evitare
+            </h3>
+            <ul className="space-y-2">
+              {exercise.commonMistakes.map((mistake, i) => (
+                <li key={i} className="flex gap-2 text-yellow-100">
+                  <span className="text-yellow-400">⚠️</span>
+                  <span>{mistake}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Target & Muscle Groups */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card className="p-6">
+            <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+              <Target className="w-5 h-5 text-green-400" />
+              Obiettivo
+            </h3>
+            <div className="space-y-2">
+              {exercise.targetReps && (
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Ripetizioni:</span>
+                  <span className="text-white font-bold">{exercise.targetReps}</span>
+                </div>
+              )}
+              {exercise.targetTime && (
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Durata:</span>
+                  <span className="text-white font-bold">{exercise.targetTime}s</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-gray-400">Calorie stimate:</span>
+                <span className="text-orange-400 font-bold">
+                  {(exercise.caloriesPerRep * (exercise.targetReps || exercise.targetTime || 10)).toFixed(1)}
+                </span>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-purple-400" />
+              Muscoli Coinvolti
+            </h3>
+            <div className="grid grid-cols-2 gap-2">
+              {exercise.muscleGroups.map((muscle, i) => (
+                <div key={i} className="bg-purple-500/20 rounded-lg p-2 text-center">
+                  <span className="text-purple-300 text-sm font-medium">{muscle}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
         </div>
 
         {/* Start Button */}
         <div className="flex gap-4">
-          <button
+          <Button
             onClick={onBack}
-            className="flex-1 py-4 bg-slate-700/50 border border-slate-600 rounded-xl text-white font-bold hover:bg-slate-700 transition-all"
+            variant="outline"
+            className="flex-1"
           >
-            <ArrowLeft className="w-5 h-5 inline mr-2" />
+            <ArrowLeft className="w-5 h-5 mr-2" />
             Torna Indietro
-          </button>
-          <button
-            onClick={handleStart}
-            className="flex-1 py-4 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl text-white font-bold hover:shadow-lg transition-all"
+          </Button>
+          <Button
+            onClick={() => setShowInstructions(false)}
+            className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
           >
-            <Play className="w-5 h-5 inline mr-2" />
+            <Play className="w-5 h-5 mr-2" />
             Inizia Allenamento
-          </button>
+          </Button>
         </div>
       </div>
     )
   }
 
+  // Real AI Tracker Session
   return (
     <div className="space-y-6">
       {/* Session Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
-            <span className="text-xl">{exercise.icon}</span>
+          <div className={`w-12 h-12 bg-gradient-to-br ${category.color} rounded-xl flex items-center justify-center`}>
+            <span className="text-xl">{category.icon}</span>
           </div>
           <div>
             <h2 className="text-2xl font-bold text-white">{exercise.name}</h2>
-            <p className="text-gray-400">Allenamento Libero</p>
+            <p className="text-gray-400">Allenamento Libero • AI Tracking</p>
           </div>
         </div>
         
         <div className="flex items-center gap-2">
-          <button
+          <Button
             onClick={() => setShowInstructions(true)}
-            className="p-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-400 hover:text-white transition-colors"
+            variant="outline"
+            size="sm"
           >
-            <Info className="w-5 h-5" />
-          </button>
-          <button
+            <Info className="w-4 h-4" />
+          </Button>
+          <Button
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-400 hover:text-white transition-colors"
+            variant="outline"
+            size="sm"
           >
-            {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
-          </button>
+            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+          </Button>
+          <Button
+            onClick={onBack}
+            variant="outline"
+            size="sm"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
         </div>
       </div>
 
-      {/* Stats Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Timer */}
-        <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50 text-center">
-          <Timer className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-          <p className="text-3xl font-bold text-white mb-1">{formatTime(sessionTime)}</p>
-          <p className="text-sm text-gray-400">Tempo Sessione</p>
-        </div>
+      {/* AI Tracker Component */}
+      <AIExerciseTracker
+        exerciseId={exercise.id}
+        userId={userId}
+        targetReps={exercise.targetReps}
+        targetTime={exercise.targetTime}
+        onComplete={handleComplete}
+        onProgress={handleProgress}
+        strictMode={false} // Free training mode
+      />
 
-        {/* Rep Counter */}
-        <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50 text-center">
-          <Activity className="w-8 h-8 text-green-400 mx-auto mb-2" />
-          <p className="text-3xl font-bold text-white mb-1">{currentRep}</p>
-          <p className="text-sm text-gray-400">
-            {exercise.isometric ? 'Mantenimenti' : 'Ripetizioni'}
-          </p>
-        </div>
-
-        {/* Status */}
-        <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50 text-center">
-          <Target className="w-8 h-8 text-purple-400 mx-auto mb-2" />
-          <p className={`text-3xl font-bold mb-1 ${isActive ? 'text-green-400' : 'text-gray-400'}`}>
-            {isActive ? 'ATTIVO' : 'PAUSA'}
-          </p>
-          <p className="text-sm text-gray-400">Stato</p>
-        </div>
-      </div>
-
-      {/* Camera/Exercise Area Placeholder */}
-      <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-8 border border-slate-700/50 text-center">
-        <div className="border-2 border-dashed border-slate-600 rounded-xl p-12">
-          <Camera className="w-16 h-16 text-slate-500 mx-auto mb-4" />
-          <h3 className="text-xl font-bold text-slate-400 mb-2">Area Allenamento</h3>
-          <p className="text-slate-500 mb-6">
-            In una versione completa, qui ci sarebbe il feed della camera con AI tracking
-          </p>
-          
-          {/* Manual Rep Button */}
-          <button
-            onClick={handleRepComplete}
-            disabled={!isActive}
-            className="px-6 py-3 bg-green-500 hover:bg-green-600 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-white font-bold transition-all"
-          >
-            <CheckCircle className="w-5 h-5 inline mr-2" />
-            {exercise.isometric ? 'Completa Mantenimento' : 'Completa Ripetizione'}
-          </button>
-        </div>
-      </div>
-
-      {/* Controls */}
-      <div className="flex gap-4">
-        <button
-          onClick={onBack}
-          className="px-6 py-3 bg-slate-700/50 border border-slate-600 rounded-xl text-white font-bold hover:bg-slate-700 transition-all"
-        >
-          <ArrowLeft className="w-5 h-5 inline mr-2" />
-          Termina
-        </button>
-        
-        <div className="flex-1 flex gap-2">
-          <button
-            onClick={isActive ? handlePause : handleStart}
-            className={`flex-1 py-3 rounded-xl text-white font-bold transition-all ${
-              isActive 
-                ? 'bg-yellow-600 hover:bg-yellow-700' 
-                : 'bg-green-600 hover:bg-green-700'
-            }`}
-          >
-            {isActive ? (
-              <>
-                <Pause className="w-5 h-5 inline mr-2" />
-                Pausa
-              </>
-            ) : (
-              <>
-                <Play className="w-5 h-5 inline mr-2" />
-                {sessionTime > 0 ? 'Riprendi' : 'Inizia'}
-              </>
-            )}
-          </button>
-          
-          <button
-            onClick={handleReset}
-            className="px-6 py-3 bg-red-600 hover:bg-red-700 rounded-xl text-white font-bold transition-all"
-          >
-            <RotateCcw className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Session Info */}
+      {/* Info Banner */}
       <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
         <div className="flex items-center gap-2 mb-2">
           <Info className="w-4 h-4 text-blue-400" />
           <span className="text-blue-400 font-medium">Modalità Allenamento Libero</span>
         </div>
         <p className="text-blue-100 text-sm">
-          Non ci sono timer o obiettivi. Concentrati sulla forma corretta e allenati al tuo ritmo. 
-          Questa sessione non assegna XP o coins.
+          AI tracking attivo! Il sistema analizzerà la tua forma in tempo reale. 
+          Concentrati sulla tecnica corretta e divertiti. Questa sessione non assegna XP o coins.
         </p>
       </div>
     </div>
@@ -405,12 +507,44 @@ const ExerciseSession = ({ exercise, onBack }: any) => {
 // MAIN COMPONENT
 // ====================================
 
-export default function FreeTrainingPage() {
-  const [selectedExercise, setSelectedExercise] = useState<any>(null)
+export default function FreeTrainingPageOptimized() {
+  const [selectedExercise, setSelectedExercise] = useState<ExerciseConfig | null>(null)
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [sortBy, setSortBy] = useState<SortType>('name')
+
+  // Mock user ID (in real app, get from auth context)
+  const userId = 'mock-user-id'
+
+  // Filter and sort exercises
+  const filteredExercises = Object.values(EXERCISE_DEFINITIONS)
+    .filter(exercise => {
+      // Category filter
+      if (activeFilter !== 'all' && exercise.category !== activeFilter) return false
+      
+      // Search filter
+      if (searchTerm && !exercise.name.toLowerCase().includes(searchTerm.toLowerCase())) return false
+      
+      return true
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'difficulty':
+          const diffOrder = { easy: 1, medium: 2, hard: 3, extreme: 4 }
+          return diffOrder[a.difficulty] - diffOrder[b.difficulty]
+        case 'calories':
+          const aCalories = a.caloriesPerRep * (a.targetReps || a.targetTime || 10)
+          const bCalories = b.caloriesPerRep * (b.targetReps || b.targetTime || 10)
+          return bCalories - aCalories
+        default:
+          return a.name.localeCompare(b.name)
+      }
+    })
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
@@ -432,15 +566,18 @@ export default function FreeTrainingPage() {
                 Allenamento Libero
               </h1>
               <p className="text-slate-400 mt-1">
-                {selectedExercise ? 'Sessione in corso' : 'Scegli un esercizio e allenati senza pressione'}
+                {selectedExercise 
+                  ? `Sessione ${selectedExercise.name} in corso` 
+                  : `${filteredExercises.length} esercizi disponibili con AI tracking`
+                }
               </p>
             </div>
           </div>
 
           {!selectedExercise && (
             <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
-              <p className="text-green-400 text-sm font-medium">Modalità Relax 🧘‍♂️</p>
-              <p className="text-green-100 text-xs">No timer • No score • Solo tecnica</p>
+              <p className="text-green-400 text-sm font-medium">AI Tracking Attivo 🤖</p>
+              <p className="text-green-100 text-xs">Analisi forma • Feedback vocale • Modalità relax</p>
             </div>
           )}
         </div>
@@ -450,6 +587,7 @@ export default function FreeTrainingPage() {
           <ExerciseSession 
             exercise={selectedExercise} 
             onBack={() => setSelectedExercise(null)}
+            userId={userId}
           />
         ) : (
           <div className="space-y-8">
@@ -461,67 +599,111 @@ export default function FreeTrainingPage() {
             >
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-blue-500/20 rounded-xl">
-                  <Info className="w-6 h-6 text-blue-400" />
+                  <Cpu className="w-6 h-6 text-blue-400" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-bold text-white mb-1">Allenamento Senza Pressione</h3>
+                  <h3 className="text-lg font-bold text-white mb-1">Sistema AI Completo Attivo</h3>
                   <p className="text-slate-300 text-sm">
-                    Perfetto per imparare la tecnica corretta, fare riscaldamento o semplicemente mantenersi attivi. 
-                    Non ci sono timer, punteggi o obiettivi da raggiungere.
+                    Tutti i 26 esercizi con tracking MediaPipe, analisi forma in tempo reale, 
+                    feedback vocale e sistema anti-cheat. Perfetto per allenarsi senza pressione!
                   </p>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-blue-400">26</div>
+                  <div className="text-xs text-blue-300">esercizi</div>
                 </div>
               </div>
             </motion.div>
 
-            {/* Exercise Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {EXERCISES.map((exercise, index) => (
+            {/* Filters */}
+            <ExerciseFilters
+              activeFilter={activeFilter}
+              onFilterChange={setActiveFilter}
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              sortBy={sortBy}
+              onSortChange={setSortBy}
+            />
+
+            {/* Exercise Grid/List */}
+            <motion.div
+              key={`${viewMode}-${activeFilter}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className={
+                viewMode === 'grid'
+                  ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                  : "space-y-4"
+              }
+            >
+              {filteredExercises.map((exercise, index) => (
                 <motion.div
                   key={exercise.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
+                  transition={{ delay: index * 0.05 }}
                 >
                   <ExerciseCard
                     exercise={exercise}
                     onSelect={setSelectedExercise}
-                    isSelected={selectedExercise?.id === exercise.id}
+                    viewMode={viewMode}
                   />
                 </motion.div>
               ))}
-            </div>
+            </motion.div>
 
-            {/* Benefits Section */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50 text-center">
+            {/* Empty State */}
+            {filteredExercises.length === 0 && (
+              <div className="text-center py-12">
+                <Search className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-gray-400 mb-2">Nessun esercizio trovato</h3>
+                <p className="text-gray-500">Prova a cambiare i filtri di ricerca</p>
+              </div>
+            )}
+
+            {/* Stats Footer */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <Card className="p-6 text-center">
                 <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center mx-auto mb-4">
                   <Target className="w-6 h-6 text-green-400" />
                 </div>
                 <h3 className="text-lg font-bold text-white mb-2">Focus sulla Forma</h3>
                 <p className="text-slate-400 text-sm">
-                  Concentrati sulla tecnica corretta senza la pressione del tempo
+                  AI analizza ogni movimento per forma perfetta
                 </p>
-              </div>
+              </Card>
 
-              <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50 text-center">
+              <Card className="p-6 text-center">
                 <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center mx-auto mb-4">
                   <Volume2 className="w-6 h-6 text-blue-400" />
                 </div>
+                <h3 className="text-lg font-bold text-white mb-2">Feedback Vocale</h3>
+                <p className="text-slate-400 text-sm">
+                  Coaching in tempo reale per migliorare
+                </p>
+              </Card>
+
+              <Card className="p-6 text-center">
+                <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center mx-auto mb-4">
+                  <Heart className="w-6 h-6 text-purple-400" />
+                </div>
                 <h3 className="text-lg font-bold text-white mb-2">Al Tuo Ritmo</h3>
                 <p className="text-slate-400 text-sm">
-                  Nessuna fretta, allenati seguendo il ritmo del tuo corpo
+                  Zero pressione, massima personalizzazione
                 </p>
-              </div>
+              </Card>
 
-              <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50 text-center">
-                <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center mx-auto mb-4">
-                  <Eye className="w-6 h-6 text-purple-400" />
+              <Card className="p-6 text-center">
+                <div className="w-12 h-12 bg-orange-500/20 rounded-xl flex items-center justify-center mx-auto mb-4">
+                  <TrendingUp className="w-6 h-6 text-orange-400" />
                 </div>
-                <h3 className="text-lg font-bold text-white mb-2">Impara & Migliora</h3>
+                <h3 className="text-lg font-bold text-white mb-2">Progresso Tracciato</h3>
                 <p className="text-slate-400 text-sm">
-                  Perfetto per principianti che vogliono imparare nuovi esercizi
+                  Ogni sessione migliora le tue performance
                 </p>
-              </div>
+              </Card>
             </div>
           </div>
         )}
