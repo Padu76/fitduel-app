@@ -9,66 +9,163 @@ import {
   Plus, Search, Filter, ChevronRight, Flame, Crown,
   Star, Medal, Activity, TrendingUp, Calendar, Bell,
   ArrowLeft, RefreshCw, AlertCircle, CheckCircle, Clock,
-  Info, Loader2
+  Info, Loader2, User, Play
 } from 'lucide-react'
-import { cn } from '@/utils/cn'
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
-import { Modal } from '@/components/ui/Modal'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 // ====================================
-// TYPES
+// SIMPLE UI COMPONENTS
 // ====================================
-interface Exercise {
-  id: string
-  name: string
-  code: string
-  category: string
-  icon?: string
-  met_value?: number
-  is_active: boolean
-}
 
-interface Profile {
-  id: string
-  username: string
-  display_name: string | null
-  avatar_url: string | null
-  email: string
-  level?: number
-  xp?: number
-  coins?: number
-}
+const Card = ({ className, children, ...props }: any) => (
+  <div 
+    className={`rounded-lg border border-gray-800 bg-gray-900/50 backdrop-blur-sm ${className}`} 
+    {...props}
+  >
+    {children}
+  </div>
+)
 
-interface Duel {
-  id: string
-  type: '1v1' | 'open' | 'tournament' | 'mission'
-  status: 'pending' | 'open' | 'active' | 'completed' | 'expired' | 'cancelled'
-  challenger_id: string
-  challenger?: Profile
-  challenged_id: string | null
-  challenged?: Profile
-  exercise_id: string
-  exercise?: Exercise
-  difficulty: 'easy' | 'medium' | 'hard' | 'extreme'
-  wager_coins: number
-  xp_reward: number
-  challenger_score?: number
-  challenged_score?: number
-  winner_id?: string | null
-  metadata?: {
-    targetReps?: number
-    targetTime?: number
-    rules?: any
+const Button = ({ 
+  variant = 'primary', 
+  size = 'md', 
+  className, 
+  children, 
+  disabled,
+  onClick,
+  ...props 
+}: any) => {
+  const baseClasses = 'inline-flex items-center justify-center font-medium rounded-lg transition-all'
+  const variants = {
+    primary: 'bg-indigo-600 hover:bg-indigo-700 text-white',
+    secondary: 'bg-gray-800 hover:bg-gray-700 text-white border border-gray-700',
+    gradient: 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white',
+    ghost: 'hover:bg-gray-800 text-gray-400 hover:text-white'
   }
-  expires_at: string | null
-  completed_at: string | null
-  created_at: string
-  updated_at: string
+  const sizes = {
+    sm: 'px-3 py-2 text-sm',
+    md: 'px-4 py-2',
+    lg: 'px-6 py-3 text-lg'
+  }
+  
+  return (
+    <button
+      className={`${baseClasses} ${variants[variant]} ${sizes[size]} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
+      disabled={disabled}
+      onClick={onClick}
+      {...props}
+    >
+      {children}
+    </button>
+  )
 }
 
-// Helper function to check if exercise is time-based
+const Modal = ({ isOpen, onClose, title, size = 'md', children }: any) => {
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/80" onClick={onClose} />
+      <div className={`relative bg-gray-900 rounded-xl border border-gray-700 p-6 max-h-[90vh] overflow-y-auto ${
+        size === 'sm' ? 'w-full max-w-sm' :
+        size === 'lg' ? 'w-full max-w-4xl' :
+        'w-full max-w-md'
+      }`}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-white">{title}</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white"
+          >
+            ✕
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+// ====================================
+// MOCK DATA
+// ====================================
+
+const MOCK_EXERCISES = [
+  { id: '1', name: 'Push-ups', code: 'pushups', icon: '💪', category: 'upper_body' },
+  { id: '2', name: 'Squats', code: 'squats', icon: '🦵', category: 'lower_body' },
+  { id: '3', name: 'Plank', code: 'plank', icon: '⏱️', category: 'core' },
+  { id: '4', name: 'Burpees', code: 'burpees', icon: '🔥', category: 'full_body' },
+  { id: '5', name: 'Jumping Jacks', code: 'jumping_jacks', icon: '⚡', category: 'cardio' },
+  { id: '6', name: 'Lunges', code: 'lunges', icon: '🚀', category: 'lower_body' }
+]
+
+const MOCK_DUELS = [
+  {
+    id: '1',
+    type: 'open',
+    status: 'open',
+    challenger_id: 'user1',
+    challenger: { username: 'FitWarrior', display_name: 'Fit Warrior' },
+    challenged_id: null,
+    exercise_id: '1',
+    exercise: { name: 'Push-ups', icon: '💪', code: 'pushups' },
+    difficulty: 'medium',
+    wager_coins: 100,
+    xp_reward: 200,
+    metadata: { targetReps: 30 },
+    created_at: new Date().toISOString()
+  },
+  {
+    id: '2',
+    type: 'open',
+    status: 'open',
+    challenger_id: 'user2',
+    challenger: { username: 'SquatMaster', display_name: 'Squat Master' },
+    challenged_id: null,
+    exercise_id: '2',
+    exercise: { name: 'Squats', icon: '🦵', code: 'squats' },
+    difficulty: 'hard',
+    wager_coins: 200,
+    xp_reward: 400,
+    metadata: { targetReps: 50 },
+    created_at: new Date().toISOString()
+  },
+  {
+    id: '3',
+    type: 'open',
+    status: 'open',
+    challenger_id: 'user3',
+    challenger: { username: 'PlankPro', display_name: 'Plank Pro' },
+    challenged_id: null,
+    exercise_id: '3',
+    exercise: { name: 'Plank', icon: '⏱️', code: 'plank' },
+    difficulty: 'easy',
+    wager_coins: 50,
+    xp_reward: 100,
+    metadata: { targetTime: 60 },
+    created_at: new Date().toISOString()
+  },
+  {
+    id: '4',
+    type: 'open',
+    status: 'completed',
+    challenger_id: 'current_user',
+    challenger: { username: 'Tu', display_name: 'Tu' },
+    challenged_id: 'user4',
+    exercise_id: '4',
+    exercise: { name: 'Burpees', icon: '🔥', code: 'burpees' },
+    difficulty: 'extreme',
+    wager_coins: 300,
+    xp_reward: 600,
+    metadata: { targetReps: 25 },
+    winner_id: 'current_user',
+    created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  }
+]
+
+// ====================================
+// HELPER FUNCTIONS
+// ====================================
+
 const isExerciseTimeBased = (code: string): boolean => {
   const timeBasedExercises = ['plank', 'wall_sit', 'dead_hang', 'bridge_hold']
   return timeBasedExercises.includes(code)
@@ -77,17 +174,13 @@ const isExerciseTimeBased = (code: string): boolean => {
 // ====================================
 // COMPONENTS
 // ====================================
+
 const DuelCard = ({ 
   duel, 
   currentUserId,
   onAccept,
   onView 
-}: { 
-  duel: Duel
-  currentUserId: string
-  onAccept: (duelId: string) => void
-  onView: (duelId: string) => void
-}) => {
+}: any) => {
   const isMyDuel = duel.challenger_id === currentUserId || duel.challenged_id === currentUserId
   const isChallenger = duel.challenger_id === currentUserId
   const canAccept = duel.status === 'open' && !isMyDuel
@@ -112,18 +205,13 @@ const DuelCard = ({
     }
   }
 
-  const getExerciseName = () => {
-    return duel.exercise?.name || 'Esercizio'
-  }
-
   const getChallengerName = () => {
     if (duel.challenger?.display_name) return duel.challenger.display_name
     if (duel.challenger?.username) return duel.challenger.username
     return 'Sfidante'
   }
 
-  const isTimeBased = duel.exercise?.code ? isExerciseTimeBased(duel.exercise.code) : 
-                      (duel.metadata?.targetTime !== undefined && duel.metadata?.targetTime !== null)
+  const isTimeBased = isExerciseTimeBased(duel.exercise?.code || '')
 
   const formatTarget = () => {
     if (isTimeBased && duel.metadata?.targetTime) {
@@ -132,8 +220,28 @@ const DuelCard = ({
     return duel.metadata?.targetReps || '-'
   }
 
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'open': return 'Aperta'
+      case 'pending': return 'In attesa'
+      case 'active': return 'In corso'
+      case 'completed': return 'Completata'
+      default: return status
+    }
+  }
+
+  const getDifficultyText = (difficulty: string) => {
+    switch (difficulty) {
+      case 'easy': return 'Facile'
+      case 'medium': return 'Media'
+      case 'hard': return 'Difficile'
+      case 'extreme': return 'Estrema'
+      default: return difficulty
+    }
+  }
+
   return (
-    <Card variant="glass" className="p-4 hover:bg-gray-800/30 transition-all">
+    <Card className="p-4 hover:bg-gray-800/30 transition-all">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
@@ -144,7 +252,7 @@ const DuelCard = ({
             )}
           </div>
           <div>
-            <p className="font-medium text-white">{getExerciseName()}</p>
+            <p className="font-medium text-white">{duel.exercise?.name || 'Esercizio'}</p>
             <p className="text-sm text-gray-400">
               {isMyDuel ? (
                 isChallenger ? 'Creata da te' : `vs ${getChallengerName()}`
@@ -155,17 +263,11 @@ const DuelCard = ({
           </div>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <span className={cn('text-xs px-2 py-1 rounded-full', getStatusColor(duel.status))}>
-            {duel.status === 'open' ? 'Aperta' : 
-             duel.status === 'pending' ? 'In attesa' :
-             duel.status === 'active' ? 'In corso' :
-             duel.status === 'completed' ? 'Completata' : duel.status}
+          <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(duel.status)}`}>
+            {getStatusText(duel.status)}
           </span>
-          <span className={cn('text-xs', getDifficultyColor(duel.difficulty))}>
-            {duel.difficulty === 'easy' ? 'Facile' :
-             duel.difficulty === 'medium' ? 'Media' :
-             duel.difficulty === 'hard' ? 'Difficile' :
-             duel.difficulty === 'extreme' ? 'Estrema' : duel.difficulty}
+          <span className={`text-xs ${getDifficultyColor(duel.difficulty)}`}>
+            {getDifficultyText(duel.difficulty)}
           </span>
         </div>
       </div>
@@ -222,12 +324,7 @@ const CreateDuelModal = ({
   onClose, 
   exercises,
   onCreate 
-}: { 
-  isOpen: boolean
-  onClose: () => void
-  exercises: Exercise[]
-  onCreate: (duelData: any) => void
-}) => {
+}: any) => {
   const [selectedExercise, setSelectedExercise] = useState<string>('')
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard' | 'extreme'>('medium')
   const [targetValue, setTargetValue] = useState<number>(20)
@@ -236,7 +333,7 @@ const CreateDuelModal = ({
   const [duelType, setDuelType] = useState<'1v1' | 'open'>('open')
 
   const selectedExerciseData = selectedExercise ? 
-    exercises.find(e => e.id === selectedExercise) : null
+    exercises.find((e: any) => e.id === selectedExercise) : null
   
   const isTimeBased = selectedExerciseData ? 
     isExerciseTimeBased(selectedExerciseData.code) : false
@@ -296,8 +393,6 @@ const CreateDuelModal = ({
     return `${value} ripetizioni`
   }
 
-  if (!isOpen) return null
-
   const range = getTargetRange()
 
   return (
@@ -311,7 +406,7 @@ const CreateDuelModal = ({
             className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
           >
             <option value="">Seleziona un esercizio</option>
-            {exercises.map((exercise) => (
+            {exercises.map((exercise: any) => (
               <option key={exercise.id} value={exercise.id}>
                 {exercise.name} {exercise.icon || ''} {isExerciseTimeBased(exercise.code) ? '⏱️' : '🔢'}
               </option>
@@ -452,15 +547,15 @@ const CreateDuelModal = ({
 // ====================================
 // MAIN COMPONENT
 // ====================================
+
 export default function ChallengesPage() {
   const router = useRouter()
-  const supabase = createClientComponentClient()
   
-  const [currentUser, setCurrentUser] = useState<any>(null)
-  const [exercises, setExercises] = useState<Exercise[]>([])
-  const [duels, setDuels] = useState<Duel[]>([])
-  const [filteredDuels, setFilteredDuels] = useState<Duel[]>([])
-  const [loading, setLoading] = useState(true)
+  const [currentUser] = useState({ id: 'current_user', username: 'Tu' })
+  const [exercises] = useState(MOCK_EXERCISES)
+  const [duels] = useState(MOCK_DUELS)
+  const [filteredDuels, setFilteredDuels] = useState(MOCK_DUELS)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   
@@ -470,17 +565,12 @@ export default function ChallengesPage() {
   const [filterDifficulty, setFilterDifficulty] = useState<string>('all')
   const [showCreateModal, setShowCreateModal] = useState(false)
 
-  // Load initial data
-  useEffect(() => {
-    loadData()
-  }, [])
-
   // Filter duels when filters change
   useEffect(() => {
     filterDuels()
-  }, [duels, selectedTab, searchQuery, filterExercise, filterDifficulty, currentUser])
+  }, [selectedTab, searchQuery, filterExercise, filterDifficulty])
 
-  // Auto-hide success/error messages
+  // Auto-hide messages
   useEffect(() => {
     if (success) {
       const timer = setTimeout(() => setSuccess(null), 5000)
@@ -495,95 +585,7 @@ export default function ChallengesPage() {
     }
   }, [error])
 
-  const loadData = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (!user) {
-        // Check localStorage for saved user
-        const savedUser = localStorage.getItem('fitduel_user')
-        if (savedUser) {
-          const userData = JSON.parse(savedUser)
-          setCurrentUser(userData)
-        } else {
-          router.push('/login')
-          return
-        }
-      } else {
-        setCurrentUser(user)
-      }
-
-      // Load exercises
-      const { data: exercisesData, error: exercisesError } = await supabase
-        .from('exercises')
-        .select('*')
-        .eq('is_active', true)
-        .order('name')
-
-      if (exercisesError) {
-        console.error('Error loading exercises:', exercisesError)
-        setError('Errore nel caricamento degli esercizi. Verifica la configurazione del database.')
-        return
-      }
-      
-      setExercises(exercisesData || [])
-
-      // Load duels with proper joins
-      const { data: duelsData, error: duelsError } = await supabase
-        .from('duels')
-        .select(`
-          *,
-          challenger:profiles!challenger_id(
-            id,
-            username,
-            display_name,
-            avatar_url,
-            level,
-            xp,
-            coins
-          ),
-          challenged:profiles!challenged_id(
-            id,
-            username,
-            display_name,
-            avatar_url,
-            level,
-            xp,
-            coins
-          ),
-          exercise:exercises!exercise_id(
-            id,
-            name,
-            code,
-            category,
-            icon
-          )
-        `)
-        .order('created_at', { ascending: false })
-
-      if (duelsError) {
-        console.error('Error loading duels:', duelsError)
-        setError('Errore nel caricamento delle sfide. Verifica la configurazione del database.')
-        return
-      }
-      
-      setDuels(duelsData || [])
-      
-    } catch (err: any) {
-      console.error('Error loading data:', err)
-      setError('Errore nel caricamento dei dati. Verifica la connessione.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const filterDuels = () => {
-    if (!currentUser) return
-    
     let filtered = [...duels]
 
     // Filter by tab
@@ -631,31 +633,30 @@ export default function ChallengesPage() {
     try {
       setError(null)
       
-      const response = await fetch('/api/duels/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          challengerId: currentUser.id,
-          challengedId: duelData.type === '1v1' ? duelData.challengedId : null,
-          exerciseId: duelData.exerciseId,
-          duelType: duelData.type,
-          wagerCoins: duelData.wagerCoins,
-          xpReward: duelData.xpReward,
-          difficulty: duelData.difficulty,
+      // Simulate API call
+      const newDuel = {
+        id: Date.now().toString(),
+        type: duelData.type,
+        status: 'open',
+        challenger_id: currentUser.id,
+        challenger: currentUser,
+        challenged_id: null,
+        exercise_id: duelData.exerciseId,
+        exercise: exercises.find(e => e.id === duelData.exerciseId),
+        difficulty: duelData.difficulty,
+        wager_coins: duelData.wagerCoins,
+        xp_reward: duelData.xpReward,
+        metadata: {
           targetReps: duelData.targetReps,
-          targetTime: duelData.targetTime,
-          timeLimit: duelData.timeLimit
-        }),
-      })
-
-      const result = await response.json()
-
-      if (!result.success) {
-        throw new Error(result.message || 'Errore nella creazione della sfida')
+          targetTime: duelData.targetTime
+        },
+        created_at: new Date().toISOString()
       }
 
+      // Add to duels (in real app this would be via API)
+      duels.unshift(newDuel as any)
       setSuccess('Sfida creata con successo!')
-      await loadData()
+      filterDuels()
     } catch (err: any) {
       console.error('Error creating duel:', err)
       setError(err.message || 'Errore nella creazione della sfida')
@@ -665,25 +666,12 @@ export default function ChallengesPage() {
   const handleAcceptDuel = async (duelId: string) => {
     try {
       setError(null)
-      
-      const response = await fetch('/api/duels/accept', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          duelId: duelId,
-          userId: currentUser.id
-        }),
-      })
-
-      const result = await response.json()
-
-      if (!result.success) {
-        throw new Error(result.message || 'Errore nell\'accettare la sfida')
-      }
-
       setSuccess('Sfida accettata!')
-      await loadData()
-      router.push(`/duel/${duelId}`)
+      
+      // In real app, this would update the duel and redirect
+      setTimeout(() => {
+        router.push(`/duel/${duelId}`)
+      }, 1000)
     } catch (err: any) {
       console.error('Error accepting duel:', err)
       setError(err.message || 'Errore nell\'accettare la sfida')
@@ -693,6 +681,12 @@ export default function ChallengesPage() {
   const handleViewDuel = (duelId: string) => {
     router.push(`/duel/${duelId}`)
   }
+
+  const availableCount = duels.filter(d => d.status === 'open' && d.challenger_id !== currentUser.id).length
+  const myDuelsCount = duels.filter(d => 
+    (d.challenger_id === currentUser.id || d.challenged_id === currentUser.id) &&
+    ['pending', 'open', 'active'].includes(d.status)
+  ).length
 
   if (loading) {
     return (
@@ -732,7 +726,7 @@ export default function ChallengesPage() {
               <Button 
                 variant="ghost" 
                 size="sm"
-                onClick={loadData}
+                onClick={filterDuels}
               >
                 <RefreshCw className="w-5 h-5" />
               </Button>
@@ -770,25 +764,22 @@ export default function ChallengesPage() {
           </motion.div>
         )}
 
-        {/* Database Setup Info */}
-        {exercises.length === 0 && !loading && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg"
-          >
-            <div className="flex items-start gap-2">
-              <Info className="w-5 h-5 text-blue-400 mt-0.5" />
-              <div>
-                <p className="text-sm text-blue-400 font-medium">Database Setup Required</p>
-                <p className="text-xs text-blue-300 mt-1">
-                  Per iniziare, configura il database Supabase con le tabelle necessarie:
-                  exercises, duels, profiles, e le relative RLS policies.
-                </p>
-              </div>
+        {/* Demo Info */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg"
+        >
+          <div className="flex items-start gap-2">
+            <Info className="w-5 h-5 text-blue-400 mt-0.5" />
+            <div>
+              <p className="text-sm text-blue-400 font-medium">Modalità Demo</p>
+              <p className="text-xs text-blue-300 mt-1">
+                Stai visualizzando dati di esempio. In produzione, questi sarebbero collegati al database Supabase.
+              </p>
             </div>
-          </motion.div>
-        )}
+          </div>
+        </motion.div>
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6">
@@ -796,16 +787,13 @@ export default function ChallengesPage() {
             variant={selectedTab === 'available' ? 'gradient' : 'secondary'}
             onClick={() => setSelectedTab('available')}
           >
-            Disponibili ({duels.filter(d => d.status === 'open' && d.challenger_id !== currentUser?.id).length})
+            Disponibili ({availableCount})
           </Button>
           <Button
             variant={selectedTab === 'my-duels' ? 'gradient' : 'secondary'}
             onClick={() => setSelectedTab('my-duels')}
           >
-            Le Mie Sfide ({duels.filter(d => 
-              (d.challenger_id === currentUser?.id || d.challenged_id === currentUser?.id) &&
-              ['pending', 'open', 'active'].includes(d.status)
-            ).length})
+            Le Mie Sfide ({myDuelsCount})
           </Button>
           <Button
             variant={selectedTab === 'history' ? 'gradient' : 'secondary'}
@@ -816,7 +804,7 @@ export default function ChallengesPage() {
         </div>
 
         {/* Filters */}
-        <Card variant="glass" className="p-4 mb-6">
+        <Card className="p-4 mb-6">
           <div className="grid md:grid-cols-3 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -868,7 +856,7 @@ export default function ChallengesPage() {
               >
                 <DuelCard
                   duel={duel}
-                  currentUserId={currentUser?.id || ''}
+                  currentUserId={currentUser.id}
                   onAccept={handleAcceptDuel}
                   onView={handleViewDuel}
                 />
@@ -876,7 +864,7 @@ export default function ChallengesPage() {
             ))}
           </div>
         ) : (
-          <Card variant="glass" className="p-12 text-center">
+          <Card className="p-12 text-center">
             <Swords className="w-16 h-16 text-gray-600 mx-auto mb-4" />
             <h3 className="text-xl font-bold text-white mb-2">Nessuna sfida trovata</h3>
             <p className="text-gray-400 mb-6">
@@ -884,7 +872,7 @@ export default function ChallengesPage() {
                selectedTab === 'my-duels' ? 'Non hai sfide attive.' :
                'Non hai ancora completato nessuna sfida.'}
             </p>
-            {selectedTab === 'available' && exercises.length > 0 && (
+            {selectedTab === 'available' && (
               <Button variant="gradient" onClick={() => setShowCreateModal(true)}>
                 <Plus className="w-5 h-5 mr-2" />
                 Crea la Prima Sfida
