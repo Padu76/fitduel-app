@@ -200,8 +200,15 @@ export default function TrainingPage() {
     }
   ]
 
-  // Get ALL exercises from your real system (25+ exercises!)
+  // Get ALL exercises from your real system (25+ exercises!) - TYPE SAFE
   const exercises = Object.values(EXERCISE_DEFINITIONS)
+
+  // ✅ SAFE CALCULATION FUNCTION - Handles undefined values
+  const calculateEstimatedCalories = (exercise: ExerciseConfig): number => {
+    const caloriesPerRep = exercise.caloriesPerRep || 0.5 // Default fallback
+    const targetReps = exercise.targetReps || exercise.targetTime || 20 // Smart fallback
+    return Math.round(caloriesPerRep * targetReps)
+  }
 
   const handleModeSelect = (mode: any) => {
     if (mode.isPremium && user?.level < 10) {
@@ -313,7 +320,7 @@ export default function TrainingPage() {
               </button>
               <div>
                 <h1 className="text-2xl font-bold text-white">AI Motion Tracking - LIVE</h1>
-                <p className="text-gray-400">{(selectedExercise as any)?.name ?? 'Esercizio'} - Sistema attivo</p>
+                <p className="text-gray-400">{selectedExercise.name} - Sistema attivo</p>
               </div>
               
               <div className="ml-auto flex items-center gap-2">
@@ -394,7 +401,7 @@ export default function TrainingPage() {
               </button>
               <div>
                 <h1 className="text-2xl font-bold text-white">Training Completato! 🎉</h1>
-                <p className="text-gray-400">Analisi performance - {(selectedExercise as any)?.name ?? 'Esercizio'}</p>
+                <p className="text-gray-400">Analisi performance - {selectedExercise?.name}</p>
               </div>
             </div>
           </div>
@@ -549,7 +556,7 @@ export default function TrainingPage() {
               </button>
               <div>
                 <h1 className="text-2xl font-bold text-white">Seleziona Esercizio AI</h1>
-                <p className="text-gray-400">Scegli dall archivio completo di {exercises.length} esercizi</p>
+                <p className="text-gray-400">Scegli dall'archivio completo di {exercises.length} esercizi</p>
               </div>
             </div>
           </div>
@@ -569,7 +576,7 @@ export default function TrainingPage() {
               <div className="flex-1">
                 <h3 className="text-xl font-bold text-white mb-2">Sistema AI Avanzato</h3>
                 <p className="text-blue-100 text-sm mb-4">
-                  Il nostro sistema utilizza MediaPipe per l analisi in tempo reale dei movimenti, 
+                  Il nostro sistema utilizza MediaPipe per l'analisi in tempo reale dei movimenti, 
                   conta automaticamente le ripetizioni e fornisce feedback vocale professionale.
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -615,6 +622,7 @@ export default function TrainingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {exercises.map((exercise, index) => {
               const difficultyConfig = DIFFICULTY_LEVELS[exercise.difficulty]
+              const estimatedCalories = calculateEstimatedCalories(exercise) // ✅ TYPE SAFE
               
               return (
                 <motion.div
@@ -653,9 +661,9 @@ export default function TrainingPage() {
                         <span className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-bold">
                           🤖 AI Ready
                         </span>
-                        {exercise.caloriesPerRep && (
+                        {estimatedCalories > 0 && (
                           <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-bold">
-                            ⚡ ~{Math.round(exercise.caloriesPerRep * (exercise.targetReps || 20))} cal
+                            ⚡ ~{estimatedCalories} cal
                           </span>
                         )}
                       </div>
@@ -697,7 +705,7 @@ export default function TrainingPage() {
                 className="px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-green-500/25 transition-all"
               >
                 <Camera className="w-6 h-6 inline mr-3" />
-                Inizia Sistema AI - {(selectedExercise as any)?.name ?? 'Esercizio Selezionato'}
+                Inizia Sistema AI - {selectedExercise.name}
               </button>
             </motion.div>
           )}
