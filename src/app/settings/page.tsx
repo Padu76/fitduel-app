@@ -31,6 +31,8 @@ interface CalibrationData {
   gender: 'male' | 'female' | 'other'
   fitness_level: 'beginner' | 'intermediate' | 'advanced' | 'expert'
   experience_years: number
+  sport_background: string[]
+  primary_activity_type: 'endurance' | 'strength' | 'power' | 'mixed' | 'flexibility'
   target_goals: string[]
   medical_conditions: string[]
   preferred_workout_duration: number
@@ -69,6 +71,8 @@ export default function SettingsPage() {
     gender: 'male',
     fitness_level: 'intermediate',
     experience_years: 1,
+    sport_background: [],
+    primary_activity_type: 'mixed',
     target_goals: [],
     medical_conditions: [],
     preferred_workout_duration: 30,
@@ -204,6 +208,7 @@ export default function SettingsPage() {
       calibrationData.age > 0,
       calibrationData.weight > 0,
       calibrationData.height > 0,
+      calibrationData.sport_background.length > 0,
       calibrationData.target_goals.length > 0,
       calibrationData.ai_movement_calibrated
     ].filter(Boolean).length
@@ -262,6 +267,137 @@ export default function SettingsPage() {
     { id: 'flexibility', label: 'Flessibilità', icon: '🧘' },
     { id: 'general_health', label: 'Salute Generale', icon: '❤️' }
   ]
+
+  const sportActivities = [
+    { 
+      id: 'gym', 
+      label: 'Palestra', 
+      icon: '🏋️',
+      type: 'strength',
+      description: 'Allenamento con pesi e macchine'
+    },
+    { 
+      id: 'crossfit', 
+      label: 'CrossFit', 
+      icon: '⚡',
+      type: 'mixed',
+      description: 'Allenamento funzionale ad alta intensità'
+    },
+    { 
+      id: 'powerlifting', 
+      label: 'Powerlifting', 
+      icon: '💥',
+      type: 'strength',
+      description: 'Squat, bench press, deadlift'
+    },
+    { 
+      id: 'running', 
+      label: 'Corsa', 
+      icon: '🏃',
+      type: 'endurance',
+      description: 'Corsa su strada, trail, maratone'
+    },
+    { 
+      id: 'cycling', 
+      label: 'Ciclismo', 
+      icon: '🚴',
+      type: 'endurance',
+      description: 'Bici da strada, MTB, spinning'
+    },
+    { 
+      id: 'swimming', 
+      label: 'Nuoto', 
+      icon: '🏊',
+      type: 'endurance',
+      description: 'Nuoto agonistico e fitness'
+    },
+    { 
+      id: 'athletics', 
+      label: 'Atletica', 
+      icon: '🏃‍♂️',
+      type: 'mixed',
+      description: 'Velocità, salti, lanci'
+    },
+    { 
+      id: 'martial_arts', 
+      label: 'Arti Marziali', 
+      icon: '🥋',
+      type: 'mixed',
+      description: 'Karate, judo, MMA, boxe'
+    },
+    { 
+      id: 'soccer', 
+      label: 'Calcio', 
+      icon: '⚽',
+      type: 'mixed',
+      description: 'Sport di squadra con corsa'
+    },
+    { 
+      id: 'basketball', 
+      label: 'Basket', 
+      icon: '🏀',
+      type: 'power',
+      description: 'Sport esplosivo e di agilità'
+    },
+    { 
+      id: 'tennis', 
+      label: 'Tennis', 
+      icon: '🎾',
+      type: 'power',
+      description: 'Sport di racchetta esplosivo'
+    },
+    { 
+      id: 'yoga', 
+      label: 'Yoga', 
+      icon: '🧘',
+      type: 'flexibility',
+      description: 'Flessibilità e mindfulness'
+    },
+    { 
+      id: 'pilates', 
+      label: 'Pilates', 
+      icon: '🤸',
+      type: 'flexibility',
+      description: 'Core stability e postura'
+    },
+    { 
+      id: 'calisthenics', 
+      label: 'Calisthenics', 
+      icon: '🤸‍♂️',
+      type: 'strength',
+      description: 'Allenamento a corpo libero'
+    },
+    { 
+      id: 'dancing', 
+      label: 'Danza', 
+      icon: '💃',
+      type: 'mixed',
+      description: 'Ballo e coreografie fitness'
+    },
+    { 
+      id: 'other', 
+      label: 'Altro', 
+      icon: '🏃‍♀️',
+      type: 'mixed',
+      description: 'Altre attività sportive'
+    }
+  ]
+
+  // Auto-calculate primary activity type based on selected sports
+  const calculatePrimaryActivityType = (selectedSports: string[]) => {
+    if (selectedSports.length === 0) return 'mixed'
+    
+    const types = selectedSports.map(sportId => 
+      sportActivities.find(s => s.id === sportId)?.type || 'mixed'
+    )
+    
+    const typeCounts = types.reduce((acc, type) => {
+      acc[type] = (acc[type] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+    
+    return Object.entries(typeCounts).sort(([,a], [,b]) => b - a)[0][0] as CalibrationData['primary_activity_type']
+  }
 
   if (loading) {
     return (
@@ -423,7 +559,7 @@ export default function SettingsPage() {
                           <h3 className="text-lg font-bold text-white mb-2">Calibrazione Non Completata</h3>
                           <p className="text-slate-400 mb-6">
                             La calibrazione AI ottimizza il tracking movimento per sessioni di allenamento più precise.
-                            <span className="text-yellow-400 font-semibold"> +250 XP bonus</span> per il completamento!
+                            <span className="text-yellow-400 font-semibold"> +300 XP bonus</span> per il completamento!
                           </p>
                           <button
                             onClick={startAICalibration}
@@ -499,6 +635,92 @@ export default function SettingsPage() {
                         />
                       </div>
                     </div>
+                  </div>
+
+                  {/* Sport Background & Activity Type */}
+                  <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50">
+                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-green-400" />
+                      Background Sportivo
+                    </h3>
+                    
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-slate-300 mb-3">
+                        Seleziona le attività che pratichi o hai praticato
+                      </label>
+                      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {sportActivities.map((sport) => (
+                          <button
+                            key={sport.id}
+                            onClick={() => {
+                              const newSports = calibrationData.sport_background.includes(sport.id)
+                                ? calibrationData.sport_background.filter(s => s !== sport.id)
+                                : [...calibrationData.sport_background, sport.id]
+                              
+                              setCalibrationData(prev => ({
+                                ...prev,
+                                sport_background: newSports,
+                                primary_activity_type: calculatePrimaryActivityType(newSports)
+                              }))
+                            }}
+                            className={`p-3 rounded-xl border transition-all text-left group ${
+                              calibrationData.sport_background.includes(sport.id)
+                                ? 'bg-green-500/20 border-green-500/50 text-white'
+                                : 'bg-slate-700/30 border-slate-600/50 text-slate-300 hover:border-green-500/30'
+                            }`}
+                          >
+                            <div className="text-xl mb-1">{sport.icon}</div>
+                            <div className="font-medium text-sm">{sport.label}</div>
+                            <div className={`text-xs mt-1 transition-opacity ${
+                              calibrationData.sport_background.includes(sport.id)
+                                ? 'text-green-300 opacity-100'
+                                : 'text-slate-500 opacity-0 group-hover:opacity-100'
+                            }`}>
+                              {sport.description}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Activity Type Auto-Detection */}
+                    {calibrationData.sport_background.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="p-4 bg-slate-700/20 rounded-xl border border-slate-600/30"
+                      >
+                        <div className="flex items-center gap-3 mb-2">
+                          <Target className="w-5 h-5 text-blue-400" />
+                          <h4 className="font-medium text-white">Categoria Principale Rilevata</h4>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className={`px-3 py-1 rounded-full text-sm font-bold ${
+                            calibrationData.primary_activity_type === 'endurance' ? 'bg-blue-500/20 text-blue-400' :
+                            calibrationData.primary_activity_type === 'strength' ? 'bg-red-500/20 text-red-400' :
+                            calibrationData.primary_activity_type === 'power' ? 'bg-yellow-500/20 text-yellow-400' :
+                            calibrationData.primary_activity_type === 'flexibility' ? 'bg-purple-500/20 text-purple-400' :
+                            'bg-green-500/20 text-green-400'
+                          }`}>
+                            {calibrationData.primary_activity_type === 'endurance' ? '🏃 Endurance' :
+                             calibrationData.primary_activity_type === 'strength' ? '💪 Forza' :
+                             calibrationData.primary_activity_type === 'power' ? '⚡ Potenza' :
+                             calibrationData.primary_activity_type === 'flexibility' ? '🧘 Flessibilità' :
+                             '🔄 Misto'}
+                          </div>
+                          <p className="text-sm text-slate-400">
+                            Basato sulle attività selezionate, il sistema ti categorizza come atleta orientato alla{' '}
+                            <span className="text-white font-medium">
+                              {calibrationData.primary_activity_type === 'endurance' ? 'resistenza' :
+                               calibrationData.primary_activity_type === 'strength' ? 'forza' :
+                               calibrationData.primary_activity_type === 'power' ? 'potenza esplosiva' :
+                               calibrationData.primary_activity_type === 'flexibility' ? 'flessibilità' :
+                               'preparazione mista'}
+                            </span>
+                          </p>
+                        </div>
+                      </motion.div>
+                    )}
                   </div>
 
                   {/* Fitness Experience */}
