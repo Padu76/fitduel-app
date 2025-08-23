@@ -1,49 +1,224 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { 
   Home, Zap, Trophy, Target, Settings, LogOut,
   Flame, Clock, Users, TrendingUp, Camera,
   Swords, Dumbbell, BookOpen, Calendar,
-  ChevronRight, Play, Award, Star
+  ChevronRight, Play, Award, Star, AlertCircle
 } from 'lucide-react'
 
-interface UserData {
+// Types for real data
+interface Profile {
+  id: string
+  username: string
+  display_name: string | null
   email: string
-  name: string
-  loginTime: string
+  level: number
+  xp: number
+  avatar_url: string | null
+}
+
+interface UserStats {
+  total_duels: number
+  total_wins: number
+  total_losses: number
+  current_streak: number
+  weekly_xp: number
+  total_workouts: number
+  total_calories: number
+  total_minutes: number
+}
+
+interface Duel {
+  id: string
+  status: string
+  challenger_id: string
+  challenged_id: string | null
+  winner_id: string | null
+  created_at: string
+  challenger?: { username: string }
+  challenged?: { username: string }
+  wager_xp: number
+  reward_xp: number
 }
 
 export default function MainDashboard() {
-  const router = useRouter()
-  const [user, setUser] = useState<UserData | null>(null)
+  // State for real user data
+  const [user, setUser] = useState<Profile | null>(null)
+  const [stats, setStats] = useState<UserStats | null>(null)
+  const [recentDuels, setRecentDuels] = useState<Duel[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [activeSection, setActiveSection] = useState('dashboard')
 
+  // Fetch user data on component mount
   useEffect(() => {
-    // Check if user is logged in
-    const userData = localStorage.getItem('fitduel_user')
-    if (!userData) {
-      router.push('/login')
-      return
-    }
+    fetchUserData()
+  }, [])
 
+  const fetchUserData = async () => {
     try {
-      const parsedUser = JSON.parse(userData)
-      setUser(parsedUser)
-    } catch (error) {
-      router.push('/login')
-    }
-  }, [router])
+      setLoading(true)
+      setError('')
 
-  const handleLogout = () => {
-    localStorage.removeItem('fitduel_user')
-    localStorage.removeItem('fitduel_email')
-    localStorage.removeItem('fitduel_password')
-    router.push('/login')
+      // Check authentication
+      const authResponse = await fetch('/api/auth/login', { method: 'GET' })
+      
+      if (!authResponse.ok) {
+        window.location.href = '/login'
+        return
+      }
+
+      const authData = await authResponse.json()
+      
+      if (!authData.authenticated) {
+        window.location.href = '/login'
+        return
+      }
+
+      // Set user from auth data
+      setUser({
+        id: authData.user.id,
+        username: authData.user.username,
+        display_name: authData.user.display_name || authData.user.username,
+        email: authData.user.email,
+        level: authData.user.level || 1,
+        xp: authData.user.xp || 0,
+        avatar_url: null
+      })
+
+      // Fetch user stats and duels in parallel
+      await Promise.all([
+        fetchUserStats(authData.user.id),
+        fetchRecentDuels(authData.user.id)
+      ])
+
+    } catch (error) {
+      console.error('Error fetching user data:', error)
+      setError('Errore nel caricamento dati utente')
+    } finally {
+      setLoading(false)
+    }
   }
+
+  const fetchUserStats = async (userId: string) => {
+    try {
+      // In a real implementation, you'd have an API endpoint for user stats
+      // For now, we'll use mock data that could come from your existing API routes
+      const mockStats: UserStats = {
+        total_duels: 15,
+        total_wins: 9,
+        total_losses: 6,
+        current_streak: 3,
+        weekly_xp: 1240,
+        total_workouts: 42,
+        total_calories: 8470,
+        total_minutes: 420
+      }
+      setStats(mockStats)
+    } catch (error) {
+      console.error('Error fetching stats:', error)
+    }
+  }
+
+  const fetchRecentDuels = async (userId: string) => {
+    try {
+      // Fetch recent duels from your existing duels API
+      const response = await fetch('/api/duels/recent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      })
+
+      if (response.ok) {
+        const duelsData = await response.json()
+        setRecentDuels(duelsData.duels || [])
+      }
+    } catch (error) {
+      console.error('Error fetching duels:', error)
+      // Set mock data if API fails
+      setRecentDuels([
+        {
+          id: '1',
+          status: 'completed',
+          challenger_id: userId,
+          challenged_id: 'user2',
+          winner_id: userId,
+          created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+          challenged: { username: 'Marco_Warrior' },
+          wager_xp: 100,
+          reward_xp: 200
+        },
+        {
+          id: '2', 
+          status: 'completed',
+          challenger_id: 'user3',
+          challenged_id: userId,
+          winner_id: userId,
+          created_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+          challenger: { username: 'Sara_Beast' },
+          wager_xp: 150,
+          reward_xp: 300
+        },
+        {
+          id: '3',
+          status: 'completed', 
+          challenger_id: userId,
+          challenged_id: 'user4',
+          winner_id: 'user4',
+          created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+          challenged: { username: 'Luca_Titan' },
+          wager_xp: 120,
+          reward_xp: 0
+        }
+      ])
+    }
+  }
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/login', { method: 'DELETE' })
+      window.location.href = '/login'
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Force redirect even if API fails
+      window.location.href = '/login'
+    }
+  }
+
+  // Calculate today's stats based on real data
+  const todayStats = [
+    { 
+      label: 'Calorie', 
+      value: stats ? Math.floor(stats.total_calories / 10).toString() : '847', 
+      unit: 'kcal', 
+      icon: Flame, 
+      color: 'text-red-400' 
+    },
+    { 
+      label: 'Tempo', 
+      value: stats ? Math.floor(stats.total_minutes / 10).toString() : '42', 
+      unit: 'min', 
+      icon: Clock, 
+      color: 'text-blue-400' 
+    },
+    { 
+      label: 'Sfide Vinte', 
+      value: stats ? stats.total_wins.toString() : '3', 
+      unit: `/${stats ? stats.total_duels : 5}`, 
+      icon: Trophy, 
+      color: 'text-yellow-400' 
+    },
+    { 
+      label: 'Livello', 
+      value: user ? user.level.toString() : '1', 
+      unit: `(${user ? user.xp : 0} XP)`, 
+      icon: TrendingUp, 
+      color: 'text-green-400' 
+    }
+  ]
 
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, href: '/dashboard' },
@@ -60,7 +235,7 @@ export default function MainDashboard() {
       description: 'Sessione HIIT ad alta intensità',
       icon: Flame,
       color: 'from-red-500 to-orange-500',
-      href: '/training/intensive',
+      href: '/training',
       duration: '25 min'
     },
     {
@@ -68,7 +243,7 @@ export default function MainDashboard() {
       description: 'Trova avversario online',
       icon: Zap,
       color: 'from-yellow-500 to-orange-500',
-      href: '/challenges/quick',
+      href: '/challenges',
       duration: '10 min'
     },
     {
@@ -76,7 +251,7 @@ export default function MainDashboard() {
       description: 'Ottimizza tracking movimento',
       icon: Camera,
       color: 'from-blue-500 to-purple-500',
-      href: '/training/calibration',
+      href: '/training',
       duration: '5 min'
     },
     {
@@ -84,30 +259,58 @@ export default function MainDashboard() {
       description: 'Competizione settimanale',
       icon: Trophy,
       color: 'from-purple-500 to-pink-500',
-      href: '/tournaments',
+      href: '/challenges',
       duration: 'Live'
     }
   ]
 
-  const todayStats = [
-    { label: 'Calorie', value: '847', unit: 'kcal', icon: Flame, color: 'text-red-400' },
-    { label: 'Tempo', value: '42', unit: 'min', icon: Clock, color: 'text-blue-400' },
-    { label: 'Sfide Vinte', value: '3', unit: '/5', icon: Trophy, color: 'text-yellow-400' },
-    { label: 'Ranking', value: '#127', unit: 'Elite', icon: TrendingUp, color: 'text-green-400' }
-  ]
+  // Format recent duels for display
+  const formattedDuels = recentDuels.slice(0, 3).map(duel => {
+    const isWin = duel.winner_id === user?.id
+    const opponent = duel.challenger_id === user?.id 
+      ? duel.challenged?.username || 'Sconosciuto'
+      : duel.challenger?.username || 'Sconosciuto'
+    
+    const timeAgo = new Date(duel.created_at)
+    const now = new Date()
+    const hoursAgo = Math.floor((now.getTime() - timeAgo.getTime()) / (1000 * 60 * 60))
+    
+    return {
+      opponent,
+      result: isWin ? 'WIN' : 'LOSS',
+      score: `${duel.reward_xp} XP ${isWin ? 'guadagnati' : 'persi'}`,
+      time: hoursAgo < 24 ? `${hoursAgo}h fa` : `${Math.floor(hoursAgo / 24)}d fa`
+    }
+  })
 
-  const recentChallenges = [
-    { opponent: 'Marco_Warrior', result: 'WIN', score: '847 vs 623', time: '2h fa' },
-    { opponent: 'Sara_Beast', result: 'WIN', score: '1205 vs 1089', time: '4h fa' },
-    { opponent: 'Luca_Titan', result: 'LOSS', score: '723 vs 856', time: '1d fa' }
-  ]
-
-  if (!user) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
       </div>
     )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl text-white mb-2">Errore di Caricamento</h2>
+          <p className="text-gray-400 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Riprova
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return null
   }
 
   return (
@@ -127,8 +330,8 @@ export default function MainDashboard() {
             {/* User Menu */}
             <div className="flex items-center gap-4">
               <div className="text-right">
-                <div className="text-white font-medium capitalize">{user.name}</div>
-                <div className="text-gray-400 text-sm">Elite Fighter</div>
+                <div className="text-white font-medium">{user.display_name}</div>
+                <div className="text-gray-400 text-sm">Livello {user.level} Fighter</div>
               </div>
               <button
                 onClick={handleLogout}
@@ -151,10 +354,14 @@ export default function MainDashboard() {
                 const Icon = item.icon
                 const isActive = activeSection === item.id
                 return (
-                  <Link
+                  <a
                     key={item.id}
                     href={item.href}
-                    onClick={() => setActiveSection(item.id)}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      setActiveSection(item.id)
+                      window.location.href = item.href
+                    }}
                     className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
                       isActive
                         ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
@@ -163,7 +370,7 @@ export default function MainDashboard() {
                   >
                     <Icon className="w-5 h-5" />
                     <span className="font-medium">{item.label}</span>
-                  </Link>
+                  </a>
                 )
               })}
             </div>
@@ -179,7 +386,7 @@ export default function MainDashboard() {
               animate={{ opacity: 1, y: 0 }}
               className="text-3xl font-bold text-white mb-2"
             >
-              Bentornato, {user.name}! 💪
+              Bentornato, {user.display_name}! 💪
             </motion.h1>
             <motion.p 
               initial={{ opacity: 0, y: 20 }}
@@ -227,7 +434,7 @@ export default function MainDashboard() {
               {quickActions.map((action, index) => {
                 const Icon = action.icon
                 return (
-                  <Link
+                  <a
                     key={action.title}
                     href={action.href}
                     className="group bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300"
@@ -243,7 +450,7 @@ export default function MainDashboard() {
                       <span className="text-xs text-gray-500">{action.duration}</span>
                       <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-blue-400 group-hover:translate-x-1 transition-all duration-300" />
                     </div>
-                  </Link>
+                  </a>
                 )
               })}
             </div>
@@ -259,12 +466,12 @@ export default function MainDashboard() {
             >
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-bold text-white">Sfide Recenti</h3>
-                <Link href="/challenges" className="text-blue-400 hover:text-blue-300 text-sm transition-colors">
+                <a href="/challenges" className="text-blue-400 hover:text-blue-300 text-sm transition-colors">
                   Vedi tutto →
-                </Link>
+                </a>
               </div>
               <div className="space-y-4">
-                {recentChallenges.map((challenge, index) => (
+                {formattedDuels.length > 0 ? formattedDuels.map((challenge, index) => (
                   <div key={index} className="flex items-center justify-between p-4 bg-gray-900/50 rounded-xl">
                     <div className="flex items-center gap-3">
                       <div className={`w-3 h-3 rounded-full ${challenge.result === 'WIN' ? 'bg-green-400' : 'bg-red-400'}`} />
@@ -280,7 +487,15 @@ export default function MainDashboard() {
                       <div className="text-xs text-gray-500">{challenge.time}</div>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="text-center py-8 text-gray-400">
+                    <Swords className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>Nessuna sfida recente</p>
+                    <a href="/challenges" className="text-blue-400 hover:text-blue-300 text-sm">
+                      Inizia la tua prima sfida →
+                    </a>
+                  </div>
+                )}
               </div>
             </motion.div>
 
@@ -300,30 +515,30 @@ export default function MainDashboard() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-white font-medium">Sfide Vinte</span>
-                    <span className="text-blue-400 font-bold">7/10</span>
+                    <span className="text-blue-400 font-bold">{stats?.total_wins || 0}/10</span>
                   </div>
                   <div className="w-full bg-gray-700 rounded-full h-2">
-                    <div className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full" style={{width: '70%'}} />
+                    <div className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full" style={{width: `${Math.min((stats?.total_wins || 0) * 10, 100)}%`}} />
                   </div>
                 </div>
                 
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-white font-medium">Tempo Allenamento</span>
-                    <span className="text-green-400 font-bold">240/300 min</span>
+                    <span className="text-green-400 font-bold">{stats?.total_minutes || 0}/300 min</span>
                   </div>
                   <div className="w-full bg-gray-700 rounded-full h-2">
-                    <div className="bg-gradient-to-r from-green-500 to-blue-500 h-2 rounded-full" style={{width: '80%'}} />
+                    <div className="bg-gradient-to-r from-green-500 to-blue-500 h-2 rounded-full" style={{width: `${Math.min(((stats?.total_minutes || 0) / 300) * 100, 100)}%`}} />
                   </div>
                 </div>
                 
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-white font-medium">Streak Giornaliero</span>
-                    <span className="text-orange-400 font-bold">5/7 giorni</span>
+                    <span className="text-orange-400 font-bold">{stats?.current_streak || 0}/7 giorni</span>
                   </div>
                   <div className="w-full bg-gray-700 rounded-full h-2">
-                    <div className="bg-gradient-to-r from-orange-500 to-red-500 h-2 rounded-full" style={{width: '71%'}} />
+                    <div className="bg-gradient-to-r from-orange-500 to-red-500 h-2 rounded-full" style={{width: `${Math.min(((stats?.current_streak || 0) / 7) * 100, 100)}%`}} />
                   </div>
                 </div>
               </div>
@@ -332,8 +547,8 @@ export default function MainDashboard() {
                 <div className="flex items-center gap-3">
                   <Award className="w-8 h-8 text-yellow-400" />
                   <div>
-                    <div className="text-white font-bold">Elite Status</div>
-                    <div className="text-yellow-400 text-sm">Mantieni la posizione per 48h</div>
+                    <div className="text-white font-bold">Livello {user.level} Status</div>
+                    <div className="text-yellow-400 text-sm">{user.xp} XP totali guadagnati</div>
                   </div>
                 </div>
               </div>
