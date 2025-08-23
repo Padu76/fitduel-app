@@ -975,7 +975,7 @@ export default function TrainingPage() {
             </div>
             <h3 className="text-lg font-bold text-white mb-2 group-hover:text-orange-400 transition-colors">Sfide Live</h3>
             <p className="text-gray-400">Combatti contro altri atleti</p>
-          </div>
+          </a>
         </motion.div>
       </div>
     </div>
