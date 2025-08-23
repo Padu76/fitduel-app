@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   ArrowLeft, Camera, Zap, Target, Trophy, 
@@ -12,83 +12,26 @@ import {
   Pause, StopCircle, Info, CameraOff, Wifi
 } from 'lucide-react'
 
-// Import your real AI system components
-import { AIExerciseTracker } from '@/components/game/AIExerciseTracker'
+// Import your REAL AI system components
+import { AIExerciseTracker } from '@/components/game/ai-tracker/AIExerciseTracker'
 import { useGameStore } from '@/stores/useGameStore'
 
-// Real exercise definitions matching your AI system
-const EXERCISE_DEFINITIONS = {
-  'push_up': {
-    id: 'push_up',
-    name: 'Push-Up',
-    code: 'push_up',
-    icon: '💪',
-    description: 'Pettorali, spalle, tricipiti e core',
-    difficulty: 'medium',
-    category: 'strength',
-    muscleGroups: ['chest', 'shoulders', 'triceps', 'core'],
-    caloriesPerRep: 0.32,
-    perfectFormThreshold: 90,
-    goodFormThreshold: 75,
-    aiSupported: true
-  },
-  'squat': {
-    id: 'squat',
-    name: 'Squat',
-    code: 'squat',
-    icon: '🦵',
-    description: 'Gambe, glutei e core',
-    difficulty: 'easy',
-    category: 'strength',
-    muscleGroups: ['quadriceps', 'glutes', 'hamstrings', 'core'],
-    caloriesPerRep: 0.35,
-    perfectFormThreshold: 85,
-    goodFormThreshold: 70,
-    aiSupported: true
-  },
-  'plank': {
-    id: 'plank',
-    name: 'Plank',
-    code: 'plank',
-    icon: '🏃',
-    description: 'Core, spalle e stabilità',
-    difficulty: 'medium',
-    category: 'core',
-    muscleGroups: ['core', 'shoulders', 'back'],
-    caloriesPerRep: 0.05, // per second
-    perfectFormThreshold: 90,
-    goodFormThreshold: 80,
-    aiSupported: true
-  },
-  'jumping_jack': {
-    id: 'jumping_jack',
-    name: 'Jumping Jack',
-    code: 'jumping_jack',
-    icon: '🏃‍♂️',
-    description: 'Cardio full body',
-    difficulty: 'easy',
-    category: 'cardio',
-    muscleGroups: ['full_body'],
-    caloriesPerRep: 0.2,
-    perfectFormThreshold: 80,
-    goodFormThreshold: 65,
-    aiSupported: true
-  },
-  'burpee': {
-    id: 'burpee',
-    name: 'Burpee',
-    code: 'burpee',
-    icon: '🔥',
-    description: 'Explosive full body',
-    difficulty: 'hard',
-    category: 'cardio',
-    muscleGroups: ['full_body'],
-    caloriesPerRep: 0.5,
-    perfectFormThreshold: 85,
-    goodFormThreshold: 70,
-    aiSupported: true
-  }
-}
+// Import REAL exercise system
+import { 
+  EXERCISE_DEFINITIONS, 
+  EXERCISE_CATEGORIES, 
+  DIFFICULTY_LEVELS,
+  WORKOUT_PRESETS,
+  getExercisesByCategory,
+  getExercisesByDifficulty
+} from '@/components/game/ai-tracker/constants/exercises'
+
+// Import REAL types
+import type { 
+  ExerciseConfig, 
+  PerformanceData, 
+  AIFeedback 
+} from '@/components/game/ai-tracker/types'
 
 export default function TrainingPage() {
   // Your real game store
@@ -99,14 +42,14 @@ export default function TrainingPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
   const [selectedMode, setSelectedMode] = useState<string | null>(null)
-  const [selectedExercise, setSelectedExercise] = useState<any>(null)
+  const [selectedExercise, setSelectedExercise] = useState<ExerciseConfig | null>(null)
   const [duelMode, setDuelMode] = useState<any>(null)
   const [userStats, setUserStats] = useState<any>(null)
 
   // AI Training specific state
   const [aiTrainingActive, setAiTrainingActive] = useState(false)
   const [trainingCompleted, setTrainingCompleted] = useState(false)
-  const [performanceData, setPerformanceData] = useState<any>(null)
+  const [performanceData, setPerformanceData] = useState<PerformanceData | null>(null)
 
   // Load user data on mount
   useEffect(() => {
@@ -257,6 +200,7 @@ export default function TrainingPage() {
     }
   ]
 
+  // Get ALL exercises from your real system (25+ exercises!)
   const exercises = Object.values(EXERCISE_DEFINITIONS)
 
   const handleModeSelect = (mode: any) => {
@@ -282,19 +226,22 @@ export default function TrainingPage() {
     window.location.href = `/training/${mode.id}`
   }
 
-  const handleExerciseSelect = (exercise: any) => {
+  const handleExerciseSelect = (exercise: ExerciseConfig) => {
     setSelectedExercise(exercise)
     
     // Start game session in your store
     gameStore.startSession(
       duelMode ? 'duel' : 'training',
-      exercise.id,
+      exercise.id, // Using exercise.id (your system uses exercise_id)
       exercise.difficulty,
-      duelMode ? { reps: duelMode.target_reps, time: duelMode.target_time } : undefined
+      duelMode ? { reps: duelMode.target_reps, time: duelMode.target_time } : { 
+        reps: exercise.targetReps, 
+        time: exercise.targetTime 
+      }
     )
   }
 
-  const handleTrainingComplete = (data: any) => {
+  const handleTrainingComplete = (data: PerformanceData) => {
     setPerformanceData(data)
     setTrainingCompleted(true)
     setAiTrainingActive(false)
@@ -386,8 +333,8 @@ export default function TrainingPage() {
             userId={user.id}
             duelId={duelMode?.id}
             missionId={undefined}
-            targetReps={duelMode?.target_reps || 20}
-            targetTime={duelMode?.target_time || undefined}
+            targetReps={duelMode?.target_reps || selectedExercise.targetReps || 20}
+            targetTime={duelMode?.target_time || selectedExercise.targetTime}
             onComplete={handleTrainingComplete}
             onProgress={handleTrainingProgress}
           />
@@ -444,7 +391,7 @@ export default function TrainingPage() {
               </button>
               <div>
                 <h1 className="text-2xl font-bold text-white">Training Completato! 🎉</h1>
-                <p className="text-gray-400">Analisi performance - {selectedExercise.name}</p>
+                <p className="text-gray-400">Analisi performance - {selectedExercise?.name}</p>
               </div>
             </div>
           </div>
@@ -562,7 +509,7 @@ export default function TrainingPage() {
                   setTrainingCompleted(false)
                   setPerformanceData(null)
                   setAiTrainingActive(true)
-                  gameStore.startSession('training', selectedExercise.id, selectedExercise.difficulty)
+                  gameStore.startSession('training', selectedExercise!.id, selectedExercise!.difficulty)
                 }}
                 className="flex-1 py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-xl font-bold hover:shadow-lg transition-all"
               >
@@ -599,7 +546,7 @@ export default function TrainingPage() {
               </button>
               <div>
                 <h1 className="text-2xl font-bold text-white">Seleziona Esercizio AI</h1>
-                <p className="text-gray-400">Scegli l'esercizio per il sistema di tracking avanzato</p>
+                <p className="text-gray-400">Scegli dall'archivio completo di {exercises.length} esercizi</p>
               </div>
             </div>
           </div>
@@ -640,58 +587,99 @@ export default function TrainingPage() {
             </div>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {exercises.map((exercise, index) => (
+          {/* Exercise Categories */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+            {Object.values(EXERCISE_CATEGORIES).map((category) => (
               <motion.div
-                key={exercise.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                whileHover={{ scale: 1.02 }}
-                onClick={() => handleExerciseSelect(exercise)}
-                className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 cursor-pointer hover:border-blue-500/50 transition-all group"
+                key={category.id}
+                whileHover={{ scale: 1.05 }}
+                className={`bg-gradient-to-r ${category.color} p-4 rounded-xl text-center text-white cursor-pointer`}
+                onClick={() => {
+                  // Filter exercises by category (you can implement this filtering)
+                  console.log(`Filter by ${category.name}`)
+                }}
               >
-                <div className="text-center space-y-4">
-                  <div className="text-5xl mb-4">{exercise.icon}</div>
-                  <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors">
-                    {exercise.name}
-                  </h3>
-                  <p className="text-gray-400 text-sm">{exercise.description}</p>
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-center gap-2">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                        exercise.difficulty === 'easy' ? 'bg-green-500/20 text-green-400' :
-                        exercise.difficulty === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
-                        'bg-red-500/20 text-red-400'
-                      }`}>
-                        {exercise.difficulty.toUpperCase()}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center justify-center gap-1 text-xs text-gray-400">
-                      <span>Categoria: {exercise.category}</span>
-                    </div>
-                    
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-bold">
-                        🤖 AI Supportato
-                      </span>
-                      <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-bold">
-                        ⚡ ~{exercise.caloriesPerRep * 20} cal
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="pt-4">
-                    <button className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-bold hover:shadow-lg transition-all group-hover:shadow-blue-500/25">
-                      <Play className="w-5 h-5 inline mr-2" />
-                      Avvia AI Tracker
-                    </button>
-                  </div>
-                </div>
+                <div className="text-2xl mb-2">{category.icon}</div>
+                <h3 className="font-bold text-sm">{category.name}</h3>
+                <p className="text-xs opacity-80 mt-1">
+                  {getExercisesByCategory(category.id).length} esercizi
+                </p>
               </motion.div>
             ))}
+          </div>
+
+          {/* All Exercises Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {exercises.map((exercise, index) => {
+              const difficultyConfig = DIFFICULTY_LEVELS[exercise.difficulty]
+              
+              return (
+                <motion.div
+                  key={exercise.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  whileHover={{ scale: 1.02 }}
+                  onClick={() => handleExerciseSelect(exercise)}
+                  className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 cursor-pointer hover:border-blue-500/50 transition-all group"
+                >
+                  <div className="text-center space-y-4">
+                    <div className="text-4xl mb-4">
+                      {exercise.category === 'strength' ? '💪' : 
+                       exercise.category === 'cardio' ? '🏃' : 
+                       exercise.category === 'core' ? '🎯' : 
+                       exercise.category === 'flexibility' ? '🧘' : '⚖️'}
+                    </div>
+                    <h3 className="text-lg font-bold text-white group-hover:text-blue-400 transition-colors">
+                      {exercise.name}
+                    </h3>
+                    <p className="text-gray-400 text-sm">{exercise.description}</p>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-center gap-2">
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${difficultyConfig.color} ${difficultyConfig.bgColor}`}>
+                          {difficultyConfig.name.toUpperCase()}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-center gap-1 text-xs text-gray-400 capitalize">
+                        <span>{exercise.category}</span>
+                      </div>
+                      
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-bold">
+                          🤖 AI Ready
+                        </span>
+                        {exercise.caloriesPerRep && (
+                          <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-bold">
+                            ⚡ ~{Math.round(exercise.caloriesPerRep * (exercise.targetReps || 20))} cal
+                          </span>
+                        )}
+                      </div>
+                      
+                      {exercise.targetReps && (
+                        <div className="text-xs text-gray-500">
+                          Target: {exercise.targetReps} reps
+                        </div>
+                      )}
+                      
+                      {exercise.targetTime && (
+                        <div className="text-xs text-gray-500">
+                          Target: {exercise.targetTime}s
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="pt-4">
+                      <button className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-bold hover:shadow-lg transition-all group-hover:shadow-blue-500/25">
+                        <Play className="w-5 h-5 inline mr-2" />
+                        Avvia AI Tracker
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )
+            })}
           </div>
 
           {/* Start Button */}
@@ -731,7 +719,7 @@ export default function TrainingPage() {
               </a>
               <div>
                 <h1 className="text-2xl font-bold text-white">Training Elite</h1>
-                <p className="text-gray-400">Sistema AI avanzato - Zero compromessi</p>
+                <p className="text-gray-400">Sistema AI completo - {exercises.length} esercizi disponibili</p>
               </div>
             </div>
 
@@ -828,6 +816,32 @@ export default function TrainingPage() {
             </div>
           </motion.div>
         )}
+
+        {/* Exercise Categories Overview */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="mb-8"
+        >
+          <h2 className="text-2xl font-bold text-white mb-6">Categorie Esercizi</h2>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {Object.values(EXERCISE_CATEGORIES).map((category) => (
+              <motion.div
+                key={category.id}
+                whileHover={{ scale: 1.05 }}
+                className={`bg-gradient-to-r ${category.color} p-6 rounded-xl text-center text-white`}
+              >
+                <div className="text-3xl mb-3">{category.icon}</div>
+                <h3 className="font-bold text-lg mb-1">{category.name}</h3>
+                <p className="text-xs opacity-90 mb-2">{category.description}</p>
+                <div className="text-sm font-bold">
+                  {getExercisesByCategory(category.id).length} esercizi
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
 
         {/* Training Modes */}
         <motion.div 
@@ -928,7 +942,7 @@ export default function TrainingPage() {
                   {isAIMode && !isLocked && !requiresActive && (
                     <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                       <p className="text-blue-400 text-sm font-medium">
-                        🤖 Sistema AI Ready - MediaPipe attivo
+                        🤖 Sistema AI Ready - {exercises.length} esercizi disponibili
                       </p>
                     </div>
                   )}
@@ -943,6 +957,33 @@ export default function TrainingPage() {
                 </motion.div>
               )
             })}
+          </div>
+        </motion.div>
+
+        {/* Workout Presets */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="mb-8"
+        >
+          <h2 className="text-2xl font-bold text-white mb-6">Programmi Pre-impostati</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {Object.entries(WORKOUT_PRESETS).map(([key, preset]) => (
+              <motion.div
+                key={key}
+                whileHover={{ scale: 1.02 }}
+                className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-4 cursor-pointer hover:border-purple-500/50 transition-all"
+              >
+                <h3 className="font-bold text-white mb-2">{preset.name}</h3>
+                <p className="text-sm text-gray-400 mb-3">
+                  {preset.duration} min • Riposo {preset.restTime}s
+                </p>
+                <div className="text-xs text-gray-500">
+                  {preset.exercises.length} esercizi
+                </div>
+              </motion.div>
+            ))}
           </div>
         </motion.div>
 
