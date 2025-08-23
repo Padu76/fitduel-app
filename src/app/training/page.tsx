@@ -42,6 +42,7 @@ export default function TrainingCenter() {
       glow: 'green',
       features: ['No Timer', 'No Score', 'Form Focus'],
       locked: false,
+      route: '/training/free',
       items: [
         { name: 'Push-Up Practice', difficulty: 'Facile', duration: 'Libero' },
         { name: 'Squat Form', difficulty: 'Facile', duration: 'Libero' },
@@ -59,6 +60,7 @@ export default function TrainingCenter() {
       glow: 'blue',
       features: ['Video Guide', 'Step by Step', 'Progress Track'],
       locked: false,
+      route: '/training/programs',
       items: [
         { name: 'Beginner Basics', difficulty: '7 giorni', duration: '15 min/giorno' },
         { name: 'Form Perfection', difficulty: '14 giorni', duration: '20 min/giorno' },
@@ -76,6 +78,7 @@ export default function TrainingCenter() {
       glow: 'purple',
       features: ['Motion Test', 'Light Check', 'Distance Setup'],
       locked: false,
+      route: '/calibration',
       items: [
         { name: 'Camera Setup', difficulty: 'Quick', duration: '2 min' },
         { name: 'Motion Sensitivity', difficulty: 'Test', duration: '3 min' },
@@ -93,6 +96,7 @@ export default function TrainingCenter() {
       glow: 'orange',
       features: ['HD Videos', 'Slow Motion', 'Common Mistakes'],
       locked: false,
+      route: '/training/library',
       items: [
         { name: 'Upper Body', difficulty: '12 esercizi', duration: 'Video' },
         { name: 'Lower Body', difficulty: '15 esercizi', duration: 'Video' },
@@ -108,6 +112,14 @@ export default function TrainingCenter() {
     { name: 'Settimana Completa', icon: '📅', unlocked: false },
     { name: 'Master Technique', icon: '🏆', unlocked: false }
   ]
+
+  const handleCategoryClick = (category: any) => {
+    router.push(category.route)
+  }
+
+  const handleRecalibrate = () => {
+    router.push('/calibration')
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 relative overflow-hidden">
@@ -226,11 +238,10 @@ export default function TrainingCenter() {
               className="relative group"
             >
               <div 
-                onClick={() => setSelectedCategory(category.id)}
                 className={`relative bg-gradient-to-br from-slate-800/50 to-slate-900/50 
                   backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50
-                  hover:border-${category.glow}-500/50 transition-all duration-500
-                  cursor-pointer overflow-hidden ${selectedCategory === category.id ? 'ring-2 ring-' + category.glow + '-500' : ''}`}
+                  hover:border-green-500/50 transition-all duration-500
+                  cursor-pointer overflow-hidden ${selectedCategory === category.id ? 'ring-2 ring-green-500' : ''}`}
               >
                 {/* Background gradient */}
                 <div className={`absolute inset-0 bg-gradient-to-br ${category.color} opacity-5 
@@ -279,9 +290,10 @@ export default function TrainingCenter() {
                   
                   {/* Action Button */}
                   <motion.button
+                    onClick={() => handleCategoryClick(category)}
                     className={`w-full mt-4 py-3 bg-gradient-to-r ${category.color} 
                       rounded-xl text-white font-bold flex items-center justify-center gap-2
-                      shadow-lg hover:shadow-${category.glow}-500/25 transition-all duration-300`}
+                      shadow-lg hover:shadow-lg transition-all duration-300`}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
@@ -344,8 +356,11 @@ export default function TrainingCenter() {
               </div>
             </div>
             
-            <button className="w-full mt-4 py-2 bg-purple-500/20 border border-purple-500/50 
-              rounded-lg text-purple-400 font-bold hover:bg-purple-500/30 transition-all">
+            <button 
+              onClick={handleRecalibrate}
+              className="w-full mt-4 py-2 bg-purple-500/20 border border-purple-500/50 
+                rounded-lg text-purple-400 font-bold hover:bg-purple-500/30 transition-all"
+            >
               Ricalibra
             </button>
           </motion.div>
