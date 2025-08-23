@@ -2,17 +2,35 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import { useUserStore } from '@/stores/useUserStore'
-import { useDuelStore } from '@/stores/useDuelStore'
-import { useGameStore } from '@/stores/useGameStore'
-import { Card } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { LogOut, Settings } from 'lucide-react'
+import { useUserStore } from '../../stores/useUserStore'
+import { useDuelStore } from '../../stores/useDuelStore'
+import { useGameStore } from '../../stores/useGameStore'
+import { LogOut, Settings, Activity, Target, Award, TrendingUp } from 'lucide-react'
+
+// Simple Card Component
+const Card = ({ className, children, ...props }: any) => (
+  <div className={`rounded-lg ${className}`} {...props}>
+    {children}
+  </div>
+)
+
+// Simple Button Component  
+const Button = ({ className, children, variant, onClick, ...props }: any) => (
+  <button 
+    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+      variant === 'ghost' 
+        ? 'hover:bg-gray-700' 
+        : 'bg-purple-600 hover:bg-purple-700 text-white'
+    } ${className}`}
+    onClick={onClick}
+    {...props}
+  >
+    {children}
+  </button>
+)
 
 export default function DashboardPage() {
   const router = useRouter()
-  const supabase = createClientComponentClient()
   const { user, isAuthenticated, setUser, clearUser } = useUserStore()
   const { myDuels, fetchMyDuels, totalDuelsWon, totalDuelsLost } = useDuelStore()
   const { totalExercises, averageFormScore, streakDays, totalCalories } = useGameStore()
@@ -21,43 +39,29 @@ export default function DashboardPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
-        
-        if (session) {
-          console.log('✅ Authenticated:', session.user.email)
-          
-          if (!user) {
-            setUser({
-              id: session.user.id,
-              email: session.user.email || '',
-              username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User',
-              avatar: session.user.user_metadata?.avatar_url,
-              level: session.user.user_metadata?.level || 1,
-              xp: session.user.user_metadata?.xp || 0,
-              totalXp: session.user.user_metadata?.totalXp || 0,
-              coins: session.user.user_metadata?.coins || 100,
-              rank: session.user.user_metadata?.rank || 'Rookie',
-              fitnessLevel: session.user.user_metadata?.fitnessLevel || 'beginner',
-              goals: [],
-              newsletter: false,
-              createdAt: session.user.created_at || new Date().toISOString()
-            })
+        // Simulate auth check
+        if (typeof window !== 'undefined') {
+          const storedUser = localStorage.getItem('fitduel-user-storage')
+          if (storedUser) {
+            const userData = JSON.parse(storedUser)
+            if (userData.state?.user && userData.state?.isAuthenticated) {
+              console.log('✅ User found in storage')
+              setIsLoading(false)
+              return
+            }
           }
-          
-          if (session.user.id) {
-            fetchMyDuels(session.user.id)
-          }
-          
-          setIsLoading(false)
-          return
         }
 
         if (isAuthenticated && user) {
           console.log('✅ Authenticated via store')
+          if (user.id) {
+            fetchMyDuels(user.id)
+          }
           setIsLoading(false)
           return
         }
 
+        // Wait a bit for store to hydrate
         await new Promise(resolve => setTimeout(resolve, 1000))
         
         if (isAuthenticated && user) {
@@ -65,7 +69,7 @@ export default function DashboardPage() {
           return
         }
 
-        console.log('❌ No auth found')
+        console.log('❌ No auth found, redirecting to login')
         router.push('/login')
 
       } catch (error) {
@@ -75,12 +79,14 @@ export default function DashboardPage() {
     }
 
     checkAuth()
-  }, [isAuthenticated, user, router, setUser, fetchMyDuels, supabase])
+  }, [isAuthenticated, user, router, setUser, fetchMyDuels])
 
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut()
       clearUser()
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('fitduel-user-storage')
+      }
       router.push('/login')
     } catch (error) {
       console.error('Logout error:', error)
@@ -125,7 +131,6 @@ export default function DashboardPage() {
                 <p className="text-3xl font-bold text-purple-400">{user?.xp || 0}</p>
                 <p className="text-xs text-gray-400">XP</p>
               </div>
-              {/* SOLO QUESTI DUE BOTTONI AGGIUNTI */}
               <button
                 onClick={() => router.push('/profile')}
                 className="p-2 hover:bg-purple-900/30 rounded-lg transition-colors"
@@ -145,12 +150,12 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Main Grid - TUTTO UGUALE ALL'ORIGINALE */}
+      {/* Main Grid */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           
           {/* Stats Overview */}
-          <Card className="bg-black/40 backdrop-blur-sm border-purple-500/20 p-6">
+          <Card className="bg-black/40 backdrop-blur-sm border border-purple-500/20 p-6">
             <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
               <span className="text-2xl mr-2">📊</span> Performance Stats
             </h3>
@@ -175,7 +180,7 @@ export default function DashboardPage() {
           </Card>
 
           {/* Duel Stats */}
-          <Card className="bg-black/40 backdrop-blur-sm border-purple-500/20 p-6">
+          <Card className="bg-black/40 backdrop-blur-sm border border-purple-500/20 p-6">
             <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
               <span className="text-2xl mr-2">⚔️</span> Duel Record
             </h3>
@@ -195,14 +200,14 @@ export default function DashboardPage() {
               <div className="flex justify-between items-center">
                 <span className="text-gray-400">Active Duels</span>
                 <span className="text-yellow-400 font-bold">
-                  {myDuels.filter(d => d.status === 'active').length}
+                  {myDuels?.filter(d => d.status === 'active').length || 0}
                 </span>
               </div>
             </div>
           </Card>
 
           {/* Quick Actions */}
-          <Card className="bg-black/40 backdrop-blur-sm border-purple-500/20 p-6">
+          <Card className="bg-black/40 backdrop-blur-sm border border-purple-500/20 p-6">
             <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
               <span className="text-2xl mr-2">🚀</span> Quick Start
             </h3>
@@ -220,22 +225,22 @@ export default function DashboardPage() {
                 Find Duel
               </Button>
               <Button 
-                onClick={() => router.push('/tournament')}
-                className="w-full bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500"
+                onClick={() => router.push('/calibration')}
+                className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500"
               >
-                Join Tournament
+                🎯 Calibration AI
               </Button>
             </div>
           </Card>
 
           {/* Recent Activity */}
-          <Card className="bg-black/40 backdrop-blur-sm border-purple-500/20 p-6 md:col-span-2">
+          <Card className="bg-black/40 backdrop-blur-sm border border-purple-500/20 p-6 md:col-span-2">
             <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
               <span className="text-2xl mr-2">📜</span> Recent Duels
             </h3>
-            {myDuels.length > 0 ? (
+            {myDuels && myDuels.length > 0 ? (
               <div className="space-y-2">
-                {myDuels.slice(0, 5).map((duel) => (
+                {myDuels.slice(0, 5).map((duel: any) => (
                   <div 
                     key={duel.id}
                     onClick={() => router.push(`/duel/${duel.id}`)}
@@ -282,7 +287,7 @@ export default function DashboardPage() {
           </Card>
 
           {/* Level Progress */}
-          <Card className="bg-black/40 backdrop-blur-sm border-purple-500/20 p-6">
+          <Card className="bg-black/40 backdrop-blur-sm border border-purple-500/20 p-6">
             <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
               <span className="text-2xl mr-2">📈</span> Progress
             </h3>
@@ -310,28 +315,28 @@ export default function DashboardPage() {
           <Button 
             onClick={() => router.push('/leaderboard')}
             variant="ghost"
-            className="border border-purple-500/30 hover:bg-purple-900/20 bg-transparent"
+            className="border border-purple-500/30 hover:bg-purple-900/20 bg-transparent text-white"
           >
             🏆 Leaderboard
           </Button>
           <Button 
             onClick={() => router.push('/achievements')}
             variant="ghost"
-            className="border border-purple-500/30 hover:bg-purple-900/20 bg-transparent"
+            className="border border-purple-500/30 hover:bg-purple-900/20 bg-transparent text-white"
           >
             🎖️ Achievements
           </Button>
           <Button 
             onClick={() => router.push('/missions')}
             variant="ghost"
-            className="border border-purple-500/30 hover:bg-purple-900/20 bg-transparent"
+            className="border border-purple-500/30 hover:bg-purple-900/20 bg-transparent text-white"
           >
             🎯 Missions
           </Button>
           <Button 
             onClick={() => router.push('/profile')}
             variant="ghost"
-            className="border border-purple-500/30 hover:bg-purple-900/20 bg-transparent"
+            className="border border-purple-500/30 hover:bg-purple-900/20 bg-transparent text-white"
           >
             👤 Profile
           </Button>
