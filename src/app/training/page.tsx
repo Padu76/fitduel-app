@@ -205,7 +205,7 @@ export default function TrainingPage() {
 
   const handleModeSelect = (mode: any) => {
     if (mode.isPremium && user?.level < 10) {
-      alert('ModalitÃ  Premium disponibile dal livello 10!')
+      alert('Modalità Premium disponibile dal livello 10!')
       return
     }
 
@@ -285,9 +285,9 @@ export default function TrainingPage() {
           <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto" />
           <p className="text-gray-400">Inizializzazione sistema AI...</p>
           <div className="text-xs text-gray-500 space-y-1">
-            <p>â€¢ Caricamento MediaPipe</p>
-            <p>â€¢ Configurazione camera</p>
-            <p>â€¢ Preparazione AI tracker</p>
+            <p>• Caricamento MediaPipe</p>
+            <p>• Configurazione camera</p>
+            <p>• Preparazione AI tracker</p>
           </div>
         </div>
       </div>
@@ -354,21 +354,21 @@ export default function TrainingPage() {
               <div className="space-y-2">
                 <p className="text-blue-400 font-medium">Sistema AI Modulare:</p>
                 <ul className="text-gray-300 space-y-1">
-                  <li>â€¢ MediaPipe Pose Detection</li>
-                  <li>â€¢ Real-time Form Analysis</li>
-                  <li>â€¢ Automatic Rep Counting</li>
-                  <li>â€¢ Voice Feedback System</li>
-                  <li>â€¢ Anti-cheat Validation</li>
+                  <li>• MediaPipe Pose Detection</li>
+                  <li>• Real-time Form Analysis</li>
+                  <li>• Automatic Rep Counting</li>
+                  <li>• Voice Feedback System</li>
+                  <li>• Anti-cheat Validation</li>
                 </ul>
               </div>
               <div className="space-y-2">
-                <p className="text-blue-400 font-medium">FunzionalitÃ  Avanzate:</p>
+                <p className="text-blue-400 font-medium">Funzionalità Avanzate:</p>
                 <ul className="text-gray-300 space-y-1">
-                  <li>â€¢ Video Performance Recording</li>
-                  <li>â€¢ Supabase Data Saving</li>
-                  <li>â€¢ Trust Score & Validation</li>
-                  <li>â€¢ Live Performance Metrics</li>
-                  <li>â€¢ Calibration System</li>
+                  <li>• Video Performance Recording</li>
+                  <li>• Supabase Data Saving</li>
+                  <li>• Trust Score & Validation</li>
+                  <li>• Live Performance Metrics</li>
+                  <li>• Calibration System</li>
                 </ul>
               </div>
             </div>
@@ -393,7 +393,7 @@ export default function TrainingPage() {
                 <ArrowLeft className="w-5 h-5 text-gray-400" />
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-white">Training Completato! ðŸŽ‰</h1>
+                <h1 className="text-2xl font-bold text-white">Training Completato! 🎉</h1>
                 <p className="text-gray-400">Analisi performance - {selectedExercise?.name}</p>
               </div>
             </div>
@@ -442,7 +442,7 @@ export default function TrainingPage() {
 
             {/* Quality Breakdown */}
             <div className="bg-gray-900/50 rounded-xl p-6 mb-6">
-              <h3 className="text-lg font-bold text-white mb-4">Analisi QualitÃ </h3>
+              <h3 className="text-lg font-bold text-white mb-4">Analisi Qualità</h3>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Ripetizioni Perfette</span>
@@ -473,11 +473,11 @@ export default function TrainingPage() {
             {/* AI Feedback */}
             {performanceData.feedback.suggestions.length > 0 && (
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-6 mb-6">
-                <h3 className="text-lg font-bold text-blue-400 mb-4">ðŸ'¡ Consigli AI</h3>
+                <h3 className="text-lg font-bold text-blue-400 mb-4">💡 Consigli AI</h3>
                 <ul className="space-y-2">
                   {performanceData.feedback.suggestions.map((suggestion: string, i: number) => (
                     <li key={i} className="flex items-start gap-2 text-gray-300">
-                      <span className="text-blue-400 mt-1">â€¢</span>
+                      <span className="text-blue-400 mt-1">•</span>
                       <span>{suggestion}</span>
                     </li>
                   ))}
@@ -549,7 +549,7 @@ export default function TrainingPage() {
               </button>
               <div>
                 <h1 className="text-2xl font-bold text-white">Seleziona Esercizio AI</h1>
-                <p className="text-gray-400">Scegli dall'archivio completo di {exercises.length} esercizi</p>
+                <p className="text-gray-400">Scegli dall archivio completo di {exercises.length} esercizi</p>
               </div>
             </div>
           </div>
@@ -569,21 +569,21 @@ export default function TrainingPage() {
               <div className="flex-1">
                 <h3 className="text-xl font-bold text-white mb-2">Sistema AI Avanzato</h3>
                 <p className="text-blue-100 text-sm mb-4">
-                  Il nostro sistema utilizza MediaPipe per l'analisi in tempo reale dei movimenti, 
+                  Il nostro sistema utilizza MediaPipe per l analisi in tempo reale dei movimenti, 
                   conta automaticamente le ripetizioni e fornisce feedback vocale professionale.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-medium">
-                    âœ" MediaPipe Pose
+                    ✓ MediaPipe Pose
                   </span>
                   <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-medium">
-                    âœ" Form Analysis
+                    ✓ Form Analysis
                   </span>
                   <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-medium">
-                    âœ" Voice Coaching
+                    ✓ Voice Coaching
                   </span>
                   <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-medium">
-                    âœ" Video Recording
+                    ✓ Video Recording
                   </span>
                 </div>
               </div>
@@ -628,10 +628,10 @@ export default function TrainingPage() {
                 >
                   <div className="text-center space-y-4">
                     <div className="text-4xl mb-4">
-                      {exercise.category === 'strength' ? 'ðŸ'ª' : 
-                       exercise.category === 'cardio' ? 'ðŸƒ' : 
-                       exercise.category === 'core' ? 'ðŸŽ¯' : 
-                       exercise.category === 'flexibility' ? 'ðŸ§˜' : 'âš–ï¸'}
+                      {exercise.category === 'strength' ? '💪' : 
+                       exercise.category === 'cardio' ? '🏃' : 
+                       exercise.category === 'core' ? '🎯' : 
+                       exercise.category === 'flexibility' ? '🧘' : '⚖️'}
                     </div>
                     <h3 className="text-lg font-bold text-white group-hover:text-blue-400 transition-colors">
                       {exercise.name}
@@ -651,11 +651,11 @@ export default function TrainingPage() {
                       
                       <div className="flex items-center justify-center gap-2">
                         <span className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-bold">
-                          ðŸ¤– AI Ready
+                          🤖 AI Ready
                         </span>
                         {exercise.caloriesPerRep && (
                           <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-bold">
-                            âš¡ ~{Math.round(exercise.caloriesPerRep * (exercise.targetReps || 20))} cal
+                            ⚡ ~{Math.round(exercise.caloriesPerRep * (exercise.targetReps || 20))} cal
                           </span>
                         )}
                       </div>
@@ -697,7 +697,7 @@ export default function TrainingPage() {
                 className="px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-green-500/25 transition-all"
               >
                 <Camera className="w-6 h-6 inline mr-3" />
-                Inizia Sistema AI - {(selectedExercise as ExerciseConfig)?.name || 'Esercizio Selezionato'}
+                Inizia Sistema AI - {selectedExercise?.name || 'Esercizio Selezionato'}
               </button>
             </motion.div>
           )}
@@ -730,7 +730,7 @@ export default function TrainingPage() {
               <div className="flex items-center gap-4">
                 <div className="text-right">
                   <div className="font-medium text-white">{user.username}</div>
-                  <div className="text-sm text-gray-400">Livello {user.level} â€¢ {user.xp} XP</div>
+                  <div className="text-sm text-gray-400">Livello {user.level} • {user.xp} XP</div>
                 </div>
               </div>
             )}
@@ -804,7 +804,7 @@ export default function TrainingPage() {
                 <Swords className="w-6 h-6 text-red-400" />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-white mb-1">âš"ï¸ Sfida Attiva!</h3>
+                <h3 className="text-lg font-bold text-white mb-1">⚔️ Sfida Attiva!</h3>
                 <p className="text-gray-300">
                   Hai una sfida in corso - Usa il sistema AI per vincere!
                 </p>
@@ -945,7 +945,7 @@ export default function TrainingPage() {
                   {isAIMode && !isLocked && !requiresActive && (
                     <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                       <p className="text-blue-400 text-sm font-medium">
-                        ðŸ¤– Sistema AI Ready - {exercises.length} esercizi disponibili
+                        🤖 Sistema AI Ready - {exercises.length} esercizi disponibili
                       </p>
                     </div>
                   )}
@@ -955,7 +955,7 @@ export default function TrainingPage() {
                       ? 'opacity-50' 
                       : 'hover:shadow-lg'
                   }`}>
-                    {isAIMode ? 'ðŸš€ AVVIA SISTEMA AI' : 'âš¡ INIZIA TRAINING'}
+                    {isAIMode ? '🚀 AVVIA SISTEMA AI' : '⚡ INIZIA TRAINING'}
                   </div>
                 </motion.div>
               )
@@ -980,7 +980,7 @@ export default function TrainingPage() {
               >
                 <h3 className="font-bold text-white mb-2">{preset.name}</h3>
                 <p className="text-sm text-gray-400 mb-3">
-                  {preset.duration} min â€¢ Riposo {preset.restTime}s
+                  {preset.duration} min • Riposo {preset.restTime}s
                 </p>
                 <div className="text-xs text-gray-500">
                   {preset.exercises.length} esercizi
