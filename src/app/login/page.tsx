@@ -308,7 +308,7 @@ export default function LoginPage() {
           <p className="text-gray-500 text-sm">
             © 2024 FitDuel Arena. Game on, fit on.
           </p>
-        </div>
+        </motion.div>
       </motion.div>
     </div>
   )
