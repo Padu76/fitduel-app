@@ -67,14 +67,14 @@ export default function MainDashboard() {
       const authResponse = await fetch('/api/auth/login', { method: 'GET' })
       
       if (!authResponse.ok) {
-        window.location.href = '/login'
+        window.location.href = '/auth'
         return
       }
 
       const authData = await authResponse.json()
       
       if (!authData.authenticated) {
-        window.location.href = '/login'
+        window.location.href = '/auth'
         return
       }
 
@@ -180,12 +180,18 @@ export default function MainDashboard() {
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/login', { method: 'DELETE' })
-      window.location.href = '/login'
+      window.location.href = '/auth'
     } catch (error) {
       console.error('Logout error:', error)
       // Force redirect even if API fails
-      window.location.href = '/login'
+      window.location.href = '/auth'
     }
+  }
+
+  // Handle navigation - fixed to use proper routing
+  const handleNavigation = (href: string, sectionId: string) => {
+    setActiveSection(sectionId)
+    window.location.href = href
   }
 
   // Calculate today's stats based on real data
@@ -251,7 +257,7 @@ export default function MainDashboard() {
       description: 'Ottimizza tracking movimento',
       icon: Camera,
       color: 'from-blue-500 to-purple-500',
-      href: '/training',
+      href: '/settings?tab=calibration',
       duration: '5 min'
     },
     {
@@ -259,7 +265,7 @@ export default function MainDashboard() {
       description: 'Competizione settimanale',
       icon: Trophy,
       color: 'from-purple-500 to-pink-500',
-      href: '/challenges',
+      href: '/tournament',
       duration: 'Live'
     }
   ]
@@ -346,7 +352,7 @@ export default function MainDashboard() {
       </nav>
 
       <div className="flex">
-        {/* Sidebar Navigation */}
+        {/* Sidebar Navigation - FIXED */}
         <nav className="w-64 bg-gray-900/50 backdrop-blur-sm border-r border-gray-800 min-h-[calc(100vh-4rem)] sticky top-16">
           <div className="p-4">
             <div className="space-y-2">
@@ -354,15 +360,10 @@ export default function MainDashboard() {
                 const Icon = item.icon
                 const isActive = activeSection === item.id
                 return (
-                  <a
+                  <button
                     key={item.id}
-                    href={item.href}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      setActiveSection(item.id)
-                      window.location.href = item.href
-                    }}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                    onClick={() => handleNavigation(item.href, item.id)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
                       isActive
                         ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
                         : 'text-gray-400 hover:text-white hover:bg-gray-800'
@@ -370,7 +371,7 @@ export default function MainDashboard() {
                   >
                     <Icon className="w-5 h-5" />
                     <span className="font-medium">{item.label}</span>
-                  </a>
+                  </button>
                 )
               })}
             </div>
@@ -422,7 +423,7 @@ export default function MainDashboard() {
             })}
           </motion.div>
 
-          {/* Quick Actions */}
+          {/* Quick Actions - FIXED */}
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -434,10 +435,10 @@ export default function MainDashboard() {
               {quickActions.map((action, index) => {
                 const Icon = action.icon
                 return (
-                  <a
+                  <button
                     key={action.title}
-                    href={action.href}
-                    className="group bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300"
+                    onClick={() => window.location.href = action.href}
+                    className="group bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 text-left w-full"
                   >
                     <div className={`w-12 h-12 bg-gradient-to-r ${action.color} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
                       <Icon className="w-6 h-6 text-white" />
@@ -450,7 +451,7 @@ export default function MainDashboard() {
                       <span className="text-xs text-gray-500">{action.duration}</span>
                       <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-blue-400 group-hover:translate-x-1 transition-all duration-300" />
                     </div>
-                  </a>
+                  </button>
                 )
               })}
             </div>
@@ -466,9 +467,12 @@ export default function MainDashboard() {
             >
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-bold text-white">Sfide Recenti</h3>
-                <a href="/challenges" className="text-blue-400 hover:text-blue-300 text-sm transition-colors">
+                <button 
+                  onClick={() => window.location.href = '/challenges'} 
+                  className="text-blue-400 hover:text-blue-300 text-sm transition-colors"
+                >
                   Vedi tutto →
-                </a>
+                </button>
               </div>
               <div className="space-y-4">
                 {formattedDuels.length > 0 ? formattedDuels.map((challenge, index) => (
@@ -491,9 +495,12 @@ export default function MainDashboard() {
                   <div className="text-center py-8 text-gray-400">
                     <Swords className="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p>Nessuna sfida recente</p>
-                    <a href="/challenges" className="text-blue-400 hover:text-blue-300 text-sm">
+                    <button 
+                      onClick={() => window.location.href = '/challenges'} 
+                      className="text-blue-400 hover:text-blue-300 text-sm"
+                    >
                       Inizia la tua prima sfida →
-                    </a>
+                    </button>
                   </div>
                 )}
               </div>
