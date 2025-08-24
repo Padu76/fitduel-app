@@ -113,7 +113,7 @@ export default function TrainingPage() {
       id: 'burpees',
       name: 'Burpees',
       category: 'cardio',
-      description: 'Esercizio total body ad alta intensità',
+      description: 'Esercizio total body ad alta intensitÃ ',
       difficulty: 'hard',
       targetReps: 15,
       caloriesPerRep: 1.2,
@@ -354,9 +354,15 @@ export default function TrainingPage() {
                   setPerformanceData(prev => [...prev, data])
                   setTotalCalories(prev => prev + ((data as any).calories || 0))
                 }}
-                onProgress={(progress) => {
-                  setCurrentReps(progress.reps || 0)
-                  setFormScore(progress.formScore || 0)
+                onProgress={(progress: any) => {
+                  // Fixed TypeScript error: Handle both number and object types
+                  if (typeof progress === 'object' && progress !== null) {
+                    setCurrentReps(progress.reps || 0)
+                    setFormScore(progress.formScore || 0)
+                  } else if (typeof progress === 'number') {
+                    setCurrentReps(progress)
+                    setFormScore(0)
+                  }
                 }}
                 strictMode={false}
               />
