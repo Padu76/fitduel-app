@@ -3,70 +3,71 @@ import { createClient } from '@supabase/supabase-js'
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY! // Use service role key for server operations
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-// Types
+// Types aligned with your updated database
 interface CalibrationData {
   id?: string
   user_id: string
+  
+  // Personal data
   age: number
   weight: number
   height: number
   gender: 'male' | 'female' | 'other'
-  fitness_level: 'beginner' | 'intermediate' | 'advanced' | 'expert'
-  experience_years: number
-  sport_background: string[]
-  primary_activity_type: 'endurance' | 'strength' | 'power' | 'mixed' | 'flexibility'
-  target_goals: string[]
-  medical_conditions: string[]
-  preferred_workout_duration: number
-  ai_movement_calibrated: boolean
-  calibration_score: number
-  last_updated: string
-}
-
-// Helper function to verify user authentication
-async function verifyAuth(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
-    return null
-  }
-
-  const token = authHeader.split(' ')[1]
-  const { data: { user }, error } = await supabase.auth.getUser(token)
   
-  if (error || !user) {
-    return null
-  }
-
-  return user
+  // Fitness data (aligned with database)
+  fitness_level: 'beginner' | 'intermediate' | 'advanced' | 'expert'
+  years_experience: number  // Changed from experience_years
+  primary_sport: string     // Changed from sport_background
+  sport_category: 'endurance' | 'strength' | 'power' | 'mixed' | 'flexibility'  // Changed from primary_activity_type
+  goals: string[]           // Changed from target_goals
+  workout_duration_preference: number  // Changed from preferred_workout_duration
+  
+  // AI personalization fields (new)
+  baseline_angles?: Record<string, number>
+  body_proportions?: Record<string, number>
+  movement_range?: Record<string, number>
+  ai_parameters?: Record<string, any>
+  personalized_thresholds?: Record<string, any>
+  
+  // Legacy fields
+  medical_conditions?: string[]
+  ai_movement_calibrated?: boolean
+  calibration_score?: number
 }
 
 // GET - Fetch user calibration data
 export async function GET(request: NextRequest) {
   try {
-    // Get user ID from URL path
-    const url = new URL(request.url)
-    const pathParts = url.pathname.split('/')
-    const userId = pathParts[pathParts.length - 1] // Extract user ID from /api/calibration/[userId]
+    const { searchParams } = new URL(request.url)
+    const userId = searchParams.get('userId')
 
-    if (!userId || userId === 'calibration') {
+    if (!userId) {
       return NextResponse.json(
         { error: 'User ID è richiesto' },
         { status: 400 }
       )
     }
 
-    // Fetch calibration data from Supabase
+    console.log('Fetching calibration for user:', userId)
+
+    // Fetch calibration data with profile data for AI personalization
     const { data: calibration, error } = await supabase
       .from('user_calibrations')
-      .select('*')
+      .select(`
+        *,
+        profiles!inner(
+          age,
+          gender
+        )
+      `)
       .eq('user_id', userId)
       .single()
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+    if (error && error.code !== 'PGRST116') {
       console.error('Error fetching calibration:', error)
       return NextResponse.json(
         { error: 'Errore nel recupero dei dati di calibrazione' },
@@ -74,10 +75,50 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Return calibration data or null if not found
+    // If no calibration exists, return structured response
+    if (!calibration) {
+      return NextResponse.json({
+        success: true,
+        calibration: null,
+        needsCalibration: true
+      })
+    }
+
+    // Transform data for AI personalization system
+    const personalizedData = {
+      // Personal data
+      age: calibration.profiles?.age || calibration.age || 25,
+      weight: calibration.weight,
+      height: calibration.height, 
+      gender: calibration.profiles?.gender || calibration.gender,
+      
+      // Fitness data
+      fitness_level: calibration.fitness_level,
+      years_experience: calibration.years_experience,
+      workout_duration: calibration.workout_duration_preference,
+      
+      // Sport categorization
+      primary_sport: calibration.primary_sport,
+      sport_category: calibration.sport_category,
+      goals: calibration.goals || [],
+      
+      // AI personalization data
+      baseline_angles: calibration.baseline_angles || {},
+      body_proportions: calibration.body_proportions || {},
+      movement_range: calibration.movement_range || {},
+      ai_parameters: calibration.ai_parameters || {},
+      personalized_thresholds: calibration.personalized_thresholds || {},
+      
+      // Metadata
+      ai_calibrated_at: calibration.ai_calibrated_at,
+      created_at: calibration.created_at,
+      updated_at: calibration.updated_at
+    }
+
     return NextResponse.json({
       success: true,
-      calibration: calibration || null
+      calibration: personalizedData,
+      needsCalibration: false
     })
 
   } catch (error) {
@@ -93,17 +134,26 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const calibrationData: CalibrationData = body
+    console.log('Received calibration data:', body)
 
-    // Validate required fields
-    if (!calibrationData.user_id) {
+    // Extract user_id and calibration data
+    const { userId, calibrationData, aiCalibrationData = {} } = body
+
+    if (!userId) {
       return NextResponse.json(
         { error: 'User ID è richiesto' },
         { status: 400 }
       )
     }
 
-    // Validate data types and ranges
+    if (!calibrationData) {
+      return NextResponse.json(
+        { error: 'Dati di calibrazione richiesti' },
+        { status: 400 }
+      )
+    }
+
+    // Validate data
     const validationErrors = validateCalibrationData(calibrationData)
     if (validationErrors.length > 0) {
       return NextResponse.json(
@@ -116,31 +166,41 @@ export async function POST(request: NextRequest) {
     const { data: existingCalibration } = await supabase
       .from('user_calibrations')
       .select('id')
-      .eq('user_id', calibrationData.user_id)
+      .eq('user_id', userId)
       .single()
+
+    // Prepare data for database (aligned with new schema)
+    const dbData = {
+      user_id: userId,
+      age: calibrationData.age,
+      weight: calibrationData.weight,
+      height: calibrationData.height,
+      gender: calibrationData.gender,
+      fitness_level: calibrationData.fitness_level,
+      years_experience: calibrationData.years_experience || 0,
+      primary_sport: calibrationData.primary_sport || calibrationData.sport_background?.[0] || 'fitness',
+      sport_category: calibrationData.sport_category || calibrationData.primary_activity_type || 'mixed',
+      goals: calibrationData.goals || calibrationData.target_goals || [],
+      workout_duration_preference: calibrationData.workout_duration_preference || calibrationData.preferred_workout_duration || 30,
+      
+      // AI personalization fields
+      baseline_angles: aiCalibrationData.baseline_angles || {},
+      body_proportions: aiCalibrationData.body_proportions || {},
+      movement_range: aiCalibrationData.movement_range || {},
+      ai_parameters: aiCalibrationData.ai_parameters || {},
+      personalized_thresholds: aiCalibrationData.personalized_thresholds || {},
+      ai_calibrated_at: aiCalibrationData.baseline_angles ? new Date().toISOString() : null,
+      
+      updated_at: new Date().toISOString()
+    }
 
     let result
     if (existingCalibration) {
       // Update existing calibration
       const { data, error } = await supabase
         .from('user_calibrations')
-        .update({
-          age: calibrationData.age,
-          weight: calibrationData.weight,
-          height: calibrationData.height,
-          gender: calibrationData.gender,
-          fitness_level: calibrationData.fitness_level,
-          experience_years: calibrationData.experience_years,
-          sport_background: calibrationData.sport_background,
-          primary_activity_type: calibrationData.primary_activity_type,
-          target_goals: calibrationData.target_goals,
-          medical_conditions: calibrationData.medical_conditions,
-          preferred_workout_duration: calibrationData.preferred_workout_duration,
-          ai_movement_calibrated: calibrationData.ai_movement_calibrated,
-          calibration_score: calibrationData.calibration_score,
-          last_updated: new Date().toISOString()
-        })
-        .eq('user_id', calibrationData.user_id)
+        .update(dbData)
+        .eq('user_id', userId)
         .select()
         .single()
 
@@ -158,21 +218,7 @@ export async function POST(request: NextRequest) {
       const { data, error } = await supabase
         .from('user_calibrations')
         .insert({
-          user_id: calibrationData.user_id,
-          age: calibrationData.age,
-          weight: calibrationData.weight,
-          height: calibrationData.height,
-          gender: calibrationData.gender,
-          fitness_level: calibrationData.fitness_level,
-          experience_years: calibrationData.experience_years,
-          sport_background: calibrationData.sport_background,
-          primary_activity_type: calibrationData.primary_activity_type,
-          target_goals: calibrationData.target_goals,
-          medical_conditions: calibrationData.medical_conditions || [],
-          preferred_workout_duration: calibrationData.preferred_workout_duration,
-          ai_movement_calibrated: calibrationData.ai_movement_calibrated,
-          calibration_score: calibrationData.calibration_score,
-          last_updated: new Date().toISOString(),
+          ...dbData,
           created_at: new Date().toISOString()
         })
         .select()
@@ -190,11 +236,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate XP bonus for calibration completion
-    const xpBonus = calculateXPBonus(calibrationData)
+    const xpBonus = calculateXPBonus(calibrationData, aiCalibrationData)
 
-    // Update user XP if there's a bonus
+    // Update user XP and calibration status in profiles
     if (xpBonus > 0) {
-      await updateUserXP(calibrationData.user_id, xpBonus)
+      await updateUserProfile(userId, xpBonus)
     }
 
     return NextResponse.json({
@@ -207,14 +253,14 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('POST /api/calibration error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Errore nel salvataggio dei dati di calibrazione' },
       { status: 500 }
     )
   }
 }
 
 // Helper function to validate calibration data
-function validateCalibrationData(data: CalibrationData): string[] {
+function validateCalibrationData(data: any): string[] {
   const errors: string[] = []
 
   // Age validation
@@ -243,90 +289,96 @@ function validateCalibrationData(data: CalibrationData): string[] {
   }
 
   // Experience years validation
-  if (data.experience_years < 0 || data.experience_years > 50) {
+  if (data.years_experience < 0 || data.years_experience > 50) {
     errors.push('Anni di esperienza devono essere tra 0 e 50')
   }
 
-  // Primary activity type validation
-  if (!['endurance', 'strength', 'power', 'mixed', 'flexibility'].includes(data.primary_activity_type)) {
-    errors.push('Tipo di attività principale non valido')
-  }
-
-  // Workout duration validation
-  if (!data.preferred_workout_duration || data.preferred_workout_duration < 10 || data.preferred_workout_duration > 180) {
-    errors.push('Durata allenamento deve essere tra 10 e 180 minuti')
-  }
-
-  // Calibration score validation
-  if (data.ai_movement_calibrated && (data.calibration_score < 0 || data.calibration_score > 100)) {
-    errors.push('Score calibrazione deve essere tra 0 e 100')
+  // Sport category validation
+  const validCategories = ['endurance', 'strength', 'power', 'mixed', 'flexibility']
+  if (data.sport_category && !validCategories.includes(data.sport_category)) {
+    errors.push('Categoria sportiva non valida')
   }
 
   return errors
 }
 
-// Helper function to calculate XP bonus
-function calculateXPBonus(data: CalibrationData): number {
+// Helper function to calculate XP bonus (enhanced for AI system)
+function calculateXPBonus(calibrationData: any, aiData: any = {}): number {
   let bonus = 0
 
   // Base completion bonuses
-  if (data.age > 0) bonus += 50
-  if (data.weight > 0) bonus += 50
-  if (data.height > 0) bonus += 50
-  if (data.sport_background && data.sport_background.length > 0) bonus += 75
-  if (data.target_goals && data.target_goals.length > 0) bonus += 50
-  if (data.ai_movement_calibrated) bonus += 100
+  if (calibrationData.age > 0) bonus += 50
+  if (calibrationData.weight > 0) bonus += 50
+  if (calibrationData.height > 0) bonus += 50
+  if (calibrationData.fitness_level) bonus += 50
+  if (calibrationData.primary_sport) bonus += 75
+  if (calibrationData.goals?.length > 0) bonus += 50
 
-  // Completion multiplier bonus
+  // AI calibration bonus
+  if (aiData.baseline_angles && Object.keys(aiData.baseline_angles).length > 0) {
+    bonus += 150 // Big bonus for AI calibration
+  }
+
+  // Full completion bonus
   const completionFields = [
-    data.age > 0,
-    data.weight > 0,
-    data.height > 0,
-    data.sport_background?.length > 0,
-    data.target_goals?.length > 0,
-    data.ai_movement_calibrated
+    calibrationData.age > 0,
+    calibrationData.weight > 0,
+    calibrationData.height > 0,
+    calibrationData.fitness_level,
+    calibrationData.primary_sport,
+    calibrationData.goals?.length > 0
   ].filter(Boolean).length
 
-  if (completionFields === 6) {
+  if (completionFields >= 5) {
     bonus += 100 // Full completion bonus
   }
 
-  return bonus
+  // AI system bonus
+  if (aiData.baseline_angles) {
+    bonus += 100 // Additional bonus for AI calibration
+  }
+
+  return Math.min(bonus, 500) // Cap at 500 XP
 }
 
-// Helper function to update user XP
-async function updateUserXP(userId: string, xpBonus: number): Promise<void> {
+// Helper function to update user profile (correct table)
+async function updateUserProfile(userId: string, xpBonus: number): Promise<void> {
   try {
-    // Get current user XP
-    const { data: user, error: fetchError } = await supabase
-      .from('users')
+    // Update profiles table (not users)
+    const { data: profile, error: fetchError } = await supabase
+      .from('profiles')
       .select('xp, level')
       .eq('id', userId)
       .single()
 
-    if (fetchError || !user) {
-      console.error('Error fetching user for XP update:', fetchError)
+    if (fetchError) {
+      console.error('Error fetching profile for XP update:', fetchError)
       return
     }
 
-    const newXP = (user.xp || 0) + xpBonus
+    const currentXP = profile?.xp || 0
+    const newXP = currentXP + xpBonus
     const newLevel = calculateLevel(newXP)
 
-    // Update user XP and level
+    // Update profile with new XP, level, and calibration status
     const { error: updateError } = await supabase
-      .from('users')
+      .from('profiles')
       .update({
         xp: newXP,
-        level: newLevel
+        level: newLevel,
+        is_calibrated: true,
+        calibration_required: false
       })
       .eq('id', userId)
 
     if (updateError) {
-      console.error('Error updating user XP:', updateError)
+      console.error('Error updating profile XP:', updateError)
+    } else {
+      console.log(`Updated user ${userId}: +${xpBonus} XP, level ${newLevel}`)
     }
 
   } catch (error) {
-    console.error('Error in updateUserXP:', error)
+    console.error('Error in updateUserProfile:', error)
   }
 }
 
@@ -335,15 +387,13 @@ function calculateLevel(xp: number): number {
   return Math.floor(Math.sqrt(xp / 100)) + 1
 }
 
-// DELETE - Remove user calibration (optional)
+// DELETE - Remove user calibration
 export async function DELETE(request: NextRequest) {
   try {
-    // Get user ID from URL path
-    const url = new URL(request.url)
-    const pathParts = url.pathname.split('/')
-    const userId = pathParts[pathParts.length - 1]
+    const { searchParams } = new URL(request.url)
+    const userId = searchParams.get('userId')
 
-    if (!userId || userId === 'calibration') {
+    if (!userId) {
       return NextResponse.json(
         { error: 'User ID è richiesto' },
         { status: 400 }
@@ -363,6 +413,15 @@ export async function DELETE(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    // Update profile to reflect calibration removal
+    await supabase
+      .from('profiles')
+      .update({
+        is_calibrated: false,
+        calibration_required: true
+      })
+      .eq('id', userId)
 
     return NextResponse.json({
       success: true,
