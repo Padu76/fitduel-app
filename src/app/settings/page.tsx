@@ -149,8 +149,8 @@ function SettingsContent() {
 
   const fetchCalibrationData = async (userId: string) => {
     try {
-      // Try to fetch from Supabase (you'll need to create this endpoint)
-      const response = await fetch(`/api/calibration/${userId}`)
+      // Try to fetch from API with query parameter
+      const response = await fetch(`/api/calibration?userId=${userId}`)
       
       if (response.ok) {
         const data = await response.json()
@@ -171,24 +171,41 @@ function SettingsContent() {
     setSuccess(null)
     
     try {
+      // ✅ FORMATO CORRETTO - Come richiesto dall'API
+      const requestBody = {
+        userId: user.id,
+        calibrationData: {
+          ...calibrationData,
+          last_updated: new Date().toISOString()
+        },
+        aiCalibrationData: {
+          baseline_angles: calibrationData.ai_movement_calibrated ? {} : null,
+          body_proportions: calibrationData.ai_movement_calibrated ? {} : null,
+          movement_patterns: calibrationData.ai_movement_calibrated ? {} : null,
+          range_of_motion: calibrationData.ai_movement_calibrated ? {} : null,
+          form_preferences: calibrationData.ai_movement_calibrated ? {} : null
+        }
+      }
+
+      console.log('Sending calibration data:', requestBody) // Debug log
+
       const response = await fetch('/api/calibration', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...calibrationData,
-          user_id: user.id,
-          last_updated: new Date().toISOString()
-        })
+        body: JSON.stringify(requestBody)
       })
 
       if (!response.ok) {
-        throw new Error('Errore nel salvataggio dei dati di calibrazione')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Errore nel salvataggio dei dati di calibrazione')
       }
 
       const result = await response.json()
       
       setSuccess('Calibrazione salvata con successo!')
-      setCalibrationData(result.calibration)
+      if (result.calibration) {
+        setCalibrationData(result.calibration)
+      }
       
       // Calculate XP bonus based on completion
       const completionBonus = calculateCalibrationBonus()
