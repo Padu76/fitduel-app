@@ -157,14 +157,57 @@ export async function POST(request: NextRequest) {
 
     console.log('📋 Existing calibration:', existingCalibration ? 'EXISTS' : 'NEW')
 
-    // Step 5: Prepare MINIMAL data using only basic fields that definitely exist
+    // Step 5: Prepare data using REAL database columns from schema
     const calibrationRecord = {
       user_id: userId,
-      // Only basic fields that should exist in any user_calibration table
+      // Required fields
       age: calibrationData.age || 25,
-      weight: calibrationData.weight || 70,
-      height: calibrationData.height || 175,
       gender: calibrationData.gender || 'male',
+      fitness_experience: calibrationData.fitness_level || 'intermediate',
+      
+      // Physical measurements (note: height_cm and weight_kg, not height/weight!)
+      height_cm: calibrationData.height || 175,
+      weight_kg: calibrationData.weight || 70,
+      
+      // Training info
+      training_frequency: `${calibrationData.training_frequency || 3} times per week`,
+      years_training: calibrationData.experience_years || calibrationData.years_experience || 0,
+      
+      // Goals - map from frontend arrays to individual fields
+      primary_goal: calibrationData.target_goals?.[0] || calibrationData.goals?.[0] || 'general_fitness',
+      secondary_goal: calibrationData.target_goals?.[1] || calibrationData.goals?.[1] || null,
+      
+      // Health info
+      has_limitations: false, // Default safe value
+      limitations: null,
+      medical_conditions: [],
+      injury_history: null,
+      
+      // Performance scores - set to null initially, will be updated with real tests
+      pushup_max: null,
+      squat_max: null,
+      plank_seconds: null,
+      burpees_minute: null,
+      jumping_jacks_minute: null,
+      
+      // Calculated scores
+      strength_score: null,
+      endurance_score: null,
+      flexibility_score: null,
+      overall_fitness_score: null,
+      
+      // Fitness categorization
+      fitness_level: 1, // Numeric level 1-5
+      fitness_category: calibrationData.fitness_level || 'intermediate',
+      
+      // Calibration status
+      calibration_status: 'in_progress',
+      calibration_step: 1,
+      calibration_completed_at: null,
+      last_recalibration: new Date().toISOString(),
+      recalibration_count: 0,
+      
+      // Timestamps
       updated_at: new Date().toISOString()
     }
 
