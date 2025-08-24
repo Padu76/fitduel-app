@@ -10,8 +10,19 @@ import {
   Search, Filter, Grid, List, Eye, Flame
 } from 'lucide-react'
 
+// Interfaccia per Exercise
+interface Exercise {
+  id: string
+  name: string
+  category: string
+  description: string
+  caloriesPerRep?: number
+  difficulty: string
+  mediaType: string
+}
+
 // Esercizi MediaPipe integrati (26+ esercizi enterprise)
-const allExercises = [
+const allExercises: Exercise[] = [
   // Strength Training
   {
     id: 'pushups',
@@ -263,24 +274,24 @@ const allExercises = [
 
 export default function FreeTrainingPage() {
   const router = useRouter()
-  const [selectedExercise, setSelectedExercise] = useState(null)
-  const [isTraining, setIsTraining] = useState(false)
-  const [timer, setTimer] = useState(0)
-  const [currentSet, setCurrentSet] = useState(1)
-  const [reps, setReps] = useState(0)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('all')
-  const [viewMode, setViewMode] = useState('grid')
+  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null)
+  const [isTraining, setIsTraining] = useState<boolean>(false)
+  const [timer, setTimer] = useState<number>(0)
+  const [currentSet, setCurrentSet] = useState<number>(1)
+  const [reps, setReps] = useState<number>(0)
+  const [searchTerm, setSearchTerm] = useState<string>('')
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   
   // AI Tracker states
-  const [aiTrackerActive, setAiTrackerActive] = useState(false)
-  const [detectedReps, setDetectedReps] = useState(0)
-  const [formScore, setFormScore] = useState(0)
-  const [calories, setCalories] = useState(0)
+  const [aiTrackerActive, setAiTrackerActive] = useState<boolean>(false)
+  const [detectedReps, setDetectedReps] = useState<number>(0)
+  const [formScore, setFormScore] = useState<number>(0)
+  const [calories, setCalories] = useState<number>(0)
 
   // Timer effect with proper cleanup
   useEffect(() => {
-    let interval = null
+    let interval: NodeJS.Timeout | null = null
     if (isTraining) {
       interval = setInterval(() => {
         setTimer(timer => timer + 1)
@@ -291,8 +302,8 @@ export default function FreeTrainingPage() {
     }
   }, [isTraining])
 
-  // Funzione per calcolare calorie stimate
-  const calculateEstimatedCalories = (exercise, reps, sets = 1) => {
+  // Funzione per calcolare calorie stimate - CORRECTED WITH PROPER TYPES
+  const calculateEstimatedCalories = (exercise: Exercise, reps: number, sets: number = 1): number => {
     const baseCalories = exercise.caloriesPerRep || 0.5
     return Math.round(baseCalories * reps * sets * 10) / 10
   }
@@ -322,13 +333,13 @@ export default function FreeTrainingPage() {
     }
   }, [aiTrackerActive, isTraining, selectedExercise, detectedReps])
 
-  const formatTime = (seconds) => {
+  const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
-  const startTraining = (exercise) => {
+  const startTraining = (exercise: Exercise): void => {
     setSelectedExercise(exercise)
     setIsTraining(true)
     setTimer(0)
@@ -340,11 +351,11 @@ export default function FreeTrainingPage() {
     setAiTrackerActive(true)
   }
 
-  const pauseTraining = () => {
+  const pauseTraining = (): void => {
     setIsTraining(!isTraining)
   }
 
-  const resetTraining = () => {
+  const resetTraining = (): void => {
     setIsTraining(false)
     setTimer(0)
     setCurrentSet(1)
@@ -355,22 +366,22 @@ export default function FreeTrainingPage() {
     setAiTrackerActive(false)
   }
 
-  const nextSet = () => {
+  const nextSet = (): void => {
     setCurrentSet(prev => prev + 1)
     setReps(0)
     setDetectedReps(0)
   }
 
-  const finishWorkout = () => {
+  const finishWorkout = (): void => {
     setSelectedExercise(null)
     resetTraining()
   }
 
   // Ottieni categorie uniche
-  const categories = [...new Set(allExercises.map(ex => ex.category))]
+  const categories: string[] = [...new Set(allExercises.map(ex => ex.category))]
 
-  // Filtra esercizi
-  const filteredExercises = allExercises.filter(exercise => {
+  // Filtra esercizi - CORRECTED WITH PROPER TYPE SAFETY
+  const filteredExercises: Exercise[] = allExercises.filter(exercise => {
     const matchesSearch = searchTerm === '' || (
       exercise.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       exercise.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -573,7 +584,7 @@ export default function FreeTrainingPage() {
             >
               Tutti
             </button>
-            {categories.map(category => (
+            {categories.map((category: string) => (
               <button
                 key={category}
                 onClick={() => setSelectedCategory(category)}
@@ -591,7 +602,7 @@ export default function FreeTrainingPage() {
 
         {/* Lista/Griglia Esercizi */}
         <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-4'}>
-          {filteredExercises.map((exercise, index) => (
+          {filteredExercises.map((exercise: Exercise, index: number) => (
             <motion.div
               key={exercise.id}
               initial={{ opacity: 0, y: 20 }}
