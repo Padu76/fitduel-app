@@ -157,25 +157,14 @@ export async function POST(request: NextRequest) {
 
     console.log('📋 Existing calibration:', existingCalibration ? 'EXISTS' : 'NEW')
 
-    // Step 5: Prepare data using ONLY existing database columns
+    // Step 5: Prepare MINIMAL data using only basic fields that definitely exist
     const calibrationRecord = {
       user_id: userId,
-      // Basic info from settings
+      // Only basic fields that should exist in any user_calibration table
       age: calibrationData.age || 25,
       weight: calibrationData.weight || 70,
       height: calibrationData.height || 175,
       gender: calibrationData.gender || 'male',
-      fitness_level: calibrationData.fitness_level || 'intermediate',
-      
-      // Map frontend fields to actual database columns
-      years_experience: calibrationData.experience_years || calibrationData.years_experience || 0,
-      primary_sport: calibrationData.sport_background?.[0] || calibrationData.primary_sport || 'fitness',
-      sport_category: calibrationData.primary_activity_type || calibrationData.sport_category || 'mixed',
-      goals: calibrationData.target_goals || calibrationData.goals || [],
-      workout_duration_preference: calibrationData.preferred_workout_duration || calibrationData.workout_duration_preference || 30,
-      
-      // AI/System fields
-      calibration_version: '1.0',
       updated_at: new Date().toISOString()
     }
 
