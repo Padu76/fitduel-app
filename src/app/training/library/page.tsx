@@ -57,7 +57,7 @@ const enhanceExerciseWithGuideData = (exercise: ExerciseConfig): ExerciseGuide =
     'Posizionati correttamente seguendo le indicazioni',
     'Mantieni il controllo durante tutto il movimento',
     'Respira in modo coordinato con l\'esecuzione',
-    'Concentrati sulla qualità piuttosto che sulla quantità'
+    'Concentrati sulla qualitÃ  piuttosto che sulla quantitÃ '
   ],
   commonErrors: exercise.commonMistakes || [
     'Movimento troppo veloce',
@@ -68,13 +68,13 @@ const enhanceExerciseWithGuideData = (exercise: ExerciseConfig): ExerciseGuide =
   progressions: [
     'Aumenta gradualmente le ripetizioni',
     'Incrementa il tempo sotto tensione',
-    'Aggiungi varianti più difficili',
+    'Aggiungi varianti piÃ¹ difficili',
     'Combina con altri esercizi'
   ],
   regressions: [
     'Riduci il range di movimento',
     'Usa supporti o modifiche',
-    'Diminuisci l\'intensità',
+    'Diminuisci l\'intensitÃ ',
     'Concentrati sulla tecnica base'
   ],
   equipment: ['Nessun attrezzo necessario', 'Solo il tuo corpo', 'Tappetino consigliato'],
@@ -172,7 +172,7 @@ const ExerciseFilters = ({
             className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:border-green-500/50 focus:outline-none"
           >
             <option value="name">Ordina: Nome</option>
-            <option value="difficulty">Ordina: Difficoltà</option>
+            <option value="difficulty">Ordina: DifficoltÃ </option>
             <option value="muscle_groups">Ordina: Muscoli</option>
           </select>
 
@@ -232,7 +232,7 @@ const ExerciseCard = ({
             </div>
             <div className="flex-1">
               <h3 className="text-lg font-bold text-white">{exercise.name}</h3>
-              <p className="text-sm text-gray-400 mb-1">{exercise.description}</p>
+              <p className="text-sm text-gray-400 mb-1">{exercise.description || 'Esercizio completo'}</p>
               <div className="flex flex-wrap gap-1">
                 {exercise.muscleGroups.slice(0, 3).map((muscle) => (
                   <span key={muscle} className="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-xs">
@@ -293,7 +293,7 @@ const ExerciseCard = ({
       </div>
       
       {/* Description */}
-      <p className="text-sm text-gray-300 mb-4 line-clamp-2">{exercise.description}</p>
+      <p className="text-sm text-gray-300 mb-4 line-clamp-2">{exercise.description || 'Esercizio completo per il fitness'}</p>
       
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 mb-4">
@@ -400,7 +400,7 @@ const ExerciseGuideModal = ({
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-white">{exercise.name}</h2>
-                <p className="text-gray-400">{exercise.description}</p>
+                <p className="text-gray-400">{exercise.description || 'Esercizio completo'}</p>
                 <div className="flex items-center gap-3 mt-2">
                   <span className={`px-3 py-1 rounded-full text-sm ${difficulty.bgColor} ${difficulty.color} border ${difficulty.borderColor}`}>
                     {difficulty.name}
@@ -748,7 +748,7 @@ export default function TrainingLibraryOptimized() {
           exercise.name.toLowerCase().includes(searchLower) ||
           exercise.category.toLowerCase().includes(searchLower) ||
           exercise.muscleGroups.some(muscle => muscle.toLowerCase().includes(searchLower)) ||
-          exercise.description.toLowerCase().includes(searchLower)
+          (exercise.description?.toLowerCase().includes(searchLower) || false)
         )
       }
       
