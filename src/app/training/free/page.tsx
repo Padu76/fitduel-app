@@ -10,8 +10,256 @@ import {
   Search, Filter, Grid, List, Eye, Flame
 } from 'lucide-react'
 
-// Importa esercizi reali dal sistema
-import { exercises as allExercises } from '@/data/exercises'
+// Esercizi MediaPipe integrati (26+ esercizi enterprise)
+const allExercises = [
+  // Strength Training
+  {
+    id: 'pushups',
+    name: 'Push-ups',
+    category: 'Strength',
+    description: 'Esercizio fondamentale per petto, spalle e tricipiti. Perfetto per costruire forza funzionale.',
+    caloriesPerRep: 0.5,
+    difficulty: 'Beginner',
+    mediaType: 'mediapipe'
+  },
+  {
+    id: 'squats',
+    name: 'Squats',
+    category: 'Strength',
+    description: 'Re degli esercizi per gambe e glutei. Sviluppa forza, potenza e stabilità.',
+    caloriesPerRep: 0.7,
+    difficulty: 'Beginner',
+    mediaType: 'mediapipe'
+  },
+  {
+    id: 'pullups',
+    name: 'Pull-ups',
+    category: 'Strength',
+    description: 'Esercizio completo per schiena, bicipiti e core. Richiede forza funzionale.',
+    caloriesPerRep: 1.2,
+    difficulty: 'Advanced',
+    mediaType: 'mediapipe'
+  },
+  {
+    id: 'lunges',
+    name: 'Lunges',
+    category: 'Strength',
+    description: 'Esercizio unilaterale per gambe e glutei. Migliora equilibrio e simmetria.',
+    caloriesPerRep: 0.6,
+    difficulty: 'Intermediate',
+    mediaType: 'mediapipe'
+  },
+  {
+    id: 'planks',
+    name: 'Planks',
+    category: 'Core',
+    description: 'Isometrico fondamentale per core stability. Base per tutti gli sport.',
+    caloriesPerRep: 0.3,
+    difficulty: 'Beginner',
+    mediaType: 'mediapipe'
+  },
+  {
+    id: 'burpees',
+    name: 'Burpees',
+    category: 'HIIT',
+    description: 'Esercizio total-body ad alta intensità. Combina forza e cardio.',
+    caloriesPerRep: 1.5,
+    difficulty: 'Advanced',
+    mediaType: 'mediapipe'
+  },
+
+  // Cardio & HIIT
+  {
+    id: 'jumping_jacks',
+    name: 'Jumping Jacks',
+    category: 'Cardio',
+    description: 'Movimento dinamico per riscaldamento e cardio. Attiva tutto il corpo.',
+    caloriesPerRep: 0.4,
+    difficulty: 'Beginner',
+    mediaType: 'mediapipe'
+  },
+  {
+    id: 'mountain_climbers',
+    name: 'Mountain Climbers',
+    category: 'HIIT',
+    description: 'Esercizio esplosivo per cardio e core. Simula scalata in montagna.',
+    caloriesPerRep: 0.8,
+    difficulty: 'Intermediate',
+    mediaType: 'mediapipe'
+  },
+  {
+    id: 'high_knees',
+    name: 'High Knees',
+    category: 'Cardio',
+    description: 'Corsa sul posto con ginocchia alte. Ottimo per cardio e agilità.',
+    caloriesPerRep: 0.3,
+    difficulty: 'Beginner',
+    mediaType: 'mediapipe'
+  },
+  {
+    id: 'butt_kicks',
+    name: 'Butt Kicks',
+    category: 'Cardio',
+    description: 'Corsa con calcio ai glutei. Riscalda i muscoli posteriori.',
+    caloriesPerRep: 0.3,
+    difficulty: 'Beginner',
+    mediaType: 'mediapipe'
+  },
+
+  // Core Training
+  {
+    id: 'crunches',
+    name: 'Crunches',
+    category: 'Core',
+    description: 'Classico esercizio per addominali. Focus su contrazione e controllo.',
+    caloriesPerRep: 0.2,
+    difficulty: 'Beginner',
+    mediaType: 'mediapipe'
+  },
+  {
+    id: 'bicycle_crunches',
+    name: 'Bicycle Crunches',
+    category: 'Core',
+    description: 'Movimento rotatorio per addominali obliqui. Migliora coordinazione.',
+    caloriesPerRep: 0.3,
+    difficulty: 'Intermediate',
+    mediaType: 'mediapipe'
+  },
+  {
+    id: 'russian_twists',
+    name: 'Russian Twists',
+    category: 'Core',
+    description: 'Rotazione del busto per obliqui. Può essere fatto con o senza peso.',
+    caloriesPerRep: 0.4,
+    difficulty: 'Intermediate',
+    mediaType: 'mediapipe'
+  },
+  {
+    id: 'leg_raises',
+    name: 'Leg Raises',
+    category: 'Core',
+    description: 'Sollevamento gambe per addominali bassi. Richiede controllo e stabilità.',
+    caloriesPerRep: 0.5,
+    difficulty: 'Intermediate',
+    mediaType: 'mediapipe'
+  },
+
+  // Functional Training
+  {
+    id: 'deadlifts',
+    name: 'Deadlifts',
+    category: 'Functional',
+    description: 'Movimento fondamentale di sollevamento. Coinvolge tutta la catena posteriore.',
+    caloriesPerRep: 1.0,
+    difficulty: 'Advanced',
+    mediaType: 'mediapipe'
+  },
+  {
+    id: 'thrusters',
+    name: 'Thrusters',
+    category: 'Functional',
+    description: 'Combinazione squat + overhead press. Movimento funzionale completo.',
+    caloriesPerRep: 1.1,
+    difficulty: 'Advanced',
+    mediaType: 'mediapipe'
+  },
+  {
+    id: 'bear_crawls',
+    name: 'Bear Crawls',
+    category: 'Functional',
+    description: 'Movimento quadrupede per coordinazione e stabilità. Attiva tutto il corpo.',
+    caloriesPerRep: 0.6,
+    difficulty: 'Intermediate',
+    mediaType: 'mediapipe'
+  },
+  {
+    id: 'turkish_getups',
+    name: 'Turkish Get-ups',
+    category: 'Functional',
+    description: 'Movimento complesso da terra a piedi. Sviluppa mobilità e stabilità.',
+    caloriesPerRep: 1.3,
+    difficulty: 'Advanced',
+    mediaType: 'mediapipe'
+  },
+
+  // Upper Body
+  {
+    id: 'dips',
+    name: 'Dips',
+    category: 'Upper Body',
+    description: 'Esercizio per tricipiti e petto. Può essere fatto su sedia o parallele.',
+    caloriesPerRep: 0.8,
+    difficulty: 'Intermediate',
+    mediaType: 'mediapipe'
+  },
+  {
+    id: 'pike_pushups',
+    name: 'Pike Push-ups',
+    category: 'Upper Body',
+    description: 'Variante push-up per spalle. Simula movimento overhead press.',
+    caloriesPerRep: 0.7,
+    difficulty: 'Intermediate',
+    mediaType: 'mediapipe'
+  },
+
+  // Lower Body
+  {
+    id: 'calf_raises',
+    name: 'Calf Raises',
+    category: 'Lower Body',
+    description: 'Isolamento per polpacci. Importante per forza esplosiva e stabilità.',
+    caloriesPerRep: 0.2,
+    difficulty: 'Beginner',
+    mediaType: 'mediapipe'
+  },
+  {
+    id: 'wall_sits',
+    name: 'Wall Sits',
+    category: 'Lower Body',
+    description: 'Isometrico per quadricipiti. Costruisce resistenza muscolare.',
+    caloriesPerRep: 0.4,
+    difficulty: 'Intermediate',
+    mediaType: 'mediapipe'
+  },
+  {
+    id: 'single_leg_deadlifts',
+    name: 'Single Leg Deadlifts',
+    category: 'Lower Body',
+    description: 'Deadlift unilaterale per equilibrio e stabilità. Sfida propriocezione.',
+    caloriesPerRep: 0.9,
+    difficulty: 'Advanced',
+    mediaType: 'mediapipe'
+  },
+
+  // Flexibility & Mobility
+  {
+    id: 'downward_dog',
+    name: 'Downward Dog',
+    category: 'Flexibility',
+    description: 'Posizione yoga per allungamento totale. Migliora flessibilità e forza.',
+    caloriesPerRep: 0.3,
+    difficulty: 'Beginner',
+    mediaType: 'mediapipe'
+  },
+  {
+    id: 'cat_cow',
+    name: 'Cat-Cow Stretch',
+    category: 'Flexibility',
+    description: 'Movimento per mobilità spinale. Essenziale per salute della schiena.',
+    caloriesPerRep: 0.2,
+    difficulty: 'Beginner',
+    mediaType: 'mediapipe'
+  },
+  {
+    id: 'warrior_pose',
+    name: 'Warrior Pose',
+    category: 'Flexibility',
+    description: 'Posizione yoga per forza e flessibilità. Migliora equilibrio mentale.',
+    caloriesPerRep: 0.4,
+    difficulty: 'Intermediate',
+    mediaType: 'mediapipe'
+  }
+]
 
 export default function FreeTrainingPage() {
   const router = useRouter()
@@ -363,6 +611,13 @@ export default function FreeTrainingPage() {
                   <div className="flex items-center gap-4 text-sm">
                     <span className="bg-blue-600/20 text-blue-400 px-2 py-1 rounded">
                       {exercise.category}
+                    </span>
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      exercise.difficulty === 'Beginner' ? 'bg-green-600/20 text-green-400' :
+                      exercise.difficulty === 'Intermediate' ? 'bg-yellow-600/20 text-yellow-400' :
+                      'bg-red-600/20 text-red-400'
+                    }`}>
+                      {exercise.difficulty}
                     </span>
                     <div className="flex items-center gap-1 text-orange-400">
                       <Flame size={16} />
