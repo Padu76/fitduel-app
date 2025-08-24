@@ -270,15 +270,23 @@ export async function POST(request: NextRequest) {
     // Step 7: Add XP bonus (optional)
     const xpBonus = 100
     try {
-      const { error: xpError } = await supabase
+      // First get current XP
+      const { data: currentProfile, error: getError } = await supabase
         .from('profiles')
-        .update({ 
-          xp: supabase.raw('xp + ?', [xpBonus])
-        })
+        .select('xp')
         .eq('id', userId)
+        .single()
 
-      if (!xpError) {
-        console.log(`✅ Added ${xpBonus} XP bonus`)
+      if (!getError && currentProfile) {
+        const newXp = (currentProfile.xp || 0) + xpBonus
+        const { error: xpError } = await supabase
+          .from('profiles')
+          .update({ xp: newXp })
+          .eq('id', userId)
+
+        if (!xpError) {
+          console.log(`✅ Added ${xpBonus} XP bonus (${currentProfile.xp} → ${newXp})`)
+        }
       }
     } catch (xpError) {
       console.log('⚠️ XP bonus failed, but calibration successful')
