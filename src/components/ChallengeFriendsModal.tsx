@@ -1,21 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  X, Swords, Users, Zap, Trophy, Clock, 
-  Search, Star, Circle, ChevronRight, 
-  Flame, Target, Crown
-} from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { createClient } from '@/utils/supabase/client'
+import { User } from '@supabase/supabase-js'
 
-interface User {
+interface Friend {
   id: string
   username: string
   display_name: string | null
-  level: number
-  xp: number
   avatar_url: string | null
-  last_seen: string | null
+  xp: number
+  level: number
+  is_online: boolean
 }
 
 interface ChallengeFriendsModalProps {
@@ -23,7 +19,7 @@ interface ChallengeFriendsModalProps {
   onClose: () => void
   currentUserId: string
   currentUserXp: number
-  onChallengeSuccess: (challengedUser: User, wagerXp: number) => void
+  onChallengeSuccess: (challengedUser: Friend, wagerXp: number) => void
 }
 
 export default function ChallengeFriendsModal({
@@ -33,406 +29,306 @@ export default function ChallengeFriendsModal({
   currentUserXp,
   onChallengeSuccess
 }: ChallengeFriendsModalProps) {
-  const [availableUsers, setAvailableUsers] = useState<User[]>([])
-  const [friends, setFriends] = useState<User[]>([])
+  const [friends, setFriends] = useState<Friend[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedUser, setSelectedUser] = useState<User | null>(null)
-  const [wagerXp, setWagerXp] = useState(100)
-  const [challenging, setChallenging] = useState(false)
+  const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null)
+  const [wagerAmount, setWagerAmount] = useState<number>(10)
+  const [challengeMessage, setChallengeMessage] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
+  const supabase = createClient()
+
+  // Load friends when modal opens
   useEffect(() => {
     if (isOpen) {
-      fetchAvailableUsers()
+      loadFriends()
     }
-  }, [isOpen, currentUserId])
+  }, [isOpen])
 
-  const fetchAvailableUsers = async () => {
+  const loadFriends = async () => {
     try {
       setLoading(true)
-      setError('')
-      
-      const response = await fetch(`/api/duels/recent?userId=${currentUserId}`)
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch users')
-      }
-      
-      const data = await response.json()
-      
-      if (data.success) {
-        setAvailableUsers(data.data.availableUsers || [])
-        setFriends(data.data.friends || [])
-      } else {
-        throw new Error(data.error || 'Failed to load users')
-      }
-    } catch (error) {
-      console.error('Error fetching users:', error)
-      setError('Errore nel caricamento utenti disponibili')
-      // Fallback mock data for development
-      setAvailableUsers([
-        {
-          id: 'mock1',
-          username: 'GymWarrior',
-          display_name: 'Marco Rossi',
-          level: 15,
-          xp: 2350,
-          avatar_url: null,
-          last_seen: new Date(Date.now() - 5 * 60 * 1000).toISOString()
-        },
-        {
-          id: 'mock2',
-          username: 'FitnessBeast',
-          display_name: 'Sara Verdi',
-          level: 22,
-          xp: 4800,
-          avatar_url: null,
-          last_seen: new Date(Date.now() - 30 * 60 * 1000).toISOString()
-        },
-        {
-          id: 'mock3',
-          username: 'MuscleKing',
-          display_name: 'Luca Bianchi',
-          level: 18,
-          xp: 3200,
-          avatar_url: null,
-          last_seen: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-        }
-      ])
+      setError(null)
+
+      // Get user's friends from friendships table
+      const { data: friendships, error: friendshipsError } = await supabase
+        .from('friendships')
+        .select(`
+          friend_id,
+          profiles!friendships_friend_id_fkey(
+            id,
+            username,
+            display_name,
+            avatar_url,
+            xp,
+            level,
+            last_seen
+          )
+        `)
+        .eq('user_id', currentUserId)
+        .eq('status', 'accepted')
+
+      if (friendshipsError) throw friendshipsError
+
+      // Format friends data
+      const formattedFriends: Friend[] = (friendships || []).map((friendship: any) => ({
+        id: friendship.profiles.id,
+        username: friendship.profiles.username,
+        display_name: friendship.profiles.display_name,
+        avatar_url: friendship.profiles.avatar_url,
+        xp: friendship.profiles.xp || 0,
+        level: friendship.profiles.level || 1,
+        is_online: friendship.profiles.last_seen 
+          ? (new Date(friendship.profiles.last_seen) > new Date(Date.now() - 5 * 60 * 1000))
+          : false
+      }))
+
+      setFriends(formattedFriends)
+    } catch (err: any) {
+      console.error('Error loading friends:', err)
+      setError('Failed to load friends')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleChallenge = async () => {
-    if (!selectedUser) return
+  const handleSendChallenge = async () => {
+    if (!selectedFriend) return
 
     try {
-      setChallenging(true)
-      setError('')
+      setSubmitting(true)
+      setError(null)
 
-      const response = await fetch('/api/duels/recent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: currentUserId,
-          action: 'challenge',
-          targetUserId: selectedUser.id,
-          wagerXp: wagerXp
-        })
-      })
-
-      const data = await response.json()
-
-      if (response.ok && data.success) {
-        onChallengeSuccess(selectedUser, wagerXp)
-        onClose()
-        setSelectedUser(null)
-      } else {
-        throw new Error(data.error || 'Failed to send challenge')
+      // Validate wager amount
+      if (wagerAmount <= 0 || wagerAmount > currentUserXp) {
+        setError('Invalid wager amount')
+        return
       }
-    } catch (error) {
-      console.error('Error sending challenge:', error)
-      setError(error instanceof Error ? error.message : 'Errore nell\'invio della sfida')
+
+      // Create challenge in database
+      const { data, error } = await supabase
+        .from('challenges')
+        .insert({
+          challenger_id: currentUserId,
+          challenged_id: selectedFriend.id,
+          wager_xp: wagerAmount,
+          message: challengeMessage.trim() || null,
+          status: 'pending',
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // Create notification for challenged user
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: selectedFriend.id,
+          type: 'challenge_received',
+          title: 'New Challenge!',
+          message: `${selectedFriend.display_name || selectedFriend.username} challenged you to a duel!`,
+          data: {
+            challenge_id: data.id,
+            challenger_id: currentUserId,
+            wager_xp: wagerAmount
+          }
+        })
+
+      // Success callback
+      onChallengeSuccess(selectedFriend, wagerAmount)
+      
+      // Reset form and close
+      resetForm()
+      onClose()
+    } catch (err: any) {
+      console.error('Error sending challenge:', err)
+      setError('Failed to send challenge')
     } finally {
-      setChallenging(false)
+      setSubmitting(false)
     }
   }
 
-  const filteredUsers = availableUsers.filter(user =>
-    user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (user.display_name && user.display_name.toLowerCase().includes(searchQuery.toLowerCase()))
-  )
-
-  const calculateLevel = (xp: number) => Math.floor(Math.sqrt(xp / 100)) + 1
-
-  const getRank = (level: number) => {
-    if (level >= 50) return { name: 'Legend', color: 'text-purple-400', icon: Crown }
-    if (level >= 40) return { name: 'Master', color: 'text-yellow-400', icon: Trophy }
-    if (level >= 30) return { name: 'Diamond', color: 'text-blue-400', icon: Star }
-    if (level >= 20) return { name: 'Gold', color: 'text-yellow-300', icon: Flame }
-    if (level >= 10) return { name: 'Silver', color: 'text-gray-300', icon: Target }
-    return { name: 'Bronze', color: 'text-orange-400', icon: Circle }
+  const resetForm = () => {
+    setSelectedFriend(null)
+    setWagerAmount(10)
+    setChallengeMessage('')
+    setError(null)
   }
 
-  const getUserInitials = (user: User) => {
-    if (user.username) return user.username.charAt(0).toUpperCase()
-    return 'U'
+  const handleClose = () => {
+    resetForm()
+    onClose()
   }
-
-  const getOnlineStatus = (lastSeen: string | null) => {
-    if (!lastSeen) return { status: 'offline', text: 'Offline', color: 'bg-gray-500' }
-    
-    const now = new Date()
-    const lastSeenDate = new Date(lastSeen)
-    const minutesAgo = Math.floor((now.getTime() - lastSeenDate.getTime()) / (1000 * 60))
-    
-    if (minutesAgo < 5) return { status: 'online', text: 'Online', color: 'bg-green-500' }
-    if (minutesAgo < 30) return { status: 'away', text: `${minutesAgo}m fa`, color: 'bg-yellow-500' }
-    if (minutesAgo < 1440) return { status: 'offline', text: `${Math.floor(minutesAgo / 60)}h fa`, color: 'bg-gray-500' }
-    return { status: 'offline', text: 'Offline', color: 'bg-gray-500' }
-  }
-
-  const wagerOptions = [50, 100, 200, 500, 1000].filter(amount => amount <= currentUserXp)
 
   if (!isOpen) return null
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-        onClick={onClose}
-      >
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.9 }}
-          className="bg-slate-900/95 backdrop-blur-xl rounded-2xl border border-green-500/20 
-            shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="p-6 border-b border-slate-700/50">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-500/20 rounded-lg">
-                  <Swords className="w-6 h-6 text-green-400" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-white">Sfida un Amico</h2>
-                  <p className="text-slate-400">Scegli il tuo avversario e inizia la battaglia!</p>
-                </div>
-              </div>
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
-              >
-                <X className="w-6 h-6 text-slate-400" />
-              </button>
-            </div>
-          </div>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            Challenge Friends
+          </h2>
+          <button
+            onClick={handleClose}
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
-          <div className="p-6">
-            {error && (
-              <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-                <p className="text-red-400 text-sm">{error}</p>
+        {/* Content */}
+        <div className="p-6 space-y-6 max-h-[calc(90vh-120px)] overflow-y-auto">
+          {error && (
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            </div>
+          )}
+
+          {/* Friends List */}
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Select Friend to Challenge
+            </label>
+            
+            {loading ? (
+              <div className="space-y-2">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="animate-pulse bg-gray-200 dark:bg-gray-700 h-16 rounded-lg" />
+                ))}
+              </div>
+            ) : friends.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <p>No friends available to challenge</p>
+                <p className="text-sm mt-1">Add some friends first!</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {friends.map((friend) => (
+                  <div
+                    key={friend.id}
+                    onClick={() => setSelectedFriend(friend)}
+                    className={`flex items-center space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${
+                      selectedFriend?.id === friend.id
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                    }`}
+                  >
+                    {/* Avatar */}
+                    <div className="relative">
+                      {friend.avatar_url ? (
+                        <img
+                          src={friend.avatar_url}
+                          alt={friend.username}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                          {friend.display_name?.[0] || friend.username[0]}
+                        </div>
+                      )}
+                      {/* Online status */}
+                      {friend.is_online && (
+                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full" />
+                      )}
+                    </div>
+
+                    {/* Friend Info */}
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900 dark:text-white">
+                        {friend.display_name || friend.username}
+                      </p>
+                      <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+                        <span>Level {friend.level}</span>
+                        <span>•</span>
+                        <span>{friend.xp} XP</span>
+                        {friend.is_online && (
+                          <>
+                            <span>•</span>
+                            <span className="text-green-500">Online</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
+          </div>
 
-            {/* Search */}
-            <div className="mb-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Cerca utenti..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-600/50 
-                    rounded-xl text-white placeholder-slate-400 focus:outline-none 
-                    focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 transition-all"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Users List */}
-              <div>
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <Users className="w-5 h-5 text-blue-400" />
-                  Utenti Disponibili ({filteredUsers.length})
-                </h3>
-
-                <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                  {loading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="w-6 h-6 border-2 border-green-500/20 border-t-green-500 rounded-full animate-spin" />
-                    </div>
-                  ) : filteredUsers.length > 0 ? (
-                    filteredUsers.map((user) => {
-                      const rank = getRank(user.level)
-                      const RankIcon = rank.icon
-                      const onlineStatus = getOnlineStatus(user.last_seen)
-                      
-                      return (
-                        <motion.div
-                          key={user.id}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          className={`p-4 rounded-xl border transition-all cursor-pointer
-                            ${selectedUser?.id === user.id
-                              ? 'bg-green-500/20 border-green-500/50'
-                              : 'bg-slate-800/50 border-slate-600/50 hover:border-green-500/30'
-                            }`}
-                          onClick={() => setSelectedUser(user)}
-                        >
-                          <div className="flex items-center gap-3">
-                            {/* Avatar */}
-                            <div className="relative">
-                              {user.avatar_url ? (
-                                <img
-                                  src={user.avatar_url}
-                                  alt={user.username}
-                                  className="w-12 h-12 rounded-lg object-cover"
-                                />
-                              ) : (
-                                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 
-                                  flex items-center justify-center text-lg font-bold text-white">
-                                  {getUserInitials(user)}
-                                </div>
-                              )}
-                              <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${onlineStatus.color} 
-                                rounded-full border-2 border-slate-900`} />
-                            </div>
-
-                            {/* User Info */}
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-semibold text-white">
-                                  {user.display_name || user.username}
-                                </h4>
-                                <RankIcon className={`w-4 h-4 ${rank.color}`} />
-                              </div>
-                              <p className="text-sm text-slate-400">@{user.username}</p>
-                              <div className="flex items-center gap-3 mt-1">
-                                <span className="text-xs text-blue-400">LV {user.level}</span>
-                                <span className="text-xs text-yellow-400">{user.xp.toLocaleString()} XP</span>
-                                <span className="text-xs text-slate-500">{onlineStatus.text}</span>
-                              </div>
-                            </div>
-
-                            {/* Selection Indicator */}
-                            {selectedUser?.id === user.id && (
-                              <motion.div
-                                initial={{ scale: 0 }}
-                                animate={{ scale: 1 }}
-                                className="p-2 bg-green-500 rounded-full"
-                              >
-                                <Swords className="w-4 h-4 text-white" />
-                              </motion.div>
-                            )}
-                          </div>
-                        </motion.div>
-                      )
-                    })
-                  ) : (
-                    <div className="text-center py-8 text-slate-400">
-                      <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p>Nessun utente trovato</p>
-                    </div>
-                  )}
+          {/* Wager Amount */}
+          {selectedFriend && (
+            <>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Wager Amount (XP)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={wagerAmount}
+                    onChange={(e) => setWagerAmount(Math.max(1, parseInt(e.target.value) || 1))}
+                    min="1"
+                    max={currentUserXp}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                  <div className="absolute inset-y-0 right-3 flex items-center text-sm text-gray-500 dark:text-gray-400">
+                    Max: {currentUserXp}
+                  </div>
                 </div>
               </div>
 
-              {/* Challenge Setup */}
-              <div>
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <Target className="w-5 h-5 text-green-400" />
-                  Configura Sfida
-                </h3>
-
-                {selectedUser ? (
-                  <div className="space-y-4">
-                    {/* Selected User Display */}
-                    <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-600/50">
-                      <h4 className="text-white font-semibold mb-2">Avversario Selezionato:</h4>
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 
-                          flex items-center justify-center text-sm font-bold text-white">
-                          {getUserInitials(selectedUser)}
-                        </div>
-                        <div>
-                          <p className="text-white font-medium">{selectedUser.display_name || selectedUser.username}</p>
-                          <p className="text-sm text-slate-400">LV {selectedUser.level} • {selectedUser.xp.toLocaleString()} XP</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Wager Selection */}
-                    <div>
-                      <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-yellow-400" />
-                        Puntata XP
-                      </h4>
-                      <div className="grid grid-cols-3 gap-2">
-                        {wagerOptions.map(amount => (
-                          <button
-                            key={amount}
-                            onClick={() => setWagerXp(amount)}
-                            className={`p-3 rounded-lg border font-semibold transition-all
-                              ${wagerXp === amount
-                                ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400'
-                                : 'bg-slate-700/50 border-slate-600/50 text-slate-300 hover:border-yellow-500/30'
-                              }`}
-                          >
-                            {amount} XP
-                          </button>
-                        ))}
-                      </div>
-                      <p className="text-xs text-slate-400 mt-2">
-                        Hai {currentUserXp.toLocaleString()} XP disponibili
-                      </p>
-                    </div>
-
-                    {/* Challenge Info */}
-                    <div className="p-4 bg-gradient-to-r from-green-500/10 to-blue-500/10 
-                      rounded-xl border border-green-500/20">
-                      <h4 className="text-green-400 font-semibold mb-2">Info Sfida:</h4>
-                      <div className="space-y-1 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-slate-300">Puntata:</span>
-                          <span className="text-yellow-400 font-semibold">{wagerXp} XP</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-300">Premio Vincitore:</span>
-                          <span className="text-green-400 font-semibold">{wagerXp * 2} XP</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-300">Tipo:</span>
-                          <span className="text-blue-400">1v1 Training Battle</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Challenge Button */}
-                    <button
-                      onClick={handleChallenge}
-                      disabled={challenging}
-                      className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-500 
-                        rounded-xl text-white font-bold hover:shadow-lg hover:shadow-green-500/25 
-                        transition-all duration-300 hover:scale-105 disabled:opacity-50 
-                        disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                      {challenging ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                          Inviando Sfida...
-                        </>
-                      ) : (
-                        <>
-                          <Swords className="w-5 h-5" />
-                          Invia Sfida
-                          <ChevronRight className="w-4 h-4" />
-                        </>
-                      )}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="text-center py-12 text-slate-400">
-                    <Target className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                    <h4 className="text-lg font-semibold mb-2">Seleziona un Avversario</h4>
-                    <p className="text-sm">Scegli un utente dalla lista per configurare la sfida</p>
-                  </div>
-                )}
+              {/* Challenge Message */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Challenge Message (Optional)
+                </label>
+                <textarea
+                  value={challengeMessage}
+                  onChange={(e) => setChallengeMessage(e.target.value)}
+                  placeholder="Add a personal message to your challenge..."
+                  maxLength={200}
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                />
+                <div className="text-xs text-gray-500 dark:text-gray-400 text-right">
+                  {challengeMessage.length}/200
+                </div>
               </div>
-            </div>
-          </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 dark:border-gray-700">
+          <button
+            onClick={handleClose}
+            className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSendChallenge}
+            disabled={!selectedFriend || submitting || wagerAmount <= 0 || wagerAmount > currentUserXp}
+            className="px-6 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-medium rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? (
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>Sending...</span>
+              </div>
+            ) : (
+              'Send Challenge'
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
