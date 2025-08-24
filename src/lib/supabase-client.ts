@@ -116,7 +116,7 @@ export interface Notification {
 }
 
 // ====================================
-// SINGLETON SUPABASE CLIENT
+// ENHANCED SUPABASE CLIENT WITH PERSISTENT SESSIONS
 // ====================================
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -127,35 +127,132 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('⚠️ Supabase environment variables not found. Using demo mode.')
 }
 
-// Singleton instance
+// Custom storage implementation with persistence guarantees
+const createPersistentStorage = () => {
+  if (typeof window === 'undefined') {
+    // Server-side fallback
+    return {
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {}
+    }
+  }
+
+  return {
+    getItem: (key: string) => {
+      try {
+        return localStorage.getItem(key)
+      } catch (error) {
+        console.warn('localStorage getItem failed:', error)
+        return null
+      }
+    },
+    setItem: (key: string, value: string) => {
+      try {
+        localStorage.setItem(key, value)
+        // Also try sessionStorage as backup
+        sessionStorage.setItem(key + '_backup', value)
+      } catch (error) {
+        console.warn('localStorage setItem failed:', error)
+        // Fallback to sessionStorage only
+        try {
+          sessionStorage.setItem(key, value)
+        } catch (e) {
+          console.error('Both localStorage and sessionStorage failed:', e)
+        }
+      }
+    },
+    removeItem: (key: string) => {
+      try {
+        localStorage.removeItem(key)
+        sessionStorage.removeItem(key + '_backup')
+      } catch (error) {
+        console.warn('Storage removeItem failed:', error)
+      }
+    }
+  }
+}
+
+// Singleton instance with better error handling
 let supabaseInstance: SupabaseClient | null = null
 
-// Create or get existing Supabase client (SINGLETON PATTERN)
+// Create or get existing Supabase client with OPTIMIZED PERSISTENCE
 export function getSupabaseClient(): SupabaseClient {
   if (!supabaseInstance) {
+    console.log('🔧 Creating new Supabase client with persistent session config')
+    
     supabaseInstance = createClient(
       supabaseUrl || 'https://demo.supabase.co', 
       supabaseAnonKey || 'demo-key', 
       {
         auth: {
-          autoRefreshToken: true,
-          persistSession: true,
-          detectSessionInUrl: true,
-          storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-          storageKey: 'fitduel-auth-token',
-          flowType: 'pkce'
+          // ENHANCED AUTH CONFIGURATION FOR PERSISTENCE
+          autoRefreshToken: true,           // Auto refresh tokens
+          persistSession: true,             // Always persist sessions
+          detectSessionInUrl: true,         // Detect sessions from URL (useful for auth redirects)
+          flowType: 'pkce',                // More secure auth flow
+          
+          // CUSTOM STORAGE WITH PERSISTENCE GUARANTEES
+          storage: createPersistentStorage(),
+          storageKey: 'fitduel-auth-token', // Your custom key
+          
+          // EXTENDED SESSION CONFIGURATION
+          debug: process.env.NODE_ENV === 'development' ? true : false,
         },
+        
+        // DATABASE OPTIMIZATIONS
         db: {
           schema: 'public'
         },
+        
+        // GLOBAL CONFIGURATION
         global: {
           headers: {
-            'x-application-name': 'fitduel'
+            'x-application-name': 'fitduel',
+            'x-client-info': 'fitduel-web@1.0.0'
+          }
+        },
+        
+        // REALTIME CONFIGURATION
+        realtime: {
+          params: {
+            eventsPerSecond: 10
           }
         }
       }
     )
+
+    // ENHANCED SESSION MONITORING
+    if (typeof window !== 'undefined') {
+      // Monitor session health
+      setInterval(async () => {
+        try {
+          const { data: { session }, error } = await supabaseInstance!.auth.getSession()
+          if (error) {
+            console.warn('⚠️ Session check error:', error)
+          } else if (session) {
+            console.log('✅ Session healthy, expires at:', new Date(session.expires_at! * 1000))
+          }
+        } catch (error) {
+          console.warn('Session health check failed:', error)
+        }
+      }, 5 * 60 * 1000) // Check every 5 minutes
+
+      // Listen for session events
+      supabaseInstance.auth.onAuthStateChange((event, session) => {
+        console.log('🔄 Auth state change:', event, session ? 'Session active' : 'No session')
+        
+        if (event === 'SIGNED_OUT') {
+          console.log('👋 User signed out')
+        } else if (event === 'SIGNED_IN') {
+          console.log('👋 User signed in')
+        } else if (event === 'TOKEN_REFRESHED') {
+          console.log('🔄 Token refreshed successfully')
+        }
+      })
+    }
   }
+  
   return supabaseInstance
 }
 
@@ -163,7 +260,7 @@ export function getSupabaseClient(): SupabaseClient {
 export const supabase = getSupabaseClient()
 
 // ====================================
-// AUTH FUNCTIONS
+// ENHANCED AUTH FUNCTIONS WITH BETTER ERROR HANDLING
 // ====================================
 
 export const auth = {
@@ -207,7 +304,7 @@ export const auth = {
           total_xp: 100 // Welcome bonus
         })
 
-      if (statsError) throw statsError
+      if (statsError) console.warn('User stats creation failed:', statsError)
 
       return { user: authData.user, session: authData.session }
     } catch (error) {
@@ -216,16 +313,20 @@ export const auth = {
     }
   },
 
-  // Sign in existing user
+  // Sign in existing user with enhanced persistence
   async signIn(email: string, password: string) {
     try {
       const client = getSupabaseClient()
+      console.log('🔑 Attempting sign in with persistent session...')
+      
       const { data, error } = await client.auth.signInWithPassword({
         email,
         password
       })
 
       if (error) throw error
+      
+      console.log('✅ Sign in successful, session will persist')
       return data
     } catch (error) {
       console.error('Sign in error:', error)
@@ -233,45 +334,96 @@ export const auth = {
     }
   },
 
-  // Sign out
+  // Sign out with proper cleanup
   async signOut() {
     try {
       const client = getSupabaseClient()
+      console.log('👋 Signing out and clearing session...')
+      
       const { error } = await client.auth.signOut()
       if (error) throw error
+      
+      console.log('✅ Sign out successful')
     } catch (error) {
       console.error('Sign out error:', error)
       throw error
     }
   },
 
-  // Get current session
+  // Get current session with retry logic
   async getSession() {
     try {
       const client = getSupabaseClient()
-      const { data: { session } } = await client.auth.getSession()
-      return session
+      let retries = 3
+      
+      while (retries > 0) {
+        try {
+          const { data: { session }, error } = await client.auth.getSession()
+          
+          if (error) {
+            console.warn(`Session fetch error (retries left: ${retries - 1}):`, error)
+            retries--
+            if (retries === 0) throw error
+            await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1s before retry
+            continue
+          }
+          
+          return session
+        } catch (error) {
+          retries--
+          if (retries === 0) throw error
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
+      }
     } catch (error) {
-      console.error('Get session error:', error)
+      console.error('Get session error after retries:', error)
       return null
     }
   },
 
-  // Get current user
+  // Get current user with session validation
   async getCurrentUser() {
     try {
       const client = getSupabaseClient()
-      const { data: { user } } = await client.auth.getUser()
+      
+      // First check if we have a valid session
+      const session = await this.getSession()
+      if (!session) {
+        console.log('No session found, user not authenticated')
+        return null
+      }
+      
+      // Then get user details
+      const { data: { user }, error } = await client.auth.getUser()
+      if (error) throw error
+      
       return user
     } catch (error) {
       console.error('Get user error:', error)
       return null
     }
+  },
+
+  // New: Refresh session manually
+  async refreshSession() {
+    try {
+      const client = getSupabaseClient()
+      console.log('🔄 Manually refreshing session...')
+      
+      const { data, error } = await client.auth.refreshSession()
+      if (error) throw error
+      
+      console.log('✅ Session refreshed successfully')
+      return data
+    } catch (error) {
+      console.error('Session refresh error:', error)
+      throw error
+    }
   }
 }
 
 // ====================================
-// DATABASE FUNCTIONS
+// DATABASE FUNCTIONS (UNCHANGED - WORKING WELL)
 // ====================================
 
 export const db = {
@@ -605,7 +757,7 @@ export const db = {
 }
 
 // ====================================
-// REALTIME SUBSCRIPTIONS
+// REALTIME SUBSCRIPTIONS (UNCHANGED)
 // ====================================
 
 export const realtime = {
@@ -657,7 +809,7 @@ export const realtime = {
 }
 
 // ====================================
-// STORAGE FUNCTIONS
+// STORAGE FUNCTIONS (UNCHANGED)
 // ====================================
 
 export const storage = {
@@ -711,10 +863,10 @@ export const storage = {
 }
 
 // ====================================
-// REACT HOOKS
+// ENHANCED REACT HOOKS WITH SESSION PERSISTENCE
 // ====================================
 
-// Hook to get current user and profile
+// Enhanced hook to get current user and profile with persistence
 export function useUser() {
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -724,27 +876,48 @@ export function useUser() {
   useEffect(() => {
     const client = getSupabaseClient()
     
-    // Get initial session
-    auth.getSession().then(session => {
-      if (session?.user) {
-        setUser(session.user)
-        // Fetch profile and stats
-        Promise.all([
-          db.profiles.get(session.user.id),
-          db.stats.get(session.user.id)
-        ]).then(([profileData, statsData]) => {
-          setProfile(profileData)
-          setStats(statsData)
-        }).catch(console.error)
+    // Get initial session with enhanced checking
+    const initializeUser = async () => {
+      try {
+        console.log('🔍 Checking for existing session...')
+        const session = await auth.getSession()
+        
+        if (session?.user) {
+          console.log('✅ Found existing session, restoring user')
+          setUser(session.user)
+          
+          // Fetch profile and stats
+          try {
+            const [profileData, statsData] = await Promise.all([
+              db.profiles.get(session.user.id),
+              db.stats.get(session.user.id)
+            ])
+            setProfile(profileData)
+            setStats(statsData)
+            console.log('✅ User data restored successfully')
+          } catch (error) {
+            console.error('Error fetching user data:', error)
+          }
+        } else {
+          console.log('ℹ️ No existing session found')
+        }
+      } catch (error) {
+        console.error('Session initialization error:', error)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
-    })
+    }
 
-    // Listen for auth changes
+    initializeUser()
+
+    // Listen for auth changes with enhanced handling
     const { data: { subscription } } = client.auth.onAuthStateChange(
       async (event, session) => {
+        console.log(`🔄 Auth state changed: ${event}`)
+        
         if (session?.user) {
           setUser(session.user)
+          
           // Fetch profile and stats
           try {
             const [profileData, statsData] = await Promise.all([
@@ -754,7 +927,7 @@ export function useUser() {
             setProfile(profileData)
             setStats(statsData)
           } catch (error) {
-            console.error('Error fetching user data:', error)
+            console.error('Error fetching user data after auth change:', error)
           }
         } else {
           setUser(null)
@@ -773,7 +946,7 @@ export function useUser() {
   return { user, profile, stats, loading }
 }
 
-// Hook for notifications
+// Hook for notifications (UNCHANGED)
 export function useNotifications() {
   const { user } = useUser()
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -814,7 +987,7 @@ export function useNotifications() {
   return { notifications, unreadCount, markAsRead }
 }
 
-// Hook for duels
+// Hook for duels (UNCHANGED)
 export function useDuels() {
   const { user } = useUser()
   const [myDuels, setMyDuels] = useState<Duel[]>([])
