@@ -352,7 +352,7 @@ export default function TrainingPage() {
                 targetTime={selectedExercise.targetTime}
                 onComplete={(data) => {
                   setPerformanceData(prev => [...prev, data])
-                  setTotalCalories(prev => prev + (data.calories || 0))
+                  setTotalCalories(prev => prev + ((data as any).calories || 0))
                 }}
                 onProgress={(progress) => {
                   setCurrentReps(progress.reps || 0)
