@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('💥 GET /api/calibration unexpected error:', error)
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
@@ -296,9 +296,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('💥 POST /api/calibration unexpected error:', error)
-    console.error('💥 Error stack:', error.stack)
+    console.error('💥 Error stack:', error instanceof Error ? error.stack : 'No stack trace')
     return NextResponse.json(
-      { error: 'Errore nel salvataggio dei dati di calibrazione', details: error.message },
+      { error: 'Errore nel salvataggio dei dati di calibrazione', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
@@ -355,7 +355,7 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     console.error('💥 DELETE /api/calibration unexpected error:', error)
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
