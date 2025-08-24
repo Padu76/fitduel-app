@@ -23,7 +23,6 @@ import {
 } from '@/components/game/ai-tracker/constants/exercises'
 import type { ExerciseConfig } from '@/components/game/ai-tracker/types'
 import { AIExerciseTracker } from '@/components/game/ai-tracker/AIExerciseTracker'
-import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
@@ -207,10 +206,10 @@ const ExerciseCard = ({
               <Camera className="w-5 h-5 text-blue-400 mx-auto mb-1" />
               <span className="text-xs text-blue-400 font-medium">AI Ready</span>
             </div>
-            <Button variant="ghost" size="sm" className="text-green-400 hover:text-green-300">
-              <Play className="w-4 h-4 mr-1" />
+            <button className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-all text-sm">
+              <Play className="w-4 h-4 inline mr-1" />
               Inizia
-            </Button>
+            </button>
           </div>
         </div>
       </motion.div>
@@ -315,14 +314,13 @@ const AITrainingSession = ({
           </div>
         </div>
         
-        <Button
+        <button
           onClick={onBack}
-          variant="outline"
-          size="sm"
+          className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-all flex items-center gap-2"
         >
-          <ArrowLeft className="w-4 h-4 mr-1" />
+          <ArrowLeft className="w-4 h-4" />
           Torna agli Esercizi
-        </Button>
+        </button>
       </div>
 
       {/* AI Tracker Component */}
