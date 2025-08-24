@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 
 // Import the Challenge Modal
-import ChallengeFriendsModal from './ChallengeFriendsModal'
+import ChallengeFriendsModal from '../components/ChallengeFriendsModal'
 
 // Types for real data from Supabase
 interface Profile {
