@@ -157,49 +157,24 @@ export async function POST(request: NextRequest) {
 
     console.log('📋 Existing calibration:', existingCalibration ? 'EXISTS' : 'NEW')
 
-    // Step 5: Prepare complete data for user_calibration table (33 columns)
+    // Step 5: Prepare data using ONLY existing database columns
     const calibrationRecord = {
       user_id: userId,
-      // Basic info
+      // Basic info from settings
       age: calibrationData.age || 25,
       weight: calibrationData.weight || 70,
       height: calibrationData.height || 175,
       gender: calibrationData.gender || 'male',
       fitness_level: calibrationData.fitness_level || 'intermediate',
-      years_experience: calibrationData.years_experience || 0,
-      primary_sport: calibrationData.primary_sport || 'fitness',
-      sport_category: calibrationData.sport_category || 'mixed',
-      goals: calibrationData.goals || [],
-      workout_duration_preference: calibrationData.workout_duration_preference || 30,
       
-      // Physical measurements
-      body_fat_percentage: calibrationData.body_fat_percentage || null,
-      muscle_mass: calibrationData.muscle_mass || null,
-      resting_heart_rate: calibrationData.resting_heart_rate || null,
-      max_heart_rate: calibrationData.max_heart_rate || null,
+      // Map frontend fields to actual database columns
+      years_experience: calibrationData.experience_years || calibrationData.years_experience || 0,
+      primary_sport: calibrationData.sport_background?.[0] || calibrationData.primary_sport || 'fitness',
+      sport_category: calibrationData.primary_activity_type || calibrationData.sport_category || 'mixed',
+      goals: calibrationData.target_goals || calibrationData.goals || [],
+      workout_duration_preference: calibrationData.preferred_workout_duration || calibrationData.workout_duration_preference || 30,
       
-      // Performance metrics
-      flexibility_score: calibrationData.flexibility_score || null,
-      strength_score: calibrationData.strength_score || null,
-      endurance_score: calibrationData.endurance_score || null,
-      balance_score: calibrationData.balance_score || null,
-      coordination_score: calibrationData.coordination_score || null,
-      
-      // AI Calibration data
-      baseline_angles: aiCalibrationData.baseline_angles || null,
-      body_proportions: aiCalibrationData.body_proportions || null,
-      movement_patterns: aiCalibrationData.movement_patterns || null,
-      range_of_motion: aiCalibrationData.range_of_motion || null,
-      form_preferences: aiCalibrationData.form_preferences || null,
-      injury_history: calibrationData.injury_history || [],
-      equipment_access: calibrationData.equipment_access || [],
-      
-      // Preferences
-      workout_intensity: calibrationData.workout_intensity || 'moderate',
-      preferred_workout_times: calibrationData.preferred_workout_times || [],
-      training_frequency: calibrationData.training_frequency || 3,
-      
-      // System fields
+      // AI/System fields
       calibration_version: '1.0',
       updated_at: new Date().toISOString()
     }
