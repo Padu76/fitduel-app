@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
         // Check if user has enough XP to wager
         const { data: userProfile, error: profileError } = await supabase
           .from('profiles')
-          .select('xp')
+          .select('xp, username, display_name')
           .eq('id', userId)
           .single()
 
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
             user_id: targetUserId,
             type: 'duel_challenge',
             title: 'Nuova Sfida!',
-            message: `${userProfile.username || 'Un utente'} ti ha sfidato per ${wagerXp} XP!`,
+            message: `${userProfile.username || userProfile.display_name || 'Un utente'} ti ha sfidato per ${wagerXp} XP!`,
             data: { duel_id: newDuel.id, challenger_id: userId },
             created_at: new Date().toISOString()
           })
