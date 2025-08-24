@@ -13,6 +13,9 @@ import {
   Camera, AlertCircle
 } from 'lucide-react'
 
+// Import the Challenge Modal
+import ChallengeFriendsModal from './ChallengeFriendsModal'
+
 // Types for real data from Supabase
 interface Profile {
   id: string
@@ -46,6 +49,16 @@ interface Duel {
   challenged?: { username: string }
   wager_xp: number
   reward_xp: number
+}
+
+interface User {
+  id: string
+  username: string
+  display_name: string | null
+  level: number
+  xp: number
+  avatar_url: string | null
+  last_seen: string | null
 }
 
 // Helper functions
@@ -85,6 +98,10 @@ export default function UltimateDashboard() {
   const [recentDuels, setRecentDuels] = useState<Duel[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  
+  // Challenge modal state
+  const [showChallengeModal, setShowChallengeModal] = useState(false)
+  const [challengeSuccess, setChallengeSuccess] = useState<{user: User, xp: number} | null>(null)
   
   // Gaming UI states
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
@@ -179,7 +196,7 @@ export default function UltimateDashboard() {
       const response = await fetch('/api/duels/recent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId })
+        body: JSON.stringify({ userId, action: 'recent' })
       })
 
       if (response.ok) {
@@ -224,6 +241,33 @@ export default function UltimateDashboard() {
     } catch (error) {
       console.error('Logout error:', error)
       router.push('/auth')
+    }
+  }
+
+  // Handle challenge success
+  const handleChallengeSuccess = (challengedUser: User, wagerXp: number) => {
+    setChallengeSuccess({ user: challengedUser, xp: wagerXp })
+    
+    // Add success notification
+    const newNotification = {
+      id: Date.now(),
+      type: 'success',
+      message: `Sfida inviata a ${challengedUser.display_name || challengedUser.username}!`,
+      time: 'ora',
+      read: false
+    }
+    setNotifications(prev => [newNotification, ...prev])
+    
+    // Show success toast
+    setShowToast(true)
+    setTimeout(() => {
+      setShowToast(false)
+      setChallengeSuccess(null)
+    }, 5000)
+
+    // Refresh recent duels
+    if (user) {
+      fetchRecentDuels(user.id)
     }
   }
 
@@ -613,11 +657,20 @@ export default function UltimateDashboard() {
                   <h2 className="text-xl md:text-2xl font-bold text-white">
                     Bentornato, {user.display_name}! 💪
                   </h2>
-                  <button className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 
-                    rounded-lg text-white font-bold text-sm hover:shadow-lg hover:shadow-green-500/25 
-                    transition-all duration-300 hover:scale-105">
+                  
+                  {/* FIXED: Challenge Button with onClick handler */}
+                  <motion.button
+                    onClick={() => setShowChallengeModal(true)}
+                    className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 
+                      rounded-lg text-white font-bold text-sm hover:shadow-lg hover:shadow-green-500/25 
+                      transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <Swords className="w-4 h-4" />
                     SFIDA UN AMICO
-                  </button>
+                  </motion.button>
+                  
                   {/* Calibration AI Quick Access */}
                   <Link href="/settings?tab=calibration">
                     <motion.button
@@ -874,20 +927,24 @@ export default function UltimateDashboard() {
                 <div className="text-center py-8 text-gray-400">
                   <Swords className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>Nessuna sfida recente</p>
-                  <Link href="/challenges" className="text-blue-400 hover:text-blue-300 text-sm">
+                  <button 
+                    onClick={() => setShowChallengeModal(true)}
+                    className="text-blue-400 hover:text-blue-300 text-sm"
+                  >
                     Inizia la tua prima sfida →
-                  </Link>
+                  </button>
                 </div>
               )}
             </div>
             
-            <Link href="/challenges">
-              <button className="w-full mt-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 
+            <button
+              onClick={() => setShowChallengeModal(true)}
+              className="w-full mt-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 
                 rounded-lg text-white font-bold hover:shadow-lg hover:shadow-green-500/25 
-                transition-all duration-300">
-                Nuova Sfida
-              </button>
-            </Link>
+                transition-all duration-300"
+            >
+              Nuova Sfida
+            </button>
           </motion.div>
 
           {/* Live Activity */}
@@ -978,6 +1035,17 @@ export default function UltimateDashboard() {
         </div>
       </div>
 
+      {/* Challenge Friends Modal */}
+      {user && (
+        <ChallengeFriendsModal
+          isOpen={showChallengeModal}
+          onClose={() => setShowChallengeModal(false)}
+          currentUserId={user.id}
+          currentUserXp={user.xp}
+          onChallengeSuccess={handleChallengeSuccess}
+        />
+      )}
+
       {/* Notifications Modal */}
       <AnimatePresence>
         {showNotifications && (
@@ -1027,9 +1095,11 @@ export default function UltimateDashboard() {
                       <div className="flex items-start gap-3">
                         <div className={`p-2 rounded-lg
                           ${notif.type === 'challenge' ? 'bg-red-500/20' :
-                            notif.type === 'achievement' ? 'bg-yellow-500/20' : 'bg-blue-500/20'}`}>
+                            notif.type === 'achievement' ? 'bg-yellow-500/20' : 
+                            notif.type === 'success' ? 'bg-green-500/20' : 'bg-blue-500/20'}`}>
                           {notif.type === 'challenge' && <Swords className="w-4 h-4 text-red-400" />}
                           {notif.type === 'achievement' && <Trophy className="w-4 h-4 text-yellow-400" />}
+                          {notif.type === 'success' && <Target className="w-4 h-4 text-green-400" />}
                           {notif.type === 'friend' && <Users className="w-4 h-4 text-blue-400" />}
                         </div>
                         <div className="flex-1">
@@ -1059,9 +1129,42 @@ export default function UltimateDashboard() {
         )}
       </AnimatePresence>
 
-      {/* Toast Notification */}
+      {/* Success Toast Notification */}
       <AnimatePresence>
-        {showToast && (
+        {challengeSuccess && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, x: 50 }}
+            animate={{ opacity: 1, y: 0, x: 0 }}
+            exit={{ opacity: 0, y: 50, x: 50 }}
+            className="fixed bottom-8 right-8 bg-slate-900/95 backdrop-blur-xl rounded-xl 
+              border border-green-500/30 shadow-2xl p-6 max-w-sm z-50"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-green-500/20 rounded-lg">
+                <Swords className="w-6 h-6 text-green-400" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-white">Sfida Inviata! 🎯</p>
+                <p className="text-xs text-slate-400">
+                  {challengeSuccess.user.display_name || challengeSuccess.user.username} • {challengeSuccess.xp} XP
+                </p>
+              </div>
+            </div>
+            <div className="w-full bg-slate-700 rounded-full h-1">
+              <motion.div 
+                className="h-full bg-green-400 rounded-full"
+                initial={{ width: "100%" }}
+                animate={{ width: "0%" }}
+                transition={{ duration: 5, ease: "linear" }}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Toast Notification for unread notifications */}
+      <AnimatePresence>
+        {showToast && !challengeSuccess && unreadCount > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 50, x: 50 }}
             animate={{ opacity: 1, y: 0, x: 0 }}
