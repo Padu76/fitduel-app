@@ -27,6 +27,18 @@ import { Card } from '@/components/ui/Card'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 // ====================================
+// DIFFICULTY MAPPING
+// ====================================
+const difficultyMapping = {
+  'beginner': 'easy',
+  'intermediate': 'medium', 
+  'advanced': 'hard',
+  'expert': 'extreme'
+} as const
+
+type ProgramDifficulty = keyof typeof difficultyMapping
+
+// ====================================
 // TYPES
 // ====================================
 interface ProgramSession {
@@ -48,7 +60,7 @@ interface TrainingProgram {
   description: string
   duration: number // days
   dailyTime: number // minutes
-  difficulty: 'beginner' | 'intermediate' | 'advanced' | 'expert'
+  difficulty: ProgramDifficulty
   category: string
   icon: string
   color: string
@@ -295,7 +307,8 @@ const ProgramCard = ({
   onSelect: (program: TrainingProgram) => void
   userLevel?: number
 }) => {
-  const difficulty = DIFFICULTY_LEVELS[program.difficulty] || DIFFICULTY_LEVELS.easy
+  const difficultyKey = difficultyMapping[program.difficulty]
+  const difficulty = DIFFICULTY_LEVELS[difficultyKey] || DIFFICULTY_LEVELS.easy
   const progress = (program.completed / program.totalSessions) * 100
   const isLocked = program.locked // We'll implement unlock logic later
 
@@ -452,7 +465,8 @@ const ProgramDetail = ({
   
   const progress = (program.completed / program.totalSessions) * 100
   const weeks = Math.ceil(program.duration / 7)
-  const difficulty = DIFFICULTY_LEVELS[program.difficulty] || DIFFICULTY_LEVELS.easy
+  const difficultyKey = difficultyMapping[program.difficulty]
+  const difficulty = DIFFICULTY_LEVELS[difficultyKey] || DIFFICULTY_LEVELS.easy
   
   const getWeekSessions = (week: number) => {
     const startDay = (week - 1) * 7 + 1
@@ -578,7 +592,8 @@ const ProgramDetail = ({
               const exercise = EXERCISE_DEFINITIONS[exerciseId]
               if (!exercise) return null
               
-              const difficulty = DIFFICULTY_LEVELS[exercise.difficulty]
+              const exerciseDifficultyKey = difficultyMapping[exercise.difficulty as ProgramDifficulty] || 'easy'
+              const exerciseDifficulty = DIFFICULTY_LEVELS[exerciseDifficultyKey]
               
               return (
                 <div key={exerciseId} className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg">
@@ -591,8 +606,8 @@ const ProgramDetail = ({
                       <p className="text-gray-400 text-xs">{exercise.category}</p>
                     </div>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs ${difficulty.bgColor} ${difficulty.color}`}>
-                    {difficulty.name}
+                  <span className={`px-2 py-1 rounded-full text-xs ${exerciseDifficulty.bgColor} ${exerciseDifficulty.color}`}>
+                    {exerciseDifficulty.name}
                   </span>
                 </div>
               )
@@ -765,7 +780,7 @@ const ProgramSession = ({
     onBack()
   }
 
-  const handleProgress = (progress: number) => {
+  const handleProgress = (progress: any) => {
     console.log('Session progress:', progress)
   }
 
