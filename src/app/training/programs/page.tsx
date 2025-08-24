@@ -23,7 +23,6 @@ import {
 } from '@/components/game/ai-tracker/constants/exercises'
 import type { ExerciseConfig } from '@/components/game/ai-tracker/types'
 import { AIExerciseTracker } from '@/components/game/ai-tracker/AIExerciseTracker'
-import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
@@ -681,20 +680,22 @@ const ProgramDetail = ({
                   </div>
                 </div>
                 
-                <Button
+                <button
                   onClick={() => onStartSession(session)}
                   disabled={session.completed}
-                  variant={session.completed ? 'outline' : 'default'}
-                  size="sm"
-                  className={session.completed ? 'opacity-50 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all text-sm ${
+                    session.completed 
+                      ? 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-50' 
+                      : 'bg-green-600 hover:bg-green-700 text-white'
+                  }`}
                 >
                   {session.completed ? 'Completata' : (
                     <>
-                      <Camera className="w-4 h-4 mr-1" />
+                      <Camera className="w-4 h-4 inline mr-1" />
                       AI Start
                     </>
                   )}
-                </Button>
+                </button>
               </div>
             )
           })}
@@ -703,25 +704,24 @@ const ProgramDetail = ({
 
       {/* Actions */}
       <div className="flex gap-4">
-        <Button
+        <button
           onClick={onBack}
-          variant="outline"
-          className="px-6"
+          className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-all flex items-center gap-2"
         >
-          <ArrowLeft className="w-5 h-5 mr-2" />
+          <ArrowLeft className="w-5 h-5" />
           Torna ai Programmi
-        </Button>
+        </button>
         
-        <Button
+        <button
           onClick={() => {
             const nextSession = program.sessions.find((s: ProgramSession) => !s.completed)
             if (nextSession) onStartSession(nextSession)
           }}
-          className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
+          className="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-lg font-medium transition-all flex items-center justify-center gap-2"
         >
-          <Camera className="w-5 h-5 mr-2" />
+          <Camera className="w-5 h-5" />
           {program.completed > 0 ? 'Continua con AI' : 'Inizia Programma AI'}
-        </Button>
+        </button>
       </div>
     </div>
   )
@@ -746,7 +746,9 @@ const ProgramSession = ({
     return (
       <div className="text-center py-12">
         <p className="text-red-400">Errore: Esercizio non trovato</p>
-        <Button onClick={onBack} className="mt-4">Torna al Programma</Button>
+        <button onClick={onBack} className="mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg">
+          Torna al Programma
+        </button>
       </div>
     )
   }
@@ -785,14 +787,13 @@ const ProgramSession = ({
           </div>
         </div>
         
-        <Button
+        <button
           onClick={onBack}
-          variant="outline"
-          size="sm"
+          className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-all flex items-center gap-2"
         >
-          <ArrowLeft className="w-4 h-4 mr-1" />
+          <ArrowLeft className="w-4 h-4" />
           Torna
-        </Button>
+        </button>
       </div>
 
       {/* Session Info */}
