@@ -278,7 +278,7 @@ export default function FreeTrainingPage() {
   const [formScore, setFormScore] = useState(0)
   const [calories, setCalories] = useState(0)
 
-  // Timer effect
+  // Timer effect with proper cleanup
   useEffect(() => {
     let interval = null
     if (isTraining) {
@@ -286,7 +286,9 @@ export default function FreeTrainingPage() {
         setTimer(timer => timer + 1)
       }, 1000)
     }
-    return () => clearInterval(interval)
+    return () => {
+      if (interval) clearInterval(interval)
+    }
   }, [isTraining])
 
   // Funzione per calcolare calorie stimate
@@ -314,7 +316,9 @@ export default function FreeTrainingPage() {
         }
       }, 2000)
       
-      return () => clearInterval(interval)
+      return () => {
+        if (interval) clearInterval(interval)
+      }
     }
   }, [aiTrackerActive, isTraining, selectedExercise, detectedReps])
 
