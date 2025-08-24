@@ -6,588 +6,391 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
   ArrowLeft, Play, Pause, RotateCcw, Settings, 
-  Dumbbell, Activity, Target, Zap, Timer, 
-  CheckCircle, AlertCircle, Filter, Search,
-  Grid, List, Award, Star, Crown, Camera,
-  Volume2, Maximize, Info, Eye, TrendingUp
+  Dumbbell, Activity, Timer, Target, Zap,
+  Search, Filter, Grid, List, Eye, Flame
 } from 'lucide-react'
 
-// ====================================
-// IMPORTS FROM REAL SYSTEM
-// ====================================
-import { 
-  EXERCISE_DEFINITIONS, 
-  EXERCISE_CATEGORIES,
-  DIFFICULTY_LEVELS,
-  getExercisesByCategory
-} from '@/components/game/ai-tracker/constants/exercises'
-import type { ExerciseConfig } from '@/components/game/ai-tracker/types'
-import { AIExerciseTracker } from '@/components/game/ai-tracker/AIExerciseTracker'
-import { Card } from '@/components/ui/Card'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+// Importa esercizi reali dal sistema
+import { exercises as allExercises } from '@/data/exercises'
 
-// ====================================
-// TYPES
-// ====================================
-type ViewMode = 'grid' | 'list'
-type FilterType = 'all' | 'strength' | 'cardio' | 'core'
-type SortType = 'name' | 'difficulty' | 'calories'
-
-// ====================================
-// UTILS - TYPE SAFE FUNCTIONS
-// ====================================
-const calculateEstimatedCalories = (exercise: ExerciseConfig): number => {
-  const caloriesPerRep = exercise.caloriesPerRep || 0.5 // Safe default
-  const targetValue = exercise.targetReps || exercise.targetTime || 20 // Smart fallback
-  return Math.round(caloriesPerRep * targetValue)
-}
-
-const getDisplayTarget = (exercise: ExerciseConfig): string => {
-  if (exercise.targetReps) return `${exercise.targetReps} reps`
-  if (exercise.targetTime) return `${exercise.targetTime}s`
-  return '20 reps' // Default
-}
-
-// ====================================
-// COMPONENTS
-// ====================================
-const ExerciseFilters = ({ 
-  activeFilter, 
-  onFilterChange, 
-  searchTerm, 
-  onSearchChange,
-  viewMode,
-  onViewModeChange,
-  sortBy,
-  onSortChange
-}: {
-  activeFilter: FilterType
-  onFilterChange: (filter: FilterType) => void
-  searchTerm: string
-  onSearchChange: (term: string) => void
-  viewMode: ViewMode
-  onViewModeChange: (mode: ViewMode) => void
-  sortBy: SortType
-  onSortChange: (sort: SortType) => void
-}) => {
-  const totalExercises = Object.keys(EXERCISE_DEFINITIONS).length
-
-  return (
-    <div className="space-y-4">
-      {/* Search Bar */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Cerca esercizi per nome, categoria..."
-          value={searchTerm}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white placeholder-gray-400 focus:border-green-500/50 focus:outline-none transition-all"
-        />
-      </div>
-
-      {/* Filter Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        {/* Category Filters */}
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => onFilterChange('all')}
-            className={`px-4 py-2 rounded-lg font-medium transition-all ${
-              activeFilter === 'all'
-                ? 'bg-green-500 text-white'
-                : 'bg-slate-700/50 text-gray-300 hover:bg-slate-700'
-            }`}
-          >
-            Tutti ({totalExercises})
-          </button>
-          {Object.entries(EXERCISE_CATEGORIES).map(([key, category]) => {
-            const count = getExercisesByCategory(key).length
-            return (
-              <button
-                key={key}
-                onClick={() => onFilterChange(key as FilterType)}
-                className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                  activeFilter === key
-                    ? `bg-gradient-to-r ${category.color} text-white`
-                    : 'bg-slate-700/50 text-gray-300 hover:bg-slate-700'
-                }`}
-              >
-                <span>{category.icon}</span>
-                {category.name} ({count})
-              </button>
-            )
-          })}
-        </div>
-
-        {/* View & Sort Controls */}
-        <div className="flex items-center gap-2">
-          {/* Sort Dropdown */}
-          <select
-            value={sortBy}
-            onChange={(e) => onSortChange(e.target.value as SortType)}
-            className="px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm focus:border-green-500/50 focus:outline-none"
-          >
-            <option value="name">Nome</option>
-            <option value="difficulty">Difficoltà</option>
-            <option value="calories">Calorie</option>
-          </select>
-
-          {/* View Mode Toggle */}
-          <div className="flex bg-slate-700/50 rounded-lg p-1">
-            <button
-              onClick={() => onViewModeChange('grid')}
-              className={`p-2 rounded-md transition-all ${
-                viewMode === 'grid'
-                  ? 'bg-green-500 text-white'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <Grid className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => onViewModeChange('list')}
-              className={`p-2 rounded-md transition-all ${
-                viewMode === 'list'
-                  ? 'bg-green-500 text-white'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <List className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-const ExerciseCard = ({ 
-  exercise, 
-  onSelect, 
-  viewMode 
-}: { 
-  exercise: ExerciseConfig
-  onSelect: (exercise: ExerciseConfig) => void
-  viewMode: ViewMode
-}) => {
-  const difficulty = DIFFICULTY_LEVELS[exercise.difficulty]
-  const category = EXERCISE_CATEGORIES[exercise.category]
-  const estimatedCalories = calculateEstimatedCalories(exercise) // ✅ TYPE SAFE
-  const displayTarget = getDisplayTarget(exercise) // ✅ TYPE SAFE
-
-  if (viewMode === 'list') {
-    return (
-      <motion.div
-        whileHover={{ scale: 1.01 }}
-        whileTap={{ scale: 0.99 }}
-        onClick={() => onSelect(exercise)}
-        className="bg-slate-800/50 backdrop-blur-xl rounded-xl p-4 border border-slate-700/50 hover:border-green-500/50 transition-all cursor-pointer group"
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 bg-gradient-to-br ${category.color} rounded-xl flex items-center justify-center`}>
-              <span className="text-xl">{category.icon}</span>
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-white group-hover:text-green-400 transition-colors">{exercise.name}</h3>
-              <p className="text-sm text-gray-400 mb-1">{exercise.description}</p>
-              <div className="flex items-center gap-3 text-xs text-gray-500">
-                <span>{displayTarget}</span>
-                <span>•</span>
-                <span>~{estimatedCalories} cal</span>
-                <span>•</span>
-                <span className={`font-medium ${difficulty.color}`}>{difficulty.name}</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <div className="text-center">
-              <Camera className="w-5 h-5 text-blue-400 mx-auto mb-1" />
-              <span className="text-xs text-blue-400 font-medium">AI Ready</span>
-            </div>
-            <button className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-all text-sm">
-              <Play className="w-4 h-4 inline mr-1" />
-              Inizia
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    )
-  }
-
-  return (
-    <motion.div
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={() => onSelect(exercise)}
-      className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50 hover:border-green-500/50 transition-all cursor-pointer group"
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className={`w-12 h-12 bg-gradient-to-br ${category.color} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform`}>
-            <span className="text-2xl">{category.icon}</span>
-          </div>
-          <div>
-            <h3 className="text-xl font-bold text-white group-hover:text-green-400 transition-colors">{exercise.name}</h3>
-            <p className="text-sm text-gray-400">{category.name}</p>
-          </div>
-        </div>
-        <span className={`px-2 py-1 rounded-full text-xs ${difficulty.bgColor} ${difficulty.color} border ${difficulty.borderColor}`}>
-          {difficulty.name}
-        </span>
-      </div>
-      
-      {/* Description */}
-      <p className="text-sm text-gray-300 mb-4 line-clamp-2">{exercise.description}</p>
-      
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <div className="bg-slate-700/30 rounded-lg p-3 text-center">
-          <div className="flex items-center justify-center gap-1 mb-1">
-            <Target className="w-4 h-4 text-blue-400" />
-            <span className="text-xs text-blue-400">Target</span>
-          </div>
-          <p className="text-lg font-bold text-white">{displayTarget}</p>
-        </div>
-        
-        <div className="bg-slate-700/30 rounded-lg p-3 text-center">
-          <div className="flex items-center justify-center gap-1 mb-1">
-            <Zap className="w-4 h-4 text-orange-400" />
-            <span className="text-xs text-orange-400">Calorie</span>
-          </div>
-          <p className="text-lg font-bold text-white">{estimatedCalories}</p>
-        </div>
-      </div>
-      
-      {/* AI Features */}
-      <div className="flex items-center justify-center gap-2 mb-4">
-        <div className="flex items-center gap-1 px-2 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs">
-          <Camera className="w-3 h-3" />
-          <span>AI Tracking</span>
-        </div>
-        <div className="flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-400 rounded-full text-xs">
-          <Volume2 className="w-3 h-3" />
-          <span>Voice Coach</span>
-        </div>
-      </div>
-
-      {/* Action Button */}
-      <div className="flex items-center justify-center group-hover:bg-green-500/10 rounded-lg p-3 transition-all">
-        <Play className="w-5 h-5 text-green-400 mr-2 group-hover:scale-110 transition-transform" />
-        <span className="text-green-400 font-medium">Inizia Allenamento</span>
-      </div>
-    </motion.div>
-  )
-}
-
-const AITrainingSession = ({ 
-  exercise, 
-  onBack,
-  userId 
-}: { 
-  exercise: ExerciseConfig
-  onBack: () => void
-  userId: string
-}) => {
-  const handleComplete = (data: any) => {
-    console.log('Exercise completed:', data)
-    onBack()
-  }
-
-  const handleProgress = (progress: number) => {
-    console.log('Progress:', progress)
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Session Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
-            <Camera className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-white">Free Training AI</h2>
-            <p className="text-gray-400">{exercise.name} • Modalità Libera</p>
-          </div>
-        </div>
-        
-        <button
-          onClick={onBack}
-          className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-all flex items-center gap-2"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Torna agli Esercizi
-        </button>
-      </div>
-
-      {/* AI Tracker Component */}
-      <AIExerciseTracker
-        exerciseId={exercise.id}
-        userId={userId}
-        targetReps={exercise.targetReps}
-        targetTime={exercise.targetTime}
-        onComplete={handleComplete}
-        onProgress={handleProgress}
-        strictMode={false} // Free training, no pressure
-      />
-
-      {/* Training Info */}
-      <Card className="p-4">
-        <div className="flex items-center gap-3 mb-3">
-          <Activity className="w-5 h-5 text-green-400" />
-          <h3 className="font-bold text-white">Modalità Free Training</h3>
-        </div>
-        <p className="text-gray-300 text-sm mb-3">
-          Stai usando il sistema AI completo senza pressione competitiva. 
-          Perfetto per imparare, praticare e migliorare la tua tecnica.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs">Senza Pressione</span>
-          <span className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs">AI Tracking Completo</span>
-          <span className="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-xs">Focus sulla Tecnica</span>
-        </div>
-      </Card>
-    </div>
-  )
-}
-
-// ====================================
-// MAIN COMPONENT
-// ====================================
 export default function FreeTrainingPage() {
   const router = useRouter()
+  const [selectedExercise, setSelectedExercise] = useState(null)
+  const [isTraining, setIsTraining] = useState(false)
+  const [timer, setTimer] = useState(0)
+  const [currentSet, setCurrentSet] = useState(1)
+  const [reps, setReps] = useState(0)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState('all')
+  const [viewMode, setViewMode] = useState('grid')
   
-  // State
-  const [selectedCategory, setSelectedCategory] = useState<FilterType>('all')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedExercise, setSelectedExercise] = useState<ExerciseConfig | null>(null)
-  const [aiTrainingActive, setAiTrainingActive] = useState(false)
-  const [viewMode, setViewMode] = useState<ViewMode>('grid')
-  const [sortBy, setSortBy] = useState<SortType>('name')
-  const [userId] = useState('free-training-user') // In real app, get from auth
+  // AI Tracker states
+  const [aiTrackerActive, setAiTrackerActive] = useState(false)
+  const [detectedReps, setDetectedReps] = useState(0)
+  const [formScore, setFormScore] = useState(0)
+  const [calories, setCalories] = useState(0)
 
-  // Get all exercises from real system - TYPE SAFE
-  const allExercises = Object.values(EXERCISE_DEFINITIONS)
+  // Timer effect
+  useEffect(() => {
+    let interval = null
+    if (isTraining) {
+      interval = setInterval(() => {
+        setTimer(timer => timer + 1)
+      }, 1000)
+    }
+    return () => clearInterval(interval)
+  }, [isTraining])
 
-  // Filter and sort exercises
-  const filteredExercises = allExercises
-    .filter(exercise => {
-      // Category filter
-      if (selectedCategory !== 'all' && exercise.category !== selectedCategory) return false
+  // Funzione per calcolare calorie stimate
+  const calculateEstimatedCalories = (exercise, reps, sets = 1) => {
+    const baseCalories = exercise.caloriesPerRep || 0.5
+    return Math.round(baseCalories * reps * sets * 10) / 10
+  }
+
+  // Simula AI tracking
+  useEffect(() => {
+    if (aiTrackerActive && isTraining) {
+      const interval = setInterval(() => {
+        // Simula rilevamento reps
+        if (Math.random() > 0.7) {
+          setDetectedReps(prev => prev + 1)
+          setReps(prev => prev + 1)
+        }
+        
+        // Simula score forma
+        setFormScore(Math.floor(Math.random() * 30) + 70)
+        
+        // Calcola calorie
+        if (selectedExercise) {
+          setCalories(calculateEstimatedCalories(selectedExercise, detectedReps))
+        }
+      }, 2000)
       
-      // Search filter
-      if (searchQuery) {
-        const searchLower = searchQuery.toLowerCase()
-        return (
-          exercise.name.toLowerCase().includes(searchLower) ||
-          exercise.category.toLowerCase().includes(searchLower) ||
-          exercise.description.toLowerCase().includes(searchLower)
-        )
-      }
-      
-      return true
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'difficulty':
-          const diffOrder = { easy: 1, medium: 2, hard: 3, extreme: 4 }
-          return diffOrder[a.difficulty] - diffOrder[b.difficulty]
-        case 'calories':
-          return calculateEstimatedCalories(b) - calculateEstimatedCalories(a)
-        default:
-          return a.name.localeCompare(b.name)
-      }
-    })
+      return () => clearInterval(interval)
+    }
+  }, [aiTrackerActive, isTraining, selectedExercise, detectedReps])
 
-  const handleExerciseSelect = (exercise: ExerciseConfig) => {
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
+
+  const startTraining = (exercise) => {
     setSelectedExercise(exercise)
-    setAiTrainingActive(true)
+    setIsTraining(true)
+    setTimer(0)
+    setCurrentSet(1)
+    setReps(0)
+    setDetectedReps(0)
+    setFormScore(0)
+    setCalories(0)
+    setAiTrackerActive(true)
   }
 
-  const handleBackToExercises = () => {
+  const pauseTraining = () => {
+    setIsTraining(!isTraining)
+  }
+
+  const resetTraining = () => {
+    setIsTraining(false)
+    setTimer(0)
+    setCurrentSet(1)
+    setReps(0)
+    setDetectedReps(0)
+    setFormScore(0)
+    setCalories(0)
+    setAiTrackerActive(false)
+  }
+
+  const nextSet = () => {
+    setCurrentSet(prev => prev + 1)
+    setReps(0)
+    setDetectedReps(0)
+  }
+
+  const finishWorkout = () => {
     setSelectedExercise(null)
-    setAiTrainingActive(false)
+    resetTraining()
   }
 
-  // AI Training Active View
-  if (aiTrainingActive && selectedExercise) {
+  // Ottieni categorie uniche
+  const categories = [...new Set(allExercises.map(ex => ex.category))]
+
+  // Filtra esercizi
+  const filteredExercises = allExercises.filter(exercise => {
+    const matchesSearch = searchTerm === '' || (
+      exercise.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      exercise.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (exercise.description?.toLowerCase().includes(searchTerm.toLowerCase()) || false)
+    )
+    
+    const matchesCategory = selectedCategory === 'all' || exercise.category === selectedCategory
+    
+    return matchesSearch && matchesCategory
+  })
+
+  // Se in allenamento, mostra interfaccia training
+  if (selectedExercise && isTraining) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
-          <AITrainingSession
-            exercise={selectedExercise}
-            onBack={handleBackToExercises}
-            userId={userId}
-          />
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white">
+        {/* Header Training */}
+        <div className="bg-gray-800/50 backdrop-blur-sm border-b border-gray-700">
+          <div className="flex items-center justify-between p-4">
+            <button 
+              onClick={finishWorkout}
+              className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors"
+            >
+              <ArrowLeft size={20} />
+              Termina
+            </button>
+            <h1 className="text-lg font-semibold">{selectedExercise.name}</h1>
+            <button 
+              onClick={() => setAiTrackerActive(!aiTrackerActive)}
+              className={`p-2 rounded-lg transition-colors ${
+                aiTrackerActive 
+                  ? 'bg-green-600 text-white' 
+                  : 'bg-gray-700 text-gray-300 hover:text-white'
+              }`}
+            >
+              <Eye size={20} />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6">
+          {/* AI Tracker Status */}
+          {aiTrackerActive && (
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-green-600/20 border border-green-600/30 rounded-xl p-4 mb-6"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse" />
+                <span className="text-green-400 font-medium">AI Tracker Attivo</span>
+              </div>
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <div className="text-2xl font-bold text-green-400">{detectedReps}</div>
+                  <div className="text-sm text-gray-400">Reps Rilevate</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-blue-400">{formScore}%</div>
+                  <div className="text-sm text-gray-400">Forma</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-orange-400">{calories}</div>
+                  <div className="text-sm text-gray-400">Calorie</div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Stats principali */}
+          <div className="grid grid-cols-2 gap-6 mb-8">
+            <div className="bg-gray-800/50 rounded-xl p-6 text-center">
+              <Timer className="mx-auto mb-3 text-blue-400" size={32} />
+              <div className="text-3xl font-bold mb-1">{formatTime(timer)}</div>
+              <div className="text-gray-400">Tempo</div>
+            </div>
+            
+            <div className="bg-gray-800/50 rounded-xl p-6 text-center">
+              <Target className="mx-auto mb-3 text-green-400" size={32} />
+              <div className="text-3xl font-bold mb-1">Set {currentSet}</div>
+              <div className="text-gray-400">{reps} reps</div>
+            </div>
+          </div>
+
+          {/* Controlli */}
+          <div className="flex justify-center gap-4 mb-8">
+            <button 
+              onClick={pauseTraining}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-xl transition-colors"
+            >
+              {isTraining ? <Pause size={20} /> : <Play size={20} />}
+              {isTraining ? 'Pausa' : 'Riprendi'}
+            </button>
+            
+            <button 
+              onClick={resetTraining}
+              className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 px-6 py-3 rounded-xl transition-colors"
+            >
+              <RotateCcw size={20} />
+              Reset
+            </button>
+          </div>
+
+          {/* Pulsante Next Set */}
+          {reps > 0 && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="text-center"
+            >
+              <button 
+                onClick={nextSet}
+                className="bg-green-600 hover:bg-green-700 px-8 py-3 rounded-xl transition-colors font-medium"
+              >
+                Prossimo Set
+              </button>
+            </motion.div>
+          )}
         </div>
       </div>
     )
   }
 
-  // Main Free Training View
+  // Interfaccia principale selezione esercizi
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Link href="/training">
-              <motion.button
-                className="p-3 bg-slate-800/50 backdrop-blur rounded-xl border border-slate-700/50 hover:border-green-500/50 transition-all duration-300"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <ArrowLeft className="w-6 h-6 text-green-400" />
-              </motion.button>
-            </Link>
-            
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white">
+      {/* Header */}
+      <div className="bg-gray-800/50 backdrop-blur-sm border-b border-gray-700">
+        <div className="flex items-center justify-between p-4">
+          <Link href="/training" className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors">
+            <ArrowLeft size={20} />
+            Training
+          </Link>
+          <h1 className="text-xl font-bold">Allenamento Libero</h1>
+          <button className="p-2 text-gray-400 hover:text-white transition-colors">
+            <Settings size={20} />
+          </button>
+        </div>
+      </div>
+
+      <div className="p-6">
+        {/* Header con stats */}
+        <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-xl p-6 mb-8 border border-blue-500/20">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center">
+              <Dumbbell className="text-white" size={24} />
+            </div>
             <div>
-              <h1 className="text-4xl font-bold text-white flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl">
-                  <Activity className="w-8 h-8 text-white" />
-                </div>
-                Free Training AI
-              </h1>
-              <p className="text-slate-400 mt-1">
-                Allenati liberamente con {allExercises.length} esercizi e sistema AI completo
-              </p>
+              <h2 className="text-2xl font-bold">Free Training</h2>
+              <p className="text-gray-400">Scegli il tuo esercizio e inizia</p>
             </div>
           </div>
-
-          <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
-            <p className="text-green-400 text-sm font-medium">Modalità Libera 🎯</p>
-            <p className="text-green-100 text-xs">Nessuna pressione • Solo miglioramento</p>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-400">{allExercises.length}</div>
+              <div className="text-sm text-gray-400">Esercizi</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-400">{categories.length}</div>
+              <div className="text-sm text-gray-400">Categorie</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-orange-400">AI</div>
+              <div className="text-sm text-gray-400">Tracker</div>
+            </div>
           </div>
         </div>
 
-        {/* AI System Info */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-2xl p-6 border border-blue-500/30 backdrop-blur-xl mb-8"
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-500/20 rounded-xl">
-              <Camera className="w-8 h-8 text-blue-400" />
+        {/* Filtri e ricerca */}
+        <div className="mb-6">
+          <div className="flex gap-4 mb-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+              <input
+                type="text"
+                placeholder="Cerca esercizi..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+              />
             </div>
-            <div className="flex-1">
-              <h3 className="text-xl font-bold text-white mb-2">Sistema AI Completo Attivo</h3>
-              <p className="text-blue-100 text-sm mb-4">
-                Ogni esercizio utilizza MediaPipe per analisi in tempo reale, conteggio automatico 
-                ripetizioni e feedback vocale personalizzato. Zero pressione, massimo apprendimento.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-medium">
-                  ✓ {allExercises.length} Esercizi Completi
-                </span>
-                <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-medium">
-                  ✓ MediaPipe AI
-                </span>
-                <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-medium">
-                  ✓ Voice Coaching
-                </span>
-                <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-medium">
-                  ✓ Performance Tracking
-                </span>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Filters */}
-        <ExerciseFilters
-          activeFilter={selectedCategory}
-          onFilterChange={setSelectedCategory}
-          searchTerm={searchQuery}
-          onSearchChange={setSearchQuery}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          sortBy={sortBy}
-          onSortChange={setSortBy}
-        />
-
-        {/* Results Info */}
-        <div className="flex items-center justify-between mb-6 mt-8">
-          <p className="text-gray-400">
-            Trovati {filteredExercises.length} esercizi
-            {searchQuery && ` per "${searchQuery}"`}
-            {selectedCategory !== 'all' && ` nella categoria "${EXERCISE_CATEGORIES[selectedCategory]?.name}"`}
-          </p>
-          <div className="text-sm text-gray-500">
-            Vista: <span className="text-green-400 font-medium capitalize">{viewMode}</span>
-          </div>
-        </div>
-
-        {/* Exercises Grid/List */}
-        {filteredExercises.length === 0 ? (
-          <div className="text-center py-12">
-            <Activity className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-400 mb-2">Nessun esercizio trovato</h3>
-            <p className="text-gray-500">Prova a modificare i filtri di ricerca</p>
-          </div>
-        ) : (
-          <motion.div
-            key={`${viewMode}-${selectedCategory}`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className={
-              viewMode === 'grid'
-                ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-                : "space-y-4"
-            }
-          >
-            {filteredExercises.map((exercise, index) => (
-              <motion.div
-                key={exercise.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+                className="bg-gray-800 hover:bg-gray-700 p-3 rounded-xl border border-gray-700 transition-colors"
               >
-                <ExerciseCard
-                  exercise={exercise}
-                  onSelect={handleExerciseSelect}
-                  viewMode={viewMode}
-                />
-              </motion.div>
+                {viewMode === 'grid' ? <List size={20} /> : <Grid size={20} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Filtro categorie */}
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            <button
+              onClick={() => setSelectedCategory('all')}
+              className={`px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
+                selectedCategory === 'all' 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-gray-800 text-gray-300 hover:text-white'
+              }`}
+            >
+              Tutti
+            </button>
+            {categories.map(category => (
+              <button
+                key={category}
+                onClick={() => setSelectedCategory(category)}
+                className={`px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
+                  selectedCategory === category 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-800 text-gray-300 hover:text-white'
+                }`}
+              >
+                {category}
+              </button>
             ))}
-          </motion.div>
-        )}
-
-        {/* Benefits Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16">
-          <Card className="p-6 text-center">
-            <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center mx-auto mb-4">
-              <Camera className="w-6 h-6 text-green-400" />
-            </div>
-            <h3 className="text-lg font-bold text-white mb-2">AI Tracking Completo</h3>
-            <p className="text-slate-400 text-sm">
-              Sistema MediaPipe per analisi movimenti in tempo reale
-            </p>
-          </Card>
-
-          <Card className="p-6 text-center">
-            <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center mx-auto mb-4">
-              <Volume2 className="w-6 h-6 text-blue-400" />
-            </div>
-            <h3 className="text-lg font-bold text-white mb-2">Voice Coaching</h3>
-            <p className="text-slate-400 text-sm">
-              Feedback vocale personalizzato per migliorare la tecnica
-            </p>
-          </Card>
-
-          <Card className="p-6 text-center">
-            <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center mx-auto mb-4">
-              <Target className="w-6 h-6 text-purple-400" />
-            </div>
-            <h3 className="text-lg font-bold text-white mb-2">Zero Pressione</h3>
-            <p className="text-slate-400 text-sm">
-              Focus sulla tecnica e miglioramento personale senza competizione
-            </p>
-          </Card>
+          </div>
         </div>
+
+        {/* Lista/Griglia Esercizi */}
+        <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-4'}>
+          {filteredExercises.map((exercise, index) => (
+            <motion.div
+              key={exercise.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+              className={`bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl hover:border-gray-600 transition-all group ${
+                viewMode === 'list' ? 'flex items-center gap-4 p-4' : 'p-6'
+              }`}
+            >
+              <div className={viewMode === 'list' ? 'flex-1' : ''}>
+                <div className="flex items-center gap-3 mb-2">
+                  <Activity className="text-blue-400" size={20} />
+                  <h3 className="font-semibold text-lg">{exercise.name}</h3>
+                </div>
+                
+                <p className="text-gray-400 text-sm mb-4 line-clamp-2">
+                  {exercise.description}
+                </p>
+                
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-4 text-sm">
+                    <span className="bg-blue-600/20 text-blue-400 px-2 py-1 rounded">
+                      {exercise.category}
+                    </span>
+                    <div className="flex items-center gap-1 text-orange-400">
+                      <Flame size={16} />
+                      {calculateEstimatedCalories(exercise, 1)} cal/rep
+                    </div>
+                  </div>
+                </div>
+                
+                <button 
+                  onClick={() => startTraining(exercise)}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-xl transition-colors font-medium group-hover:bg-blue-500"
+                >
+                  Inizia Allenamento
+                </button>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+
+        {filteredExercises.length === 0 && (
+          <div className="text-center py-12">
+            <div className="text-gray-400 mb-4">
+              <Search size={48} className="mx-auto mb-4" />
+              <p>Nessun esercizio trovato</p>
+              <p className="text-sm">Prova a modificare i filtri di ricerca</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
