@@ -13,8 +13,8 @@ import {
   Camera, AlertCircle
 } from 'lucide-react'
 
-// Import the Challenge Modal
-import ChallengeFriendsModal from '../components/ChallengeFriendsModal'
+// TEMPORARILY DISABLED: Import the Challenge Modal
+// import ChallengeFriendsModal from '../components/ChallengeFriendsModal'
 
 // Types for real data from Supabase
 interface Profile {
@@ -386,7 +386,7 @@ export default function UltimateDashboard() {
       id: 'team-battle',
       title: 'TEAM BATTLE',
       subtitle: 'Squadra vs Squadra',
-      icon: '👥',
+      icon: '💥',
       color: 'from-blue-500 to-cyan-500',
       glow: 'blue',
       players: modeStats.teamBattle,
@@ -658,17 +658,18 @@ export default function UltimateDashboard() {
                     Bentornato, {user.display_name}! 💪
                   </h2>
                   
-                  {/* FIXED: Challenge Button with onClick handler */}
+                  {/* TEMPORARILY DISABLED: Challenge Button */}
                   <motion.button
-                    onClick={() => setShowChallengeModal(true)}
-                    className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 
-                      rounded-lg text-white font-bold text-sm hover:shadow-lg hover:shadow-green-500/25 
-                      transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                    onClick={() => alert('Challenge modal temporaneamente disabilitata - verrà riattivata dopo il fix del build')}
+                    className="px-4 py-2 bg-gradient-to-r from-gray-500 to-gray-600 
+                      rounded-lg text-white font-bold text-sm hover:shadow-lg hover:shadow-gray-500/25 
+                      transition-all duration-300 hover:scale-105 flex items-center gap-2 opacity-50"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
+                    disabled
                   >
                     <Swords className="w-4 h-4" />
-                    SFIDA UN AMICO
+                    SFIDA UN AMICO (TEMP OFF)
                   </motion.button>
                   
                   {/* Calibration AI Quick Access */}
@@ -928,8 +929,9 @@ export default function UltimateDashboard() {
                   <Swords className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>Nessuna sfida recente</p>
                   <button 
-                    onClick={() => setShowChallengeModal(true)}
-                    className="text-blue-400 hover:text-blue-300 text-sm"
+                    onClick={() => alert('Challenge modal temporaneamente disabilitata')}
+                    className="text-blue-400 hover:text-blue-300 text-sm opacity-50"
+                    disabled
                   >
                     Inizia la tua prima sfida →
                   </button>
@@ -938,12 +940,13 @@ export default function UltimateDashboard() {
             </div>
             
             <button
-              onClick={() => setShowChallengeModal(true)}
-              className="w-full mt-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 
-                rounded-lg text-white font-bold hover:shadow-lg hover:shadow-green-500/25 
-                transition-all duration-300"
+              onClick={() => alert('Challenge modal temporaneamente disabilitata - verrà riattivata dopo il fix del build')}
+              className="w-full mt-4 py-2 bg-gradient-to-r from-gray-500 to-gray-600 
+                rounded-lg text-white font-bold hover:shadow-lg hover:shadow-gray-500/25 
+                transition-all duration-300 opacity-50"
+              disabled
             >
-              Nuova Sfida
+              Nuova Sfida (TEMP OFF)
             </button>
           </motion.div>
 
@@ -1035,8 +1038,8 @@ export default function UltimateDashboard() {
         </div>
       </div>
 
-      {/* Challenge Friends Modal */}
-      {user && (
+      {/* TEMPORARILY DISABLED: Challenge Friends Modal */}
+      {/* {user && (
         <ChallengeFriendsModal
           isOpen={showChallengeModal}
           onClose={() => setShowChallengeModal(false)}
@@ -1044,7 +1047,7 @@ export default function UltimateDashboard() {
           currentUserXp={user.xp}
           onChallengeSuccess={handleChallengeSuccess}
         />
-      )}
+      )} */}
 
       {/* Notifications Modal */}
       <AnimatePresence>
