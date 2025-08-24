@@ -13,7 +13,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey)
 // GET - Fetch user calibration data
 export async function GET(request: NextRequest) {
   try {
-    console.log('📥 GET /api/calibration called')
+    console.log('🔥 GET /api/calibration called')
     
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
     // Test Supabase connection first
     const { data: testConnection, error: testError } = await supabase
-      .from('user_calibrations')
+      .from('user_calibration')
       .select('count')
       .limit(1)
 
@@ -46,9 +46,9 @@ export async function GET(request: NextRequest) {
 
     console.log('✅ Supabase connection OK')
 
-    // Simplified query first
+    // Query the correct table: user_calibration (33 columns)
     const { data: calibration, error } = await supabase
-      .from('user_calibrations')
+      .from('user_calibration')
       .select('*')
       .eq('user_id', userId)
       .single()
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
 // POST - Create or update user calibration
 export async function POST(request: NextRequest) {
   try {
-    console.log('📥 POST /api/calibration called')
+    console.log('🔥 POST /api/calibration called')
 
     // Step 1: Parse body
     let body
@@ -121,9 +121,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Step 3: Test database connection
+    // Step 3: Test database connection and verify user exists
     console.log('🔍 Testing database connection...')
-    const { data: testConn, error: testError } = await supabase
+    const { data: userExists, error: testError } = await supabase
       .from('profiles')
       .select('id')
       .eq('id', userId)
@@ -132,17 +132,17 @@ export async function POST(request: NextRequest) {
     if (testError) {
       console.error('❌ Database connection test failed:', testError)
       return NextResponse.json(
-        { error: 'Database connection failed', details: testError.message },
+        { error: 'User not found or database connection failed', details: testError.message },
         { status: 500 }
       )
     }
 
-    console.log('✅ Database connection OK, user exists:', !!testConn)
+    console.log('✅ Database connection OK, user exists:', !!userExists)
 
     // Step 4: Check existing calibration
     console.log('🔍 Checking existing calibration...')
     const { data: existingCalibration, error: checkError } = await supabase
-      .from('user_calibrations')
+      .from('user_calibration')
       .select('id')
       .eq('user_id', userId)
       .maybeSingle()
@@ -157,9 +157,10 @@ export async function POST(request: NextRequest) {
 
     console.log('📋 Existing calibration:', existingCalibration ? 'EXISTS' : 'NEW')
 
-    // Step 5: Prepare minimal data for testing
-    const minimalData = {
+    // Step 5: Prepare complete data for user_calibration table (33 columns)
+    const calibrationRecord = {
       user_id: userId,
+      // Basic info
       age: calibrationData.age || 25,
       weight: calibrationData.weight || 70,
       height: calibrationData.height || 175,
@@ -170,17 +171,47 @@ export async function POST(request: NextRequest) {
       sport_category: calibrationData.sport_category || 'mixed',
       goals: calibrationData.goals || [],
       workout_duration_preference: calibrationData.workout_duration_preference || 30,
+      
+      // Physical measurements
+      body_fat_percentage: calibrationData.body_fat_percentage || null,
+      muscle_mass: calibrationData.muscle_mass || null,
+      resting_heart_rate: calibrationData.resting_heart_rate || null,
+      max_heart_rate: calibrationData.max_heart_rate || null,
+      
+      // Performance metrics
+      flexibility_score: calibrationData.flexibility_score || null,
+      strength_score: calibrationData.strength_score || null,
+      endurance_score: calibrationData.endurance_score || null,
+      balance_score: calibrationData.balance_score || null,
+      coordination_score: calibrationData.coordination_score || null,
+      
+      // AI Calibration data
+      baseline_angles: aiCalibrationData.baseline_angles || null,
+      body_proportions: aiCalibrationData.body_proportions || null,
+      movement_patterns: aiCalibrationData.movement_patterns || null,
+      range_of_motion: aiCalibrationData.range_of_motion || null,
+      form_preferences: aiCalibrationData.form_preferences || null,
+      injury_history: calibrationData.injury_history || [],
+      equipment_access: calibrationData.equipment_access || [],
+      
+      // Preferences
+      workout_intensity: calibrationData.workout_intensity || 'moderate',
+      preferred_workout_times: calibrationData.preferred_workout_times || [],
+      training_frequency: calibrationData.training_frequency || 3,
+      
+      // System fields
+      calibration_version: '1.0',
       updated_at: new Date().toISOString()
     }
 
-    console.log('💾 Prepared data:', JSON.stringify(minimalData, null, 2))
+    console.log('💾 Prepared calibration record:', Object.keys(calibrationRecord))
 
     let result
     if (existingCalibration) {
       console.log('🔄 Updating existing calibration...')
       const { data, error } = await supabase
-        .from('user_calibrations')
-        .update(minimalData)
+        .from('user_calibration')
+        .update(calibrationRecord)
         .eq('user_id', userId)
         .select()
         .single()
@@ -198,9 +229,9 @@ export async function POST(request: NextRequest) {
     } else {
       console.log('➕ Creating new calibration...')
       const { data, error } = await supabase
-        .from('user_calibrations')
+        .from('user_calibration')
         .insert({
-          ...minimalData,
+          ...calibrationRecord,
           created_at: new Date().toISOString()
         })
         .select()
@@ -218,13 +249,49 @@ export async function POST(request: NextRequest) {
       console.log('✅ Creation successful')
     }
 
-    console.log('🎉 Operation completed successfully')
+    // Step 6: Update user profile to mark as calibrated
+    console.log('🔄 Updating user profile...')
+    const { error: profileUpdateError } = await supabase
+      .from('profiles')
+      .update({ 
+        is_calibrated: true,
+        calibration_required: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId)
+
+    if (profileUpdateError) {
+      console.error('❌ Error updating user profile:', profileUpdateError)
+      // Don't fail the entire operation for this
+    } else {
+      console.log('✅ User profile updated successfully')
+    }
+
+    // Step 7: Add XP bonus (optional)
+    const xpBonus = 100
+    try {
+      const { error: xpError } = await supabase
+        .from('profiles')
+        .update({ 
+          xp: supabase.raw('xp + ?', [xpBonus])
+        })
+        .eq('id', userId)
+
+      if (!xpError) {
+        console.log(`✅ Added ${xpBonus} XP bonus`)
+      }
+    } catch (xpError) {
+      console.log('⚠️ XP bonus failed, but calibration successful')
+    }
+
+    console.log('🎉 Calibration operation completed successfully')
 
     return NextResponse.json({
       success: true,
       message: existingCalibration ? 'Calibrazione aggiornata con successo!' : 'Calibrazione creata con successo!',
       calibration: result,
-      xp_bonus: 100
+      xp_bonus: xpBonus,
+      is_calibrated: true
     })
 
   } catch (error) {
@@ -240,7 +307,7 @@ export async function POST(request: NextRequest) {
 // DELETE - Remove user calibration
 export async function DELETE(request: NextRequest) {
   try {
-    console.log('📥 DELETE /api/calibration called')
+    console.log('🔥 DELETE /api/calibration called')
 
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
@@ -252,8 +319,9 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
+    // Delete from user_calibration table
     const { error } = await supabase
-      .from('user_calibrations')
+      .from('user_calibration')
       .delete()
       .eq('user_id', userId)
 
@@ -263,6 +331,20 @@ export async function DELETE(request: NextRequest) {
         { error: 'Errore nella cancellazione della calibrazione', details: error.message },
         { status: 500 }
       )
+    }
+
+    // Update user profile
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ 
+        is_calibrated: false,
+        calibration_required: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId)
+
+    if (profileError) {
+      console.error('⚠️ Error updating profile after deletion:', profileError)
     }
 
     return NextResponse.json({
