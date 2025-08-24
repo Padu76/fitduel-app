@@ -26,7 +26,6 @@ import {
 } from '@/components/game/ai-tracker/constants/exercises'
 import type { ExerciseConfig } from '@/components/game/ai-tracker/types'
 import { AIExerciseTracker } from '@/components/game/ai-tracker/AIExerciseTracker'
-import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
@@ -260,10 +259,10 @@ const ExerciseCard = ({
               </span>
             </div>
             
-            <Button variant="ghost" size="sm" className="text-green-400 hover:text-green-300">
-              <BookOpen className="w-4 h-4 mr-1" />
+            <button className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-all text-sm">
+              <BookOpen className="w-4 h-4 inline mr-1" />
               Guida
-            </Button>
+            </button>
           </div>
         </div>
       </motion.div>
@@ -323,7 +322,7 @@ const ExerciseCard = ({
             <span className="text-xs text-orange-400">Calorie</span>
           </div>
           <p className="text-lg font-bold text-white">
-            {(exercise.caloriesPerRep * (exercise.targetReps || exercise.targetTime || 10)).toFixed(1)}
+            {((exercise.caloriesPerRep || 0.5) * (exercise.targetReps || exercise.targetTime || 10)).toFixed(1)}
           </p>
         </div>
       </div>
@@ -413,7 +412,7 @@ const ExerciseGuideModal = ({
                   <div className="flex items-center gap-1 text-orange-400">
                     <Zap className="w-4 h-4" />
                     <span className="text-sm">
-                      {(exercise.caloriesPerRep * (exercise.targetReps || exercise.targetTime || 10)).toFixed(1)} cal
+                      {((exercise.caloriesPerRep || 0.5) * (exercise.targetReps || exercise.targetTime || 10)).toFixed(1)} cal
                     </span>
                   </div>
                 </div>
@@ -450,7 +449,7 @@ const ExerciseGuideModal = ({
             <Card className="p-4 text-center">
               <Zap className="w-6 h-6 text-orange-400 mx-auto mb-2" />
               <p className="text-lg font-bold text-white">
-                {(exercise.caloriesPerRep * (exercise.targetReps || exercise.targetTime || 10)).toFixed(1)}
+                {((exercise.caloriesPerRep || 0.5) * (exercise.targetReps || exercise.targetTime || 10)).toFixed(1)}
               </p>
               <p className="text-xs text-gray-400">Calorie</p>
             </Card>
@@ -626,20 +625,19 @@ const ExerciseGuideModal = ({
 
           {/* Action Buttons */}
           <div className="flex gap-4">
-            <Button
+            <button
               onClick={onClose}
-              variant="outline"
-              className="flex-1"
+              className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-all"
             >
               Chiudi Guida
-            </Button>
-            <Button
+            </button>
+            <button
               onClick={() => onStartAI(exercise)}
-              className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+              className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium transition-all flex items-center justify-center gap-2"
             >
-              <Camera className="w-5 h-5 mr-2" />
+              <Camera className="w-5 h-5" />
               Prova con AI Tracker
-            </Button>
+            </button>
           </div>
         </div>
       </motion.div>
@@ -680,14 +678,13 @@ const AITrainingSession = ({
           </div>
         </div>
         
-        <Button
+        <button
           onClick={onBack}
-          variant="outline"
-          size="sm"
+          className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-all flex items-center gap-2"
         >
-          <ArrowLeft className="w-4 h-4 mr-1" />
+          <ArrowLeft className="w-4 h-4" />
           Torna alla Library
-        </Button>
+        </button>
       </div>
 
       {/* AI Tracker Component */}
@@ -968,4 +965,4 @@ export default function TrainingLibraryOptimized() {
       </div>
     </div>
   )
-} 
+}
