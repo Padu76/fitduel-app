@@ -7,8 +7,8 @@ import type { Profile, UserStats } from '@/lib/supabase-client'
 
 // Extended user type with profile and stats
 export interface AuthUser extends User {
-  profile?: Profile
-  stats?: UserStats
+  profile?: Profile | null
+  stats?: UserStats | null
 }
 
 export interface AuthState {
@@ -105,7 +105,7 @@ export function useAuth(): AuthState & AuthActions {
               ...prev,
               profile: profileData,
               stats: statsData
-            } : null)
+            } as AuthUser : null)
           }
         } else {
           console.log('ℹ️ No existing session found')
@@ -156,7 +156,7 @@ export function useAuth(): AuthState & AuthActions {
               ...session.user,
               profile: profileData,
               stats: statsData
-            })
+            } as AuthUser)
 
           } else {
             // User signed out or no session
@@ -280,7 +280,7 @@ export function useAuth(): AuthState & AuthActions {
         ...prev,
         profile: profileData,
         stats: statsData
-      } : null)
+      } as AuthUser : null)
       
       console.log('✅ User data refreshed')
     } catch (error) {
@@ -306,7 +306,7 @@ export function useAuth(): AuthState & AuthActions {
       setUser(prev => prev ? {
         ...prev,
         profile: updatedProfile
-      } : null)
+      } as AuthUser : null)
       
       console.log('✅ Profile updated successfully')
     } catch (error) {
