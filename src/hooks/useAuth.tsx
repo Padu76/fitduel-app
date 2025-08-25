@@ -455,6 +455,3 @@ export function useAuthContext() {
   }
   return context
 }
-
-// Export types for use in other components
-export type { AuthUser, AuthState, AuthActions }
