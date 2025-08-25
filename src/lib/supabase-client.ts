@@ -2,7 +2,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
 
 // ====================================
-// TYPES (MANTENUTI IDENTICI)
+// TYPES (PROFILE INTERFACE UPDATED)
 // ====================================
 
 export interface Profile {
@@ -17,6 +17,7 @@ export interface Profile {
   role: 'user' | 'premium' | 'moderator' | 'admin'
   is_active: boolean
   is_verified: boolean
+  is_calibrated: boolean  // 👈 AGGIUNTA QUESTA PROPRIETÀ
   created_at: string
   updated_at: string
 }
@@ -474,6 +475,7 @@ export const auth = {
           email: userData?.email || '',
           is_active: true,
           is_verified: false,
+          is_calibrated: false, // 👈 AGGIUNTO DEFAULT VALUE
           role: 'user',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
