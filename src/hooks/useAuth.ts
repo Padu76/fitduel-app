@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, createContext, useContext } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { getSupabaseClient, auth, db } from '@/lib/supabase-client'
 import type { Profile, UserStats } from '@/lib/supabase-client'
@@ -358,7 +358,11 @@ export function withAuth<T extends object>(WrappedComponent: React.ComponentType
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Authentication Required</h2>
             <p className="text-gray-600 mb-8">Please sign in to access this page.</p>
             <button 
-              onClick={() => window.location.href = '/login'}
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.location.href = '/login'
+                }
+              }}
               className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
             >
               Go to Login
@@ -432,8 +436,6 @@ export function useAuthRequirement() {
 }
 
 // Context provider for auth (optional, for complex apps)
-import { createContext, useContext } from 'react'
-
 const AuthContext = createContext<(AuthState & AuthActions) | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
