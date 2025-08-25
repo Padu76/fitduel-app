@@ -65,10 +65,8 @@ async function ensureUserProfile(userId: string, userData?: any) {
         email: email,
         is_active: true,
         is_verified: false,
+        is_calibrated: false,
         role: 'user',
-        xp: 100, // Starting XP
-        level: 1, // Starting level
-        coins: 100, // Starting coins
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -125,19 +123,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Could not create or get user profile' }, { status: 500 })
     }
 
-    // Get existing calibration data from user_calibrations table
-    const { data: calibrationData, error: calibrationError } = await supabase
-      .from('user_calibrations')
+    // Get user stats
+    const { data: userStats, error: statsError } = await supabase
+      .from('user_stats')
       .select('*')
       .eq('user_id', userId)
       .single()
 
-    if (calibrationError && calibrationError.code !== 'PGRST116') {
-      console.error('❌ Calibration fetch error:', calibrationError)
-      return NextResponse.json({ error: 'Failed to fetch calibration data' }, { status: 500 })
+    if (statsError && statsError.code !== 'PGRST116') {
+      console.warn('⚠️ Stats fetch error:', statsError)
     }
 
-    console.log('✅ GET Success - Current level:', profile.calibration_level || 'none')
+    console.log('✅ GET Success - Current calibration status:', profile.is_calibrated)
 
     return NextResponse.json({
       success: true,
@@ -145,11 +142,15 @@ export async function GET(request: NextRequest) {
         id: profile.id,
         username: profile.username,
         is_calibrated: profile.is_calibrated || false,
-        calibration_level: profile.calibration_level || CALIBRATION_LEVELS.NONE,
-        current_xp: profile.xp || 0,
-        level: profile.level || 1
+        current_xp: userStats?.total_xp || 0,
+        level: userStats?.level || 1
       },
-      calibration_data: calibrationData || null
+      calibration_data: {
+        // Se in futuro vuoi recuperare dati dalla tabella user_calibrations
+        // puoi aggiungerli qui
+        is_calibrated: profile.is_calibrated,
+        calibrated_at: profile.updated_at
+      }
     })
 
   } catch (error) {
@@ -158,23 +159,49 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Save calibration data with XP control
+// POST - Save calibration data
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { userId, ...calibrationData } = body
+    console.log('💾 POST Calibration - Received data:', Object.keys(body))
+
+    const { 
+      userId,
+      // User info from calibration
+      age,
+      gender,
+      weight,
+      height,
+      fitness_level,
+      training_frequency,
+      fitness_experience_years,
+      has_limitations,
+      limitations,
+      // Test results
+      pushups_count,
+      squats_count,
+      plank_duration,
+      jumping_jacks_count,
+      burpees_count,
+      lunges_count,
+      mountain_climbers_count,
+      high_knees_count,
+      // Calculated values
+      calibration_score,
+      assigned_level,
+      ...otherData
+    } = body
 
     if (!userId) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 })
     }
 
     console.log('💾 POST Calibration for user:', userId)
-    console.log('📊 Received calibration data keys:', Object.keys(calibrationData))
+    console.log('🏋️ Fitness level:', fitness_level)
+    console.log('📊 Calibration score:', calibration_score)
 
     // Ensure user profile exists FIRST
-    const { data: currentProfile, error: profileError } = await ensureUserProfile(userId, {
-      username: calibrationData.username
-    })
+    const { data: currentProfile, error: profileError } = await ensureUserProfile(userId)
 
     if (profileError || !currentProfile) {
       console.error('❌ Could not ensure profile exists:', profileError)
@@ -182,15 +209,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Determine if this is first-time calibration
-    const isFirstTimeCalibration = !currentProfile.is_calibrated || currentProfile.calibration_level === CALIBRATION_LEVELS.NONE
-    const currentLevel = currentProfile.calibration_level || CALIBRATION_LEVELS.NONE
-    const newLevel = CALIBRATION_LEVELS.BASE // For now, always base level
-
+    const isFirstTimeCalibration = !currentProfile.is_calibrated
+    
     console.log('📊 Calibration Status:')
-    console.log('  - Current level:', currentLevel)
-    console.log('  - New level:', newLevel)  
     console.log('  - Is first time:', isFirstTimeCalibration)
-    console.log('  - Current XP:', currentProfile.xp)
+    console.log('  - Current profile calibrated:', currentProfile.is_calibrated)
 
     // Calculate XP reward
     let xpReward = 0
@@ -200,86 +223,61 @@ export async function POST(request: NextRequest) {
       xpReward = XP_REWARDS.BASE
       shouldAwardXP = true
       console.log('🎁 First calibration - awarding XP:', xpReward)
-    } else if (currentLevel !== newLevel) {
-      // Level upgrade - could award difference, but for now just update
-      console.log('📈 Level upgrade detected but no XP for same level')
     } else {
       console.log('♻️ Updating existing calibration - no XP reward')
     }
 
-    // Prepare calibration data for user_calibrations table (based on actual schema)
-    const calibrationPayload = {
-      user_id: userId,
+    // Prepare calibration data to store in profile as JSON
+    const calibrationData = {
+      // User physical info
+      age: age || null,
+      gender: gender || null,
+      weight: weight || null,
+      height: height || null,
       
-      // Basic fitness data
-      fitness_level: calibrationData.fitness_level || 'beginner',
-      experience_level: calibrationData.experience_level || 'beginner',
+      // Fitness info
+      fitness_level: fitness_level || 'beginner',
+      training_frequency: training_frequency || null,
+      fitness_experience_years: fitness_experience_years || 0,
+      has_limitations: has_limitations || false,
+      limitations: Array.isArray(limitations) ? limitations : (limitations ? [limitations] : []),
       
-      // Goals (ensure it's an array)
-      goals: Array.isArray(calibrationData.goals) 
-        ? calibrationData.goals 
-        : (calibrationData.goals ? [calibrationData.goals] : []),
-        
-      // Workout preferences
-      preferred_workout_types: Array.isArray(calibrationData.preferred_workout_types)
-        ? calibrationData.preferred_workout_types
-        : (calibrationData.preferred_workout_types ? [calibrationData.preferred_workout_types] : []),
-        
-      available_equipment: Array.isArray(calibrationData.available_equipment)
-        ? calibrationData.available_equipment
-        : (calibrationData.available_equipment ? [calibrationData.available_equipment] : []),
-        
-      workout_frequency: calibrationData.workout_frequency || null,
-      workout_duration: calibrationData.workout_duration || null,
+      // Test results
+      test_results: {
+        pushups_count: pushups_count || 0,
+        squats_count: squats_count || 0,
+        plank_duration: plank_duration || 0,
+        jumping_jacks_count: jumping_jacks_count || 0,
+        burpees_count: burpees_count || 0,
+        lunges_count: lunges_count || 0,
+        mountain_climbers_count: mountain_climbers_count || 0,
+        high_knees_count: high_knees_count || 0
+      },
       
-      // Physical limitations
-      physical_limitations: Array.isArray(calibrationData.physical_limitations)
-        ? calibrationData.physical_limitations
-        : (calibrationData.physical_limitations ? [calibrationData.physical_limitations] : []),
+      // Calculated values
+      calibration_score: calibration_score || 0,
+      assigned_level: assigned_level || 'rookie',
       
       // Timestamps
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-
-    console.log('💾 Saving calibration payload:', calibrationPayload)
-
-    // Use upsert to handle both insert and update for user_calibrations
-    const { data: calibrationResult, error: calibrationError } = await supabase
-      .from('user_calibrations')
-      .upsert(calibrationPayload, { 
-        onConflict: 'user_id',
-        ignoreDuplicates: false 
-      })
-      .select()
-      .single()
-
-    if (calibrationError) {
-      console.error('❌ Calibration upsert error:', calibrationError)
-      return NextResponse.json({ 
-        error: `Failed to save calibration: ${calibrationError.message}`,
-        details: calibrationError 
-      }, { status: 500 })
-    }
-
-    console.log('✅ Calibration saved successfully')
-
-    // Update user profile with calibration status and XP
-    const profileUpdateData: any = {
-      is_calibrated: true,
-      calibration_level: newLevel,
+      calibrated_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }
 
-    if (shouldAwardXP) {
-      profileUpdateData.xp = (currentProfile.xp || 0) + xpReward
+    console.log('💾 Saving calibration data to profile...')
+
+    // Update profile with calibration status and data
+    const profileUpdateData: any = {
+      is_calibrated: true,
+      // Store calibration data in a bio field or add a new JSONB field if available
+      bio: JSON.stringify(calibrationData), // Using bio field to store calibration data
+      updated_at: new Date().toISOString()
     }
 
     const { data: updatedProfile, error: updateError } = await supabase
       .from('profiles')
       .update(profileUpdateData)
       .eq('id', userId)
-      .select('id, username, xp, level, is_calibrated, calibration_level')
+      .select('id, username, email, is_calibrated, bio, created_at, updated_at')
       .single()
 
     if (updateError) {
@@ -288,8 +286,37 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('✅ Profile updated successfully')
-    console.log('  - Final XP:', updatedProfile.xp)
-    console.log('  - XP awarded this session:', shouldAwardXP ? xpReward : 0)
+
+    // Update or create user stats with XP
+    if (shouldAwardXP) {
+      const { data: currentStats } = await supabase
+        .from('user_stats')
+        .select('*')
+        .eq('user_id', userId)
+        .single()
+
+      const newXP = (currentStats?.total_xp || 0) + xpReward
+      const newCurrentXP = (currentStats?.current_xp || 0) + xpReward
+
+      const { error: statsUpdateError } = await supabase
+        .from('user_stats')
+        .upsert({
+          user_id: userId,
+          total_xp: newXP,
+          current_xp: newCurrentXP,
+          level: currentStats?.level || 1,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        })
+
+      if (statsUpdateError) {
+        console.warn('⚠️ Stats update error:', statsUpdateError)
+        // Non-blocking error
+      } else {
+        console.log('✅ Stats updated - New XP:', newXP)
+      }
+    }
 
     // Success response
     return NextResponse.json({
@@ -299,10 +326,9 @@ export async function POST(request: NextRequest) {
         : 'Calibrazione aggiornata con successo! 📊',
       data: {
         user: updatedProfile,
-        calibration: calibrationResult,
+        calibration_data: calibrationData,
         xp_awarded: shouldAwardXP ? xpReward : 0,
-        is_first_time: isFirstTimeCalibration,
-        calibration_level: newLevel
+        is_first_time: isFirstTimeCalibration
       }
     })
 
@@ -319,21 +345,21 @@ export async function POST(request: NextRequest) {
 function calculateCalibrationScore(data: any): number {
   let score = 0
   
-  // Basic completeness (40 points max)
-  if (data.fitness_level) score += 10
-  if (data.experience_level) score += 10
-  if (data.goals?.length > 0) score += 10
-  if (data.preferred_workout_types?.length > 0) score += 10
+  // Basic info completeness (40 points max)
+  if (data.age) score += 10
+  if (data.gender) score += 5
+  if (data.weight) score += 10
+  if (data.height) score += 10
+  if (data.fitness_level) score += 5
   
-  // Preferences (40 points max)
-  if (data.workout_frequency) score += 10
-  if (data.workout_duration) score += 10
-  if (data.available_equipment?.length > 0) score += 10
-  if (data.physical_limitations !== undefined) score += 10 // Even empty array counts
+  // Experience and frequency (30 points max)
+  if (data.training_frequency > 0) score += 15
+  if (data.fitness_experience_years >= 0) score += 15
   
-  // Additional details (20 points max)
-  // Could add more specific scoring here
-  score += Math.min(20, Object.keys(data).length * 2)
+  // Test results (30 points max)
+  const testResults = data.test_results || {}
+  const testCount = Object.values(testResults).filter(val => (val as number) > 0).length
+  score += Math.min(30, testCount * 5)
   
   return Math.min(score, 100) // Cap at 100
 }
@@ -349,7 +375,6 @@ export async function PUT(request: NextRequest) {
     }
 
     // This will handle advanced AI calibration in the future
-    // For now, return not implemented
     return NextResponse.json({ 
       message: 'Advanced AI calibration coming soon! 🚀',
       current_level: CALIBRATION_LEVELS.BASE,
@@ -380,26 +405,16 @@ export async function DELETE(request: NextRequest) {
 
     console.log('🗑️ Resetting calibration for user:', userId)
 
-    // Reset calibration data
-    const { error: calibrationError } = await supabase
-      .from('user_calibrations')
-      .delete()
-      .eq('user_id', userId)
-
-    if (calibrationError) {
-      console.error('❌ Error deleting calibration:', calibrationError)
-    }
-
     // Reset profile calibration status
     const { data: resetProfile, error: profileError } = await supabase
       .from('profiles')
       .update({
         is_calibrated: false,
-        calibration_level: CALIBRATION_LEVELS.NONE,
+        bio: null, // Clear calibration data
         updated_at: new Date().toISOString()
       })
       .eq('id', userId)
-      .select('id, username, is_calibrated, calibration_level')
+      .select('id, username, is_calibrated')
       .single()
 
     if (profileError) {
