@@ -87,6 +87,7 @@ async function ensureUserProfile(userId: string, userData?: any) {
         user_id: userId,
         level: 1,
         total_xp: 100,
+        current_xp: 100,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -100,6 +101,23 @@ async function ensureUserProfile(userId: string, userData?: any) {
   } catch (error) {
     console.error('❌ Error ensuring user profile:', error)
     return { data: null, error }
+  }
+}
+
+// UTILITY: Parse calibration data from bio field
+function parseCalibrationData(bioField: string | null) {
+  if (!bioField) return null
+  
+  try {
+    const parsed = JSON.parse(bioField)
+    // Check if it looks like calibration data
+    if (parsed && (parsed.calibrated_at || parsed.age || parsed.fitness_level)) {
+      return parsed
+    }
+    return null
+  } catch (error) {
+    console.warn('Could not parse bio field as JSON:', error)
+    return null
   }
 }
 
@@ -134,7 +152,11 @@ export async function GET(request: NextRequest) {
       console.warn('⚠️ Stats fetch error:', statsError)
     }
 
+    // Parse calibration data from bio field
+    const savedCalibrationData = parseCalibrationData(profile.bio)
+
     console.log('✅ GET Success - Current calibration status:', profile.is_calibrated)
+    console.log('📊 Saved calibration data:', savedCalibrationData ? 'Found' : 'Not found')
 
     return NextResponse.json({
       success: true,
@@ -145,12 +167,9 @@ export async function GET(request: NextRequest) {
         current_xp: userStats?.total_xp || 0,
         level: userStats?.level || 1
       },
-      calibration_data: {
-        // Se in futuro vuoi recuperare dati dalla tabella user_calibrations
-        // puoi aggiungerli qui
-        is_calibrated: profile.is_calibrated,
-        calibrated_at: profile.updated_at
-      }
+      calibration_data: savedCalibrationData,
+      // For settings page compatibility
+      calibration: savedCalibrationData
     })
 
   } catch (error) {
@@ -159,46 +178,33 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Save calibration data
+// POST - Save calibration data (supports both formats)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    console.log('💾 POST Calibration - Received data:', Object.keys(body))
+    console.log('💾 POST Calibration - Received keys:', Object.keys(body))
 
-    const { 
-      userId,
-      // User info from calibration
-      age,
-      gender,
-      weight,
-      height,
-      fitness_level,
-      training_frequency,
-      fitness_experience_years,
-      has_limitations,
-      limitations,
-      // Test results
-      pushups_count,
-      squats_count,
-      plank_duration,
-      jumping_jacks_count,
-      burpees_count,
-      lunges_count,
-      mountain_climbers_count,
-      high_knees_count,
-      // Calculated values
-      calibration_score,
-      assigned_level,
-      ...otherData
-    } = body
+    let userId: string
+    let calibrationData: any
+
+    // 🔥 SUPPORT BOTH FORMATS
+    if (body.calibrationData && body.userId) {
+      // Format from settings page
+      console.log('📱 Settings format detected')
+      userId = body.userId
+      calibrationData = body.calibrationData
+    } else {
+      // Format from calibration page
+      console.log('🏋️ Calibration page format detected')
+      userId = body.userId
+      calibrationData = body
+    }
 
     if (!userId) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 })
     }
 
     console.log('💾 POST Calibration for user:', userId)
-    console.log('🏋️ Fitness level:', fitness_level)
-    console.log('📊 Calibration score:', calibration_score)
 
     // Ensure user profile exists FIRST
     const { data: currentProfile, error: profileError } = await ensureUserProfile(userId)
@@ -208,12 +214,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Could not create user profile' }, { status: 500 })
     }
 
-    // Determine if this is first-time calibration
-    const isFirstTimeCalibration = !currentProfile.is_calibrated
+    // 🔥 IMPROVED XP LOGIC - Check if user has EVER been calibrated
+    let hasEverBeenCalibrated = currentProfile.is_calibrated
+    
+    // Also check if there's existing calibration data in bio
+    const existingCalibrationData = parseCalibrationData(currentProfile.bio)
+    if (existingCalibrationData && existingCalibrationData.calibrated_at) {
+      hasEverBeenCalibrated = true
+    }
+
+    const isFirstTimeCalibration = !hasEverBeenCalibrated
     
     console.log('📊 Calibration Status:')
     console.log('  - Is first time:', isFirstTimeCalibration)
-    console.log('  - Current profile calibrated:', currentProfile.is_calibrated)
+    console.log('  - Profile is_calibrated:', currentProfile.is_calibrated)
+    console.log('  - Has existing data:', !!existingCalibrationData)
 
     // Calculate XP reward
     let xpReward = 0
@@ -227,49 +242,61 @@ export async function POST(request: NextRequest) {
       console.log('♻️ Updating existing calibration - no XP reward')
     }
 
-    // Prepare calibration data to store in profile as JSON
-    const calibrationData = {
+    // 🔥 PREPARE STRUCTURED CALIBRATION DATA
+    const structuredCalibrationData = {
       // User physical info
-      age: age || null,
-      gender: gender || null,
-      weight: weight || null,
-      height: height || null,
+      age: calibrationData.age || null,
+      gender: calibrationData.gender || null,
+      weight: calibrationData.weight || null,
+      height: calibrationData.height || null,
       
       // Fitness info
-      fitness_level: fitness_level || 'beginner',
-      training_frequency: training_frequency || null,
-      fitness_experience_years: fitness_experience_years || 0,
-      has_limitations: has_limitations || false,
-      limitations: Array.isArray(limitations) ? limitations : (limitations ? [limitations] : []),
+      fitness_level: calibrationData.fitness_level || 'beginner',
+      experience_years: calibrationData.experience_years || calibrationData.fitness_experience_years || 0,
+      training_frequency: calibrationData.training_frequency || null,
+      has_limitations: calibrationData.has_limitations || false,
+      limitations: Array.isArray(calibrationData.limitations) ? calibrationData.limitations : (calibrationData.limitations ? [calibrationData.limitations] : []),
       
-      // Test results
+      // Settings page specific fields
+      sport_background: calibrationData.sport_background || [],
+      primary_activity_type: calibrationData.primary_activity_type || 'mixed',
+      target_goals: calibrationData.target_goals || [],
+      medical_conditions: calibrationData.medical_conditions || [],
+      preferred_workout_duration: calibrationData.preferred_workout_duration || 30,
+      
+      // Test results (from calibration page)
       test_results: {
-        pushups_count: pushups_count || 0,
-        squats_count: squats_count || 0,
-        plank_duration: plank_duration || 0,
-        jumping_jacks_count: jumping_jacks_count || 0,
-        burpees_count: burpees_count || 0,
-        lunges_count: lunges_count || 0,
-        mountain_climbers_count: mountain_climbers_count || 0,
-        high_knees_count: high_knees_count || 0
+        pushups_count: calibrationData.pushups_count || 0,
+        squats_count: calibrationData.squats_count || 0,
+        plank_duration: calibrationData.plank_duration || 0,
+        jumping_jacks_count: calibrationData.jumping_jacks_count || 0,
+        burpees_count: calibrationData.burpees_count || 0,
+        lunges_count: calibrationData.lunges_count || 0,
+        mountain_climbers_count: calibrationData.mountain_climbers_count || 0,
+        high_knees_count: calibrationData.high_knees_count || 0
       },
       
+      // AI Calibration
+      ai_movement_calibrated: calibrationData.ai_movement_calibrated || false,
+      
       // Calculated values
-      calibration_score: calibration_score || 0,
-      assigned_level: assigned_level || 'rookie',
+      calibration_score: calibrationData.calibration_score || 0,
+      assigned_level: calibrationData.assigned_level || 'rookie',
       
       // Timestamps
       calibrated_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
+      
+      // Keep track of calibration source
+      calibration_source: body.calibrationData ? 'settings' : 'calibration_page'
     }
 
-    console.log('💾 Saving calibration data to profile...')
+    console.log('💾 Saving structured calibration data...')
 
-    // Update profile with calibration status and data
+    // 🔥 UPDATE PROFILE WITH CALIBRATION DATA
     const profileUpdateData: any = {
       is_calibrated: true,
-      // Store calibration data in a bio field or add a new JSONB field if available
-      bio: JSON.stringify(calibrationData), // Using bio field to store calibration data
+      bio: JSON.stringify(structuredCalibrationData),
       updated_at: new Date().toISOString()
     }
 
@@ -287,7 +314,7 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Profile updated successfully')
 
-    // Update or create user stats with XP
+    // 🔥 UPDATE USER STATS WITH XP (only if awarding XP)
     if (shouldAwardXP) {
       const { data: currentStats } = await supabase
         .from('user_stats')
@@ -295,14 +322,14 @@ export async function POST(request: NextRequest) {
         .eq('user_id', userId)
         .single()
 
-      const newXP = (currentStats?.total_xp || 0) + xpReward
+      const newTotalXP = (currentStats?.total_xp || 0) + xpReward
       const newCurrentXP = (currentStats?.current_xp || 0) + xpReward
 
       const { error: statsUpdateError } = await supabase
         .from('user_stats')
         .upsert({
           user_id: userId,
-          total_xp: newXP,
+          total_xp: newTotalXP,
           current_xp: newCurrentXP,
           level: currentStats?.level || 1,
           updated_at: new Date().toISOString()
@@ -312,21 +339,24 @@ export async function POST(request: NextRequest) {
 
       if (statsUpdateError) {
         console.warn('⚠️ Stats update error:', statsUpdateError)
-        // Non-blocking error
       } else {
-        console.log('✅ Stats updated - New XP:', newXP)
+        console.log('✅ Stats updated - New total XP:', newTotalXP)
       }
     }
 
-    // Success response
+    // 🔥 SUCCESS RESPONSE
+    const responseMessage = shouldAwardXP 
+      ? `Calibrazione completata! Hai guadagnato ${xpReward} XP! 🎉`
+      : 'Calibrazione aggiornata con successo! 📊'
+
     return NextResponse.json({
       success: true,
-      message: shouldAwardXP 
-        ? `Calibrazione completata! Hai guadagnato ${xpReward} XP! 🎉`
-        : 'Calibrazione aggiornata con successo! 📊',
+      message: responseMessage,
       data: {
         user: updatedProfile,
-        calibration_data: calibrationData,
+        calibration_data: structuredCalibrationData,
+        // For settings page compatibility
+        calibration: structuredCalibrationData,
         xp_awarded: shouldAwardXP ? xpReward : 0,
         is_first_time: isFirstTimeCalibration
       }
@@ -346,20 +376,23 @@ function calculateCalibrationScore(data: any): number {
   let score = 0
   
   // Basic info completeness (40 points max)
-  if (data.age) score += 10
+  if (data.age && data.age > 0) score += 10
   if (data.gender) score += 5
-  if (data.weight) score += 10
-  if (data.height) score += 10
+  if (data.weight && data.weight > 0) score += 10
+  if (data.height && data.height > 0) score += 10
   if (data.fitness_level) score += 5
   
-  // Experience and frequency (30 points max)
-  if (data.training_frequency > 0) score += 15
-  if (data.fitness_experience_years >= 0) score += 15
+  // Experience and preferences (30 points max)
+  if (data.experience_years >= 0) score += 10
+  if (data.sport_background && data.sport_background.length > 0) score += 10
+  if (data.target_goals && data.target_goals.length > 0) score += 10
   
-  // Test results (30 points max)
-  const testResults = data.test_results || {}
-  const testCount = Object.values(testResults).filter(val => (val as number) > 0).length
-  score += Math.min(30, testCount * 5)
+  // Test results and AI (30 points max)
+  if (data.test_results) {
+    const testCount = Object.values(data.test_results).filter(val => (val as number) > 0).length
+    score += Math.min(20, testCount * 2.5)
+  }
+  if (data.ai_movement_calibrated) score += 10
   
   return Math.min(score, 100) // Cap at 100
 }
