@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-// Initialize Supabase client
+// Initialize Supabase client per API routes (service key)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
@@ -23,6 +23,88 @@ const XP_REWARDS = {
   ADVANCED_AI: 500
 } as const
 
+// UTILITY: Ensure user profile exists
+async function ensureUserProfile(userId: string, userData?: any) {
+  try {
+    console.log('🔍 Checking if user profile exists:', userId)
+    
+    // Check if profile exists
+    const { data: existingProfile, error: fetchError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error('❌ Error fetching profile:', fetchError)
+      throw fetchError
+    }
+
+    if (existingProfile) {
+      console.log('✅ Profile exists:', existingProfile.username)
+      return { data: existingProfile, error: null }
+    }
+
+    console.log('🆕 Profile does not exist, creating new one...')
+
+    // Get user from auth.users to get email
+    const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(userId)
+    
+    let email = userData?.email || 'unknown@example.com'
+    if (authUser && !authError) {
+      email = authUser.user.email || email
+    }
+
+    // Create new profile
+    const { data: newProfile, error: insertError } = await supabase
+      .from('profiles')
+      .insert({
+        id: userId,
+        username: userData?.username || `user_${userId.slice(0, 8)}`,
+        display_name: userData?.display_name || userData?.username || `User ${userId.slice(0, 8)}`,
+        email: email,
+        is_active: true,
+        is_verified: false,
+        role: 'user',
+        xp: 100, // Starting XP
+        level: 1, // Starting level
+        coins: 100, // Starting coins
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
+
+    if (insertError) {
+      console.error('❌ Error creating profile:', insertError)
+      throw insertError
+    }
+
+    console.log('✅ New profile created:', newProfile.username)
+
+    // Also create user_stats entry
+    const { error: statsError } = await supabase
+      .from('user_stats')
+      .insert({
+        user_id: userId,
+        level: 1,
+        total_xp: 100,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
+    if (statsError) {
+      console.warn('⚠️ Could not create user_stats:', statsError)
+      // Non-blocking error
+    }
+
+    return { data: newProfile, error: null }
+  } catch (error) {
+    console.error('❌ Error ensuring user profile:', error)
+    return { data: null, error }
+  }
+}
+
 // GET - Retrieve existing calibration data
 export async function GET(request: NextRequest) {
   try {
@@ -35,21 +117,17 @@ export async function GET(request: NextRequest) {
 
     console.log('🔍 GET Calibration for user:', userId)
 
-    // Check if user exists and get current calibration status
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, is_calibrated, calibration_level, xp')
-      .eq('id', userId)
-      .single()
+    // Ensure user profile exists FIRST
+    const { data: profile, error: profileError } = await ensureUserProfile(userId)
 
-    if (profileError) {
-      console.error('❌ Profile error:', profileError)
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    if (profileError || !profile) {
+      console.error('❌ Could not ensure profile exists:', profileError)
+      return NextResponse.json({ error: 'Could not create or get user profile' }, { status: 500 })
     }
 
-    // Get existing calibration data
+    // Get existing calibration data from user_calibrations table
     const { data: calibrationData, error: calibrationError } = await supabase
-      .from('user_fitness_profiles')
+      .from('user_calibrations')
       .select('*')
       .eq('user_id', userId)
       .single()
@@ -65,9 +143,11 @@ export async function GET(request: NextRequest) {
       success: true,
       user: {
         id: profile.id,
+        username: profile.username,
         is_calibrated: profile.is_calibrated || false,
         calibration_level: profile.calibration_level || CALIBRATION_LEVELS.NONE,
-        current_xp: profile.xp || 0
+        current_xp: profile.xp || 0,
+        level: profile.level || 1
       },
       calibration_data: calibrationData || null
     })
@@ -89,23 +169,22 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('💾 POST Calibration for user:', userId)
+    console.log('📊 Received calibration data keys:', Object.keys(calibrationData))
 
-    // Get current user state
-    const { data: currentProfile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, is_calibrated, calibration_level, xp')
-      .eq('id', userId)
-      .single()
+    // Ensure user profile exists FIRST
+    const { data: currentProfile, error: profileError } = await ensureUserProfile(userId, {
+      username: calibrationData.username
+    })
 
-    if (profileError) {
-      console.error('❌ Profile not found:', profileError)
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    if (profileError || !currentProfile) {
+      console.error('❌ Could not ensure profile exists:', profileError)
+      return NextResponse.json({ error: 'Could not create user profile' }, { status: 500 })
     }
 
     // Determine if this is first-time calibration
     const isFirstTimeCalibration = !currentProfile.is_calibrated || currentProfile.calibration_level === CALIBRATION_LEVELS.NONE
     const currentLevel = currentProfile.calibration_level || CALIBRATION_LEVELS.NONE
-    const newLevel = CALIBRATION_LEVELS.BASE // For now, always base level (AI will be separate)
+    const newLevel = CALIBRATION_LEVELS.BASE // For now, always base level
 
     console.log('📊 Calibration Status:')
     console.log('  - Current level:', currentLevel)
@@ -128,70 +207,62 @@ export async function POST(request: NextRequest) {
       console.log('♻️ Updating existing calibration - no XP reward')
     }
 
-    // Prepare calibration data for user_fitness_profiles
-    const fitnessProfileData = {
+    // Prepare calibration data for user_calibrations table (based on actual schema)
+    const calibrationPayload = {
       user_id: userId,
-      // Basic info
-      age: calibrationData.age || null,
-      weight: calibrationData.weight || null,
-      height: calibrationData.height || null,
-      gender: calibrationData.gender || null,
       
-      // Fitness details
+      // Basic fitness data
       fitness_level: calibrationData.fitness_level || 'beginner',
-      sport_category: calibrationData.sport_background || calibrationData.sport_category || 'general',
-      years_experience: calibrationData.years_experience || calibrationData.experience_years || 0,
-      primary_activity_type: calibrationData.primary_activity_type || null,
+      experience_level: calibrationData.experience_level || 'beginner',
       
-      // Goals and limitations
-      target_goals: Array.isArray(calibrationData.target_goals) 
-        ? calibrationData.target_goals 
-        : (calibrationData.target_goals ? [calibrationData.target_goals] : []),
+      // Goals (ensure it's an array)
+      goals: Array.isArray(calibrationData.goals) 
+        ? calibrationData.goals 
+        : (calibrationData.goals ? [calibrationData.goals] : []),
+        
+      // Workout preferences
+      preferred_workout_types: Array.isArray(calibrationData.preferred_workout_types)
+        ? calibrationData.preferred_workout_types
+        : (calibrationData.preferred_workout_types ? [calibrationData.preferred_workout_types] : []),
+        
+      available_equipment: Array.isArray(calibrationData.available_equipment)
+        ? calibrationData.available_equipment
+        : (calibrationData.available_equipment ? [calibrationData.available_equipment] : []),
+        
+      workout_frequency: calibrationData.workout_frequency || null,
+      workout_duration: calibrationData.workout_duration || null,
+      
+      // Physical limitations
       physical_limitations: Array.isArray(calibrationData.physical_limitations)
         ? calibrationData.physical_limitations
         : (calibrationData.physical_limitations ? [calibrationData.physical_limitations] : []),
-        
-      // Test results
-      pushups_count: calibrationData.pushups_count || null,
-      squats_count: calibrationData.squats_count || null,
-      plank_duration: calibrationData.plank_duration || null,
-      flexibility_score: calibrationData.flexibility_score || null,
-      
-      // Preferences
-      workout_frequency: calibrationData.workout_frequency || null,
-      session_duration: calibrationData.session_duration || null,
-      preferred_time: calibrationData.preferred_time || null,
-      equipment_available: Array.isArray(calibrationData.equipment_available)
-        ? calibrationData.equipment_available
-        : (calibrationData.equipment_available ? [calibrationData.equipment_available] : []),
-        
-      // AI-specific data
-      calibration_level: newLevel,
-      calibration_score: calculateCalibrationScore(calibrationData),
-      ai_preferences: {
-        motivation_style: calibrationData.motivation_style || 'balanced',
-        feedback_frequency: calibrationData.feedback_frequency || 'normal',
-        challenge_level: calibrationData.challenge_level || 'progressive'
-      },
       
       // Timestamps
-      updated_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     }
 
-    // Use upsert to handle both insert and update
-    const { data: fitnessProfile, error: fitnessError } = await supabase
-      .from('user_fitness_profiles')
-      .upsert(fitnessProfileData, { 
+    console.log('💾 Saving calibration payload:', calibrationPayload)
+
+    // Use upsert to handle both insert and update for user_calibrations
+    const { data: calibrationResult, error: calibrationError } = await supabase
+      .from('user_calibrations')
+      .upsert(calibrationPayload, { 
         onConflict: 'user_id',
         ignoreDuplicates: false 
       })
       .select()
       .single()
 
-    if (fitnessError) {
-      console.error('❌ Fitness profile upsert error:', fitnessError)
-      return NextResponse.json({ error: 'Failed to save fitness profile' }, { status: 500 })
+    if (calibrationError) {
+      console.error('❌ Calibration upsert error:', calibrationError)
+      return NextResponse.json({ 
+        error: `Failed to save calibration: ${calibrationError.message}`,
+        details: calibrationError 
+      }, { status: 500 })
     }
+
+    console.log('✅ Calibration saved successfully')
 
     // Update user profile with calibration status and XP
     const profileUpdateData: any = {
@@ -208,7 +279,7 @@ export async function POST(request: NextRequest) {
       .from('profiles')
       .update(profileUpdateData)
       .eq('id', userId)
-      .select('id, xp, is_calibrated, calibration_level')
+      .select('id, username, xp, level, is_calibrated, calibration_level')
       .single()
 
     if (updateError) {
@@ -216,10 +287,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 })
     }
 
-    console.log('✅ Calibration saved successfully')
+    console.log('✅ Profile updated successfully')
     console.log('  - Final XP:', updatedProfile.xp)
     console.log('  - XP awarded this session:', shouldAwardXP ? xpReward : 0)
 
+    // Success response
     return NextResponse.json({
       success: true,
       message: shouldAwardXP 
@@ -227,7 +299,7 @@ export async function POST(request: NextRequest) {
         : 'Calibrazione aggiornata con successo! 📊',
       data: {
         user: updatedProfile,
-        fitness_profile: fitnessProfile,
+        calibration: calibrationResult,
         xp_awarded: shouldAwardXP ? xpReward : 0,
         is_first_time: isFirstTimeCalibration,
         calibration_level: newLevel
@@ -248,26 +320,20 @@ function calculateCalibrationScore(data: any): number {
   let score = 0
   
   // Basic completeness (40 points max)
-  if (data.age) score += 5
-  if (data.weight) score += 5
-  if (data.height) score += 5
-  if (data.gender) score += 5
-  if (data.fitness_level) score += 5
-  if (data.sport_background || data.sport_category) score += 5
-  if (data.years_experience || data.experience_years) score += 5
-  if (data.target_goals?.length > 0) score += 5
+  if (data.fitness_level) score += 10
+  if (data.experience_level) score += 10
+  if (data.goals?.length > 0) score += 10
+  if (data.preferred_workout_types?.length > 0) score += 10
   
-  // Test results (40 points max)  
-  if (data.pushups_count) score += 10
-  if (data.squats_count) score += 10
-  if (data.plank_duration) score += 10
-  if (data.flexibility_score) score += 10
+  // Preferences (40 points max)
+  if (data.workout_frequency) score += 10
+  if (data.workout_duration) score += 10
+  if (data.available_equipment?.length > 0) score += 10
+  if (data.physical_limitations !== undefined) score += 10 // Even empty array counts
   
-  // Preferences and details (20 points max)
-  if (data.workout_frequency) score += 5
-  if (data.session_duration) score += 5  
-  if (data.preferred_time) score += 5
-  if (data.equipment_available?.length > 0) score += 5
+  // Additional details (20 points max)
+  // Could add more specific scoring here
+  score += Math.min(20, Object.keys(data).length * 2)
   
   return Math.min(score, 100) // Cap at 100
 }
@@ -285,13 +351,74 @@ export async function PUT(request: NextRequest) {
     // This will handle advanced AI calibration in the future
     // For now, return not implemented
     return NextResponse.json({ 
-      message: 'Advanced AI calibration coming soon!',
+      message: 'Advanced AI calibration coming soon! 🚀',
       current_level: CALIBRATION_LEVELS.BASE,
-      next_level: CALIBRATION_LEVELS.ADVANCED_AI
+      next_level: CALIBRATION_LEVELS.ADVANCED_AI,
+      features_coming: [
+        'AI-powered workout recommendations',
+        'Personalized difficulty scaling',
+        'Real-time form feedback',
+        'Adaptive goal setting'
+      ]
     }, { status: 501 })
 
   } catch (error) {
     console.error('❌ PUT Error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+// DELETE method to reset calibration (for testing/admin)
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const userId = searchParams.get('userId')
+    
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 })
+    }
+
+    console.log('🗑️ Resetting calibration for user:', userId)
+
+    // Reset calibration data
+    const { error: calibrationError } = await supabase
+      .from('user_calibrations')
+      .delete()
+      .eq('user_id', userId)
+
+    if (calibrationError) {
+      console.error('❌ Error deleting calibration:', calibrationError)
+    }
+
+    // Reset profile calibration status
+    const { data: resetProfile, error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        is_calibrated: false,
+        calibration_level: CALIBRATION_LEVELS.NONE,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId)
+      .select('id, username, is_calibrated, calibration_level')
+      .single()
+
+    if (profileError) {
+      console.error('❌ Error resetting profile:', profileError)
+      return NextResponse.json({ error: 'Failed to reset profile' }, { status: 500 })
+    }
+
+    console.log('✅ Calibration reset successfully')
+
+    return NextResponse.json({
+      success: true,
+      message: 'Calibration reset successfully! 🔄',
+      data: {
+        user: resetProfile
+      }
+    })
+
+  } catch (error) {
+    console.error('❌ DELETE Error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
