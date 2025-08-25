@@ -2,7 +2,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
 
 // ====================================
-// TYPES
+// TYPES (MANTENUTI IDENTICI)
 // ====================================
 
 export interface Profile {
@@ -116,7 +116,7 @@ export interface Notification {
 }
 
 // ====================================
-// ENHANCED SUPABASE CLIENT WITH PERSISTENT SESSIONS
+// OPTIMIZED SUPABASE CLIENT - SINGLETON PATTERN
 // ====================================
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -173,91 +173,114 @@ const createPersistentStorage = () => {
   }
 }
 
-// Singleton instance with better error handling
+// SINGLETON INSTANCE - QUESTO È IL FIX PRINCIPALE
 let supabaseInstance: SupabaseClient | null = null
 
-// Create or get existing Supabase client with OPTIMIZED PERSISTENCE
+// Create or get existing Supabase client with OPTIMIZED SINGLETON PATTERN
 export function getSupabaseClient(): SupabaseClient {
-  if (!supabaseInstance) {
-    console.log('🔧 Creating new Supabase client with persistent session config')
-    
-    supabaseInstance = createClient(
-      supabaseUrl || 'https://demo.supabase.co', 
-      supabaseAnonKey || 'demo-key', 
-      {
-        auth: {
-          // ENHANCED AUTH CONFIGURATION FOR PERSISTENCE
-          autoRefreshToken: true,           // Auto refresh tokens
-          persistSession: true,             // Always persist sessions
-          detectSessionInUrl: true,         // Detect sessions from URL (useful for auth redirects)
-          flowType: 'pkce',                // More secure auth flow
-          
-          // CUSTOM STORAGE WITH PERSISTENCE GUARANTEES
-          storage: createPersistentStorage(),
-          storageKey: 'fitduel-auth-token', // Your custom key
-          
-          // EXTENDED SESSION CONFIGURATION
-          debug: process.env.NODE_ENV === 'development' ? true : false,
-        },
+  // SEMPRE restituisce la stessa istanza se esiste
+  if (supabaseInstance) {
+    return supabaseInstance
+  }
+
+  console.log('🔧 Creating SINGLE Supabase client instance with persistent session config')
+  
+  supabaseInstance = createClient(
+    supabaseUrl || 'https://demo.supabase.co', 
+    supabaseAnonKey || 'demo-key', 
+    {
+      auth: {
+        // ENHANCED AUTH CONFIGURATION FOR PERSISTENCE
+        autoRefreshToken: true,           // Auto refresh tokens
+        persistSession: true,             // Always persist sessions
+        detectSessionInUrl: true,         // Detect sessions from URL (useful for auth redirects)
+        flowType: 'pkce',                // More secure auth flow
         
-        // DATABASE OPTIMIZATIONS
-        db: {
-          schema: 'public'
-        },
+        // CUSTOM STORAGE WITH PERSISTENCE GUARANTEES
+        storage: createPersistentStorage(),
+        storageKey: 'fitduel-auth-token-v2', // Versioned key per evitare conflitti
         
-        // GLOBAL CONFIGURATION
-        global: {
-          headers: {
-            'x-application-name': 'fitduel',
-            'x-client-info': 'fitduel-web@1.0.0'
-          }
-        },
-        
-        // REALTIME CONFIGURATION
-        realtime: {
-          params: {
-            eventsPerSecond: 10
-          }
+        // EXTENDED SESSION CONFIGURATION
+        debug: process.env.NODE_ENV === 'development' ? true : false,
+      },
+      
+      // DATABASE OPTIMIZATIONS
+      db: {
+        schema: 'public'
+      },
+      
+      // GLOBAL CONFIGURATION
+      global: {
+        headers: {
+          'x-application-name': 'fitduel',
+          'x-client-info': 'fitduel-web@1.0.0',
+          'x-client-singleton': 'true' // Indica che è singleton
+        }
+      },
+      
+      // REALTIME CONFIGURATION
+      realtime: {
+        params: {
+          eventsPerSecond: 10
         }
       }
-    )
-
-    // ENHANCED SESSION MONITORING
-    if (typeof window !== 'undefined') {
-      // Monitor session health
-      setInterval(async () => {
-        try {
-          const { data: { session }, error } = await supabaseInstance!.auth.getSession()
-          if (error) {
-            console.warn('⚠️ Session check error:', error)
-          } else if (session) {
-            console.log('✅ Session healthy, expires at:', new Date(session.expires_at! * 1000))
-          }
-        } catch (error) {
-          console.warn('Session health check failed:', error)
-        }
-      }, 5 * 60 * 1000) // Check every 5 minutes
-
-      // Listen for session events
-      supabaseInstance.auth.onAuthStateChange((event, session) => {
-        console.log('🔄 Auth state change:', event, session ? 'Session active' : 'No session')
-        
-        if (event === 'SIGNED_OUT') {
-          console.log('👋 User signed out')
-        } else if (event === 'SIGNED_IN') {
-          console.log('👋 User signed in')
-        } else if (event === 'TOKEN_REFRESHED') {
-          console.log('🔄 Token refreshed successfully')
-        }
-      })
     }
+  )
+
+  // ENHANCED SESSION MONITORING (solo se client-side)
+  if (typeof window !== 'undefined') {
+    // Monitor session health ogni 5 minuti
+    const sessionHealthInterval = setInterval(async () => {
+      try {
+        const { data: { session }, error } = await supabaseInstance!.auth.getSession()
+        if (error) {
+          console.warn('⚠️ Session check error:', error)
+        } else if (session) {
+          console.log('✅ Session healthy, expires at:', new Date(session.expires_at! * 1000))
+        }
+      } catch (error) {
+        console.warn('Session health check failed:', error)
+      }
+    }, 5 * 60 * 1000)
+
+    // Cleanup interval on page unload
+    window.addEventListener('beforeunload', () => {
+      clearInterval(sessionHealthInterval)
+    })
+
+    // Listen for session events con logging migliorato
+    supabaseInstance.auth.onAuthStateChange((event, session) => {
+      console.log('🔄 Auth state change:', event, session ? `Session active (${session.user?.id})` : 'No session')
+      
+      switch (event) {
+        case 'SIGNED_OUT':
+          console.log('👋 User signed out - session cleared')
+          break
+        case 'SIGNED_IN':
+          console.log('👋 User signed in - session established')
+          break
+        case 'TOKEN_REFRESHED':
+          console.log('🔄 Token refreshed successfully')
+          break
+        case 'INITIAL_SESSION':
+          console.log('🔄 Initial session loaded')
+          break
+      }
+    })
   }
   
   return supabaseInstance
 }
 
-// Export singleton instance
+// Export singleton instance - SEMPRE LA STESSA ISTANZA
 export const supabase = getSupabaseClient()
+
+// UTILITY per forzare re-inizializzazione (solo per debug)
+export function resetSupabaseClient() {
+  console.log('🔄 Forcing Supabase client reset (debug only)')
+  supabaseInstance = null
+  return getSupabaseClient()
+}
 
 // ====================================
 // ENHANCED AUTH FUNCTIONS WITH BETTER ERROR HANDLING
@@ -317,7 +340,7 @@ export const auth = {
   async signIn(email: string, password: string) {
     try {
       const client = getSupabaseClient()
-      console.log('🔑 Attempting sign in with persistent session...')
+      console.log('🔐 Attempting sign in with persistent session...')
       
       const { data, error } = await client.auth.signInWithPassword({
         email,
@@ -419,11 +442,55 @@ export const auth = {
       console.error('Session refresh error:', error)
       throw error
     }
+  },
+
+  // NEW: Ensure user profile exists (per l'API calibration)
+  async ensureUserProfile(userId: string, userData?: any) {
+    try {
+      const client = getSupabaseClient()
+      
+      // Check if profile exists
+      const { data: existingProfile, error: fetchError } = await client
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        throw fetchError
+      }
+
+      if (existingProfile) {
+        return { data: existingProfile, error: null }
+      }
+
+      // Create new profile if not exists
+      const { data: newProfile, error: insertError } = await client
+        .from('profiles')
+        .insert({
+          id: userId,
+          username: userData?.username || `user_${userId.slice(0, 8)}`,
+          display_name: userData?.display_name || userData?.username || '',
+          email: userData?.email || '',
+          is_active: true,
+          is_verified: false,
+          role: 'user',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single()
+
+      return { data: newProfile, error: insertError }
+    } catch (error) {
+      console.error('Error ensuring user profile:', error)
+      return { data: null, error }
+    }
   }
 }
 
 // ====================================
-// DATABASE FUNCTIONS (UNCHANGED - WORKING WELL)
+// DATABASE FUNCTIONS (MANTENUTE IDENTICHE)
 // ====================================
 
 export const db = {
@@ -757,7 +824,7 @@ export const db = {
 }
 
 // ====================================
-// REALTIME SUBSCRIPTIONS (UNCHANGED)
+// REALTIME SUBSCRIPTIONS (MANTENUTE IDENTICHE)
 // ====================================
 
 export const realtime = {
@@ -809,7 +876,7 @@ export const realtime = {
 }
 
 // ====================================
-// STORAGE FUNCTIONS (UNCHANGED)
+// STORAGE FUNCTIONS (MANTENUTE IDENTICHE)
 // ====================================
 
 export const storage = {
@@ -946,7 +1013,7 @@ export function useUser() {
   return { user, profile, stats, loading }
 }
 
-// Hook for notifications (UNCHANGED)
+// Hook for notifications (MANTENUTO IDENTICO)
 export function useNotifications() {
   const { user } = useUser()
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -987,7 +1054,7 @@ export function useNotifications() {
   return { notifications, unreadCount, markAsRead }
 }
 
-// Hook for duels (UNCHANGED)
+// Hook for duels (MANTENUTO IDENTICO)
 export function useDuels() {
   const { user } = useUser()
   const [myDuels, setMyDuels] = useState<Duel[]>([])
