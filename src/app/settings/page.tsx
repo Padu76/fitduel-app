@@ -50,6 +50,15 @@ interface NotificationSettings {
   push_notifications: boolean
 }
 
+// 🔧 SAFE ARRAY CHECK UTILITY
+function safeArrayIncludes(array: any, item: any): boolean {
+  return Array.isArray(array) && array.includes(item)
+}
+
+function ensureArray(value: any): any[] {
+  return Array.isArray(value) ? value : []
+}
+
 // Settings Content Component
 function SettingsContent() {
   const router = useRouter()
@@ -63,7 +72,7 @@ function SettingsContent() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   
-  // Calibration states
+  // 🔧 CALIBRATION STATES WITH SAFE DEFAULTS
   const [calibrationData, setCalibrationData] = useState<CalibrationData>({
     user_id: '',
     age: 25,
@@ -72,10 +81,10 @@ function SettingsContent() {
     gender: 'male',
     fitness_level: 'intermediate',
     experience_years: 1,
-    sport_background: [],
+    sport_background: [], // ✅ Always array
     primary_activity_type: 'mixed',
-    target_goals: [],
-    medical_conditions: [],
+    target_goals: [], // ✅ Always array
+    medical_conditions: [], // ✅ Always array
     preferred_workout_duration: 30,
     ai_movement_calibrated: false,
     calibration_score: 0,
@@ -149,17 +158,52 @@ function SettingsContent() {
 
   const fetchCalibrationData = async (userId: string) => {
     try {
+      console.log('🔍 Fetching calibration data for user:', userId)
+      
       // Try to fetch from API with query parameter
       const response = await fetch(`/api/calibration?userId=${userId}`)
       
       if (response.ok) {
         const data = await response.json()
-        if (data.calibration) {
-          setCalibrationData(data.calibration)
+        console.log('📊 API Response:', data)
+        
+        // 🔧 SAFE DATA EXTRACTION WITH FALLBACKS
+        const savedData = data.calibration || data.calibration_data
+        
+        if (savedData) {
+          console.log('✅ Found existing calibration data')
+          
+          // 🔧 ENSURE ALL ARRAYS ARE PROPERLY INITIALIZED
+          const safeCalibrationData = {
+            ...calibrationData, // Keep existing defaults
+            user_id: userId,
+            // Override with saved data, ensuring arrays are always arrays
+            age: savedData.age || calibrationData.age,
+            weight: savedData.weight || calibrationData.weight,
+            height: savedData.height || calibrationData.height,
+            gender: savedData.gender || calibrationData.gender,
+            fitness_level: savedData.fitness_level || calibrationData.fitness_level,
+            experience_years: savedData.experience_years || savedData.fitness_experience_years || calibrationData.experience_years,
+            sport_background: ensureArray(savedData.sport_background),
+            primary_activity_type: savedData.primary_activity_type || calibrationData.primary_activity_type,
+            target_goals: ensureArray(savedData.target_goals),
+            medical_conditions: ensureArray(savedData.medical_conditions),
+            preferred_workout_duration: savedData.preferred_workout_duration || calibrationData.preferred_workout_duration,
+            ai_movement_calibrated: savedData.ai_movement_calibrated || false,
+            calibration_score: savedData.calibration_score || 0,
+            last_updated: savedData.last_updated || savedData.updated_at || new Date().toISOString()
+          }
+          
+          setCalibrationData(safeCalibrationData)
+          console.log('✅ Calibration data loaded safely')
+        } else {
+          console.log('ℹ️ No existing calibration data found')
         }
+      } else {
+        console.log('⚠️ API response not OK:', response.status)
       }
     } catch (error) {
-      console.log('No existing calibration data found - will create new')
+      console.log('ℹ️ No existing calibration data found - will create new:', error)
     }
   }
 
@@ -171,23 +215,18 @@ function SettingsContent() {
     setSuccess(null)
     
     try {
+      console.log('💾 Saving calibration data...')
+      
       // ✅ FORMATO CORRETTO - Come richiesto dall'API
       const requestBody = {
         userId: user.id,
         calibrationData: {
           ...calibrationData,
           last_updated: new Date().toISOString()
-        },
-        aiCalibrationData: {
-          baseline_angles: calibrationData.ai_movement_calibrated ? {} : null,
-          body_proportions: calibrationData.ai_movement_calibrated ? {} : null,
-          movement_patterns: calibrationData.ai_movement_calibrated ? {} : null,
-          range_of_motion: calibrationData.ai_movement_calibrated ? {} : null,
-          form_preferences: calibrationData.ai_movement_calibrated ? {} : null
         }
       }
 
-      console.log('Sending calibration data:', requestBody) // Debug log
+      console.log('📤 Sending calibration data:', requestBody)
 
       const response = await fetch('/api/calibration', {
         method: 'POST',
@@ -201,20 +240,26 @@ function SettingsContent() {
       }
 
       const result = await response.json()
+      console.log('✅ Save successful:', result)
       
-      setSuccess('Calibrazione salvata con successo!')
-      if (result.calibration) {
-        setCalibrationData(result.calibration)
-      }
+      setSuccess(result.message || 'Calibrazione salvata con successo!')
       
-      // Calculate XP bonus based on completion
-      const completionBonus = calculateCalibrationBonus()
-      if (completionBonus > 0) {
-        setSuccess(`Calibrazione completata! +${completionBonus} XP bonus!`)
+      if (result.data?.calibration || result.data?.calibration_data) {
+        const returnedData = result.data.calibration || result.data.calibration_data
+        
+        // 🔧 ENSURE RETURNED DATA HAS SAFE ARRAYS
+        const safeReturnedData = {
+          ...returnedData,
+          sport_background: ensureArray(returnedData.sport_background),
+          target_goals: ensureArray(returnedData.target_goals),
+          medical_conditions: ensureArray(returnedData.medical_conditions)
+        }
+        
+        setCalibrationData(safeReturnedData)
       }
 
     } catch (error: any) {
-      console.error('Error saving calibration:', error)
+      console.error('❌ Error saving calibration:', error)
       setError(error.message || 'Errore durante il salvataggio')
     } finally {
       setSaving(false)
@@ -226,8 +271,8 @@ function SettingsContent() {
       calibrationData.age > 0,
       calibrationData.weight > 0,
       calibrationData.height > 0,
-      calibrationData.sport_background.length > 0,
-      calibrationData.target_goals.length > 0,
+      ensureArray(calibrationData.sport_background).length > 0,
+      ensureArray(calibrationData.target_goals).length > 0,
       calibrationData.ai_movement_calibrated
     ].filter(Boolean).length
 
@@ -401,11 +446,13 @@ function SettingsContent() {
     }
   ]
 
-  // Auto-calculate primary activity type based on selected sports
+  // 🔧 SAFE Auto-calculate primary activity type based on selected sports
   const calculatePrimaryActivityType = (selectedSports: string[]) => {
-    if (selectedSports.length === 0) return 'mixed'
+    const safeSelectedSports = ensureArray(selectedSports)
     
-    const types = selectedSports.map(sportId => 
+    if (safeSelectedSports.length === 0) return 'mixed'
+    
+    const types = safeSelectedSports.map(sportId => 
       sportActivities.find(s => s.id === sportId)?.type || 'mixed'
     )
     
@@ -605,7 +652,7 @@ function SettingsContent() {
                         <input
                           type="number"
                           value={calibrationData.age}
-                          onChange={(e) => setCalibrationData(prev => ({ ...prev, age: parseInt(e.target.value) }))}
+                          onChange={(e) => setCalibrationData(prev => ({ ...prev, age: parseInt(e.target.value) || 0 }))}
                           className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl 
                             text-white focus:border-green-500 focus:outline-none"
                           min="13"
@@ -632,7 +679,7 @@ function SettingsContent() {
                         <input
                           type="number"
                           value={calibrationData.weight}
-                          onChange={(e) => setCalibrationData(prev => ({ ...prev, weight: parseInt(e.target.value) }))}
+                          onChange={(e) => setCalibrationData(prev => ({ ...prev, weight: parseInt(e.target.value) || 0 }))}
                           className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl 
                             text-white focus:border-green-500 focus:outline-none"
                           min="30"
@@ -645,7 +692,7 @@ function SettingsContent() {
                         <input
                           type="number"
                           value={calibrationData.height}
-                          onChange={(e) => setCalibrationData(prev => ({ ...prev, height: parseInt(e.target.value) }))}
+                          onChange={(e) => setCalibrationData(prev => ({ ...prev, height: parseInt(e.target.value) || 0 }))}
                           className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-xl 
                             text-white focus:border-green-500 focus:outline-none"
                           min="100"
@@ -667,42 +714,48 @@ function SettingsContent() {
                         Seleziona le attività che pratichi o hai praticato
                       </label>
                       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
-                        {sportActivities.map((sport) => (
-                          <button
-                            key={sport.id}
-                            onClick={() => {
-                              const newSports = calibrationData.sport_background.includes(sport.id)
-                                ? calibrationData.sport_background.filter(s => s !== sport.id)
-                                : [...calibrationData.sport_background, sport.id]
-                              
-                              setCalibrationData(prev => ({
-                                ...prev,
-                                sport_background: newSports,
-                                primary_activity_type: calculatePrimaryActivityType(newSports)
-                              }))
-                            }}
-                            className={`p-3 rounded-xl border transition-all text-left group ${
-                              calibrationData.sport_background.includes(sport.id)
-                                ? 'bg-green-500/20 border-green-500/50 text-white'
-                                : 'bg-slate-700/30 border-slate-600/50 text-slate-300 hover:border-green-500/30'
-                            }`}
-                          >
-                            <div className="text-xl mb-1">{sport.icon}</div>
-                            <div className="font-medium text-sm">{sport.label}</div>
-                            <div className={`text-xs mt-1 transition-opacity ${
-                              calibrationData.sport_background.includes(sport.id)
-                                ? 'text-green-300 opacity-100'
-                                : 'text-slate-500 opacity-0 group-hover:opacity-100'
-                            }`}>
-                              {sport.description}
-                            </div>
-                          </button>
-                        ))}
+                        {sportActivities.map((sport) => {
+                          // 🔧 SAFE INCLUDES CHECK
+                          const isSelected = safeArrayIncludes(calibrationData.sport_background, sport.id)
+                          
+                          return (
+                            <button
+                              key={sport.id}
+                              onClick={() => {
+                                const currentSports = ensureArray(calibrationData.sport_background)
+                                const newSports = isSelected
+                                  ? currentSports.filter(s => s !== sport.id)
+                                  : [...currentSports, sport.id]
+                                
+                                setCalibrationData(prev => ({
+                                  ...prev,
+                                  sport_background: newSports,
+                                  primary_activity_type: calculatePrimaryActivityType(newSports)
+                                }))
+                              }}
+                              className={`p-3 rounded-xl border transition-all text-left group ${
+                                isSelected
+                                  ? 'bg-green-500/20 border-green-500/50 text-white'
+                                  : 'bg-slate-700/30 border-slate-600/50 text-slate-300 hover:border-green-500/30'
+                              }`}
+                            >
+                              <div className="text-xl mb-1">{sport.icon}</div>
+                              <div className="font-medium text-sm">{sport.label}</div>
+                              <div className={`text-xs mt-1 transition-opacity ${
+                                isSelected
+                                  ? 'text-green-300 opacity-100'
+                                  : 'text-slate-500 opacity-0 group-hover:opacity-100'
+                              }`}>
+                                {sport.description}
+                              </div>
+                            </button>
+                          )
+                        })}
                       </div>
                     </div>
 
                     {/* Activity Type Auto-Detection */}
-                    {calibrationData.sport_background.length > 0 && (
+                    {ensureArray(calibrationData.sport_background).length > 0 && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
@@ -790,27 +843,33 @@ function SettingsContent() {
                     </h3>
                     
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {fitnessGoals.map((goal) => (
-                        <button
-                          key={goal.id}
-                          onClick={() => {
-                            setCalibrationData(prev => ({
-                              ...prev,
-                              target_goals: prev.target_goals.includes(goal.id)
-                                ? prev.target_goals.filter(g => g !== goal.id)
-                                : [...prev.target_goals, goal.id]
-                            }))
-                          }}
-                          className={`p-4 rounded-xl border transition-all text-left ${
-                            calibrationData.target_goals.includes(goal.id)
-                              ? 'bg-green-500/20 border-green-500/50 text-white'
-                              : 'bg-slate-700/30 border-slate-600/50 text-slate-300 hover:border-green-500/30'
-                          }`}
-                        >
-                          <div className="text-2xl mb-2">{goal.icon}</div>
-                          <div className="font-medium">{goal.label}</div>
-                        </button>
-                      ))}
+                      {fitnessGoals.map((goal) => {
+                        // 🔧 SAFE INCLUDES CHECK
+                        const isSelected = safeArrayIncludes(calibrationData.target_goals, goal.id)
+                        
+                        return (
+                          <button
+                            key={goal.id}
+                            onClick={() => {
+                              const currentGoals = ensureArray(calibrationData.target_goals)
+                              setCalibrationData(prev => ({
+                                ...prev,
+                                target_goals: isSelected
+                                  ? currentGoals.filter(g => g !== goal.id)
+                                  : [...currentGoals, goal.id]
+                              }))
+                            }}
+                            className={`p-4 rounded-xl border transition-all text-left ${
+                              isSelected
+                                ? 'bg-green-500/20 border-green-500/50 text-white'
+                                : 'bg-slate-700/30 border-slate-600/50 text-slate-300 hover:border-green-500/30'
+                            }`}
+                          >
+                            <div className="text-2xl mb-2">{goal.icon}</div>
+                            <div className="font-medium">{goal.label}</div>
+                          </button>
+                        )
+                      })}
                     </div>
                   </div>
 
