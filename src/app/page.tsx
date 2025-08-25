@@ -42,7 +42,7 @@ export default function LandingPage() {
       image: '/avatars/leopard.png', 
       color: 'from-yellow-500 to-amber-500',
       glow: 'rgba(251, 191, 36, 0.5)',
-      description: 'Velocità e resistenza imbattibili'
+      description: 'VelocitÃ  e resistenza imbattibili'
     },
     { 
       id: 3, 
@@ -53,7 +53,7 @@ export default function LandingPage() {
       image: '/avatars/panther.png', 
       color: 'from-purple-600 to-pink-500',
       glow: 'rgba(147, 51, 234, 0.5)',
-      description: 'Agilità e precisione letali'
+      description: 'AgilitÃ  e precisione letali'
     },
     { 
       id: 4, 
@@ -64,7 +64,7 @@ export default function LandingPage() {
       image: '/avatars/gorilla.png', 
       color: 'from-gray-600 to-cyan-500',
       glow: 'rgba(107, 114, 128, 0.5)',
-      description: 'Stabilità e controllo assoluti'
+      description: 'StabilitÃ  e controllo assoluti'
     },
     { 
       id: 5, 
@@ -203,7 +203,7 @@ export default function LandingPage() {
             </div>
           </motion.div>
 
-          {/* CTA Buttons - ONLY CHANGES HERE! */}
+          {/* CTA Buttons - CORREZIONE QUI! */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -213,7 +213,7 @@ export default function LandingPage() {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => router.push('/login')}
+              onClick={() => router.push('/auth')}
               className="px-12 py-6 bg-gradient-to-r from-green-500 to-emerald-500 
                 rounded-full text-xl font-bold text-white shadow-2xl 
                 hover:shadow-green-500/50 transition-all duration-300"
@@ -224,7 +224,7 @@ export default function LandingPage() {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => router.push('/register')}
+              onClick={() => router.push('/auth')}
               className="px-12 py-6 border-2 border-green-400 rounded-full text-xl font-bold text-green-400 
                 hover:bg-green-400/10 transition-all duration-300"
             >
@@ -258,7 +258,7 @@ export default function LandingPage() {
                 COME FUNZIONA FITDUEL
               </span>
             </h2>
-            <p className="text-xl text-gray-400">Il fitness gaming che ti farà sudare davvero!</p>
+            <p className="text-xl text-gray-400">Il fitness gaming che ti farÃ  sudare davvero!</p>
           </motion.div>
 
           {/* Steps Grid */}
@@ -478,7 +478,7 @@ export default function LandingPage() {
                     <span className="text-white">{characters[activeCharacter].power}</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-yellow-400">Abilità:</span>
+                    <span className="text-yellow-400">AbilitÃ :</span>
                     <span className="text-white">{characters[activeCharacter].ability}</span>
                   </div>
                 </div>
@@ -514,7 +514,7 @@ export default function LandingPage() {
             className="text-5xl md:text-6xl font-black text-center mb-12"
           >
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-blue-500">
-              PERCHÉ FITDUEL?
+              PERCHÃ‰ FITDUEL?
             </span>
           </motion.h2>
 
@@ -523,7 +523,7 @@ export default function LandingPage() {
               {
                 icon: 'PUSH',
                 title: 'Push-ups Battle',
-                description: 'Sfida i tuoi amici a colpi di piegamenti. Chi ne fa di più in 30 secondi vince!',
+                description: 'Sfida i tuoi amici a colpi di piegamenti. Chi ne fa di piÃ¹ in 30 secondi vince!',
                 gradient: 'from-red-400 to-orange-500',
                 image: '/exercises/pushups.jpg'
               },
@@ -544,14 +544,14 @@ export default function LandingPage() {
               {
                 icon: 'PLANK',
                 title: 'Plank Hold',
-                description: 'Stabilità e resistenza. Mantieni la posizione più a lungo del tuo avversario.',
+                description: 'StabilitÃ  e resistenza. Mantieni la posizione piÃ¹ a lungo del tuo avversario.',
                 gradient: 'from-purple-400 to-pink-500',
                 image: '/exercises/plank.jpg'
               },
               {
                 icon: 'JUMP',
                 title: 'Jumping Jacks',
-                description: 'Velocità e coordinazione. Ogni movimento conta nel punteggio finale.',
+                description: 'VelocitÃ  e coordinazione. Ogni movimento conta nel punteggio finale.',
                 gradient: 'from-green-400 to-emerald-500',
                 image: '/exercises/jumping-jacks.jpg'
               },
@@ -604,7 +604,7 @@ export default function LandingPage() {
             className="text-5xl md:text-6xl font-black text-center mb-4"
           >
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-blue-500">
-              MODALITÀ DI GIOCO
+              MODALITÃ€ DI GIOCO
             </span>
           </motion.h2>
           
@@ -617,7 +617,7 @@ export default function LandingPage() {
               {
                 icon: 'QUICK',
                 title: 'SFIDA LAMPO',
-                subtitle: '1v1 • 30 secondi',
+                subtitle: '1v1 â€¢ 30 secondi',
                 description: 'Duello rapido con matchmaking istantaneo',
                 gradient: 'from-yellow-500 to-orange-500',
                 xp: '+150 XP',
@@ -626,8 +626,8 @@ export default function LandingPage() {
               {
                 icon: 'TEAM',
                 title: 'TEAM BATTLE',
-                subtitle: '3v3 • 5 minuti',
-                description: 'Squadra contro squadra, coordinazione è tutto',
+                subtitle: '3v3 â€¢ 5 minuti',
+                description: 'Squadra contro squadra, coordinazione Ã¨ tutto',
                 gradient: 'from-blue-500 to-cyan-500',
                 xp: '+300 XP',
                 players: '1.8K online'
@@ -635,7 +635,7 @@ export default function LandingPage() {
               {
                 icon: 'TOURNEY',
                 title: 'TORNEO DAILY',
-                subtitle: '100 players • 24h',
+                subtitle: '100 players â€¢ 24h',
                 description: 'Scala la classifica e vinci premi esclusivi',
                 gradient: 'from-purple-500 to-pink-500',
                 xp: '+500 XP',
@@ -644,7 +644,7 @@ export default function LandingPage() {
               {
                 icon: 'SOLO',
                 title: 'MISSIONI SOLO',
-                subtitle: 'PvE • Vari',
+                subtitle: 'PvE â€¢ Vari',
                 description: 'Completa obiettivi e sblocca ricompense',
                 gradient: 'from-green-500 to-emerald-500',
                 xp: '+200 XP',
@@ -798,7 +798,7 @@ export default function LandingPage() {
               },
               {
                 title: 'LEVEL UP',
-                desc: 'Ogni rep ti rende più forte',
+                desc: 'Ogni rep ti rende piÃ¹ forte',
                 icon: 'GROWTH',
                 color: 'from-green-500 to-emerald-500'
               },
@@ -850,7 +850,7 @@ export default function LandingPage() {
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => router.push('/register')}
+              onClick={() => router.push('/auth')}
               className="px-16 py-8 bg-gradient-to-r from-green-500 via-blue-500 to-purple-500 
                 rounded-full text-2xl font-black text-white shadow-2xl 
                 hover:shadow-green-500/50 transition-all duration-300"
@@ -859,7 +859,7 @@ export default function LandingPage() {
             </motion.button>
             
             <p className="mt-6 text-gray-500">
-              Gratis per sempre • Nessuna carta richiesta • Unisciti a 10.000+ atleti
+              Gratis per sempre â€¢ Nessuna carta richiesta â€¢ Unisciti a 10.000+ atleti
             </p>
           </motion.div>
         </div>
@@ -869,7 +869,7 @@ export default function LandingPage() {
       <footer className="py-12 px-4 bg-black border-t border-gray-900">
         <div className="max-w-7xl mx-auto text-center">
           <p className="text-gray-500 text-sm">
-            © 2024 FitDuel Arena. Transform your body. Level up your life.
+            Â© 2024 FitDuel Arena. Transform your body. Level up your life.
           </p>
         </div>
       </footer>
