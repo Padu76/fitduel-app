@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, createContext, useContext } from 'react'
+import React, { useState, useEffect, useCallback, createContext, useContext } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { getSupabaseClient, auth, db } from '@/lib/supabase-client'
 import type { Profile, UserStats } from '@/lib/supabase-client'
@@ -204,7 +204,7 @@ export function useAuth(): AuthState & AuthActions {
   const signUp = useCallback(async (email: string, password: string, username: string) => {
     try {
       setLoading(true)
-      console.log('📝 Signing up new user...')
+      console.log('🔐 Signing up new user...')
       
       const result = await auth.signUp(email, password, username)
       
