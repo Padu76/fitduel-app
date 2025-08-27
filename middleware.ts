@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server'
 
 // ====================================
 // MIDDLEWARE PER AUTENTICAZIONE E CALIBRAZIONE
-// Solo utenti Supabase reali - no demo/guest
+// Supporta sia sessioni Supabase che cookie API
 // ====================================
 
 export async function middleware(req: NextRequest) {
@@ -38,25 +38,72 @@ export async function middleware(req: NextRequest) {
   ) {
     return res
   }
-  
+
   // ====================================
-  // CONTROLLO AUTENTICAZIONE SUPABASE
+  // CONTROLLO AUTENTICAZIONE
   // ====================================
+  let userId: string | null = null
+  let userEmail: string | null = null
+  let isAuthenticated = false
+
   try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-    
-    // Se non autenticato con Supabase, redirect a auth
-    if (!session) {
+    // 1. Prima controlla i cookie dell'API custom
+    const accessToken = req.cookies.get('access_token')?.value
+    const userInfo = req.cookies.get('user_info')?.value
+
+    if (accessToken && userInfo) {
+      try {
+        const parsedUserInfo = JSON.parse(userInfo)
+        
+        // Verifica se è un token test mode
+        if (accessToken.includes('eyJ') === false) { // Base64 test token
+          const tokenData = JSON.parse(Buffer.from(accessToken, 'base64').toString())
+          if (tokenData.exp > Date.now()) {
+            userId = parsedUserInfo.id
+            userEmail = parsedUserInfo.email
+            isAuthenticated = true
+            console.log('✅ Authenticated via API cookies (test mode):', userEmail)
+          }
+        } else {
+          // Token Supabase - verifica con Supabase
+          const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+          if (user && !error) {
+            userId = user.id
+            userEmail = user.email
+            isAuthenticated = true
+            console.log('✅ Authenticated via API cookies (Supabase):', userEmail)
+          }
+        }
+      } catch (error) {
+        console.log('❌ Invalid API cookie format:', error)
+      }
+    }
+
+    // 2. Se non autenticato tramite API, controlla sessione Supabase
+    if (!isAuthenticated) {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      
+      if (session?.user) {
+        userId = session.user.id
+        userEmail = session.user.email
+        isAuthenticated = true
+        console.log('✅ Authenticated via Supabase session:', userEmail)
+      }
+    }
+
+    // Se non autenticato con nessun metodo, redirect a auth
+    if (!isAuthenticated || !userId) {
+      console.log('❌ No authentication found, redirecting to auth')
       const redirectUrl = req.nextUrl.clone()
       redirectUrl.pathname = '/auth'
       redirectUrl.searchParams.set('redirectTo', pathname)
       return NextResponse.redirect(redirectUrl)
     }
-    
+
     // ====================================
-    // UTENTE AUTENTICATO CON SUPABASE
+    // UTENTE AUTENTICATO - CONTROLLI AGGIUNTIVI
     // ====================================
     
     // Percorsi che NON richiedono calibrazione
@@ -69,36 +116,39 @@ export async function middleware(req: NextRequest) {
     if (calibrationExemptPaths.some(path => pathname.startsWith(path))) {
       return res
     }
-    
+
     // ====================================
-    // CONTROLLO CALIBRAZIONE
+    // CONTROLLO CALIBRAZIONE (solo per Supabase)
     // ====================================
     
-    // Controlla se l'utente è calibrato
+    // Per utenti test mode, salta controllo calibrazione
+    if (accessToken && !accessToken.includes('eyJ')) {
+      console.log('ℹ️ Test mode user, skipping calibration check')
+      return res
+    }
+
+    // Controlla se l'utente è calibrato (solo per utenti Supabase reali)
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('is_calibrated, calibration_required, role')
-      .eq('id', session.user.id)
+      .eq('id', userId)
       .single()
     
-    // Se errore nel recupero profilo, crea profilo base
+    // Se errore nel recupero profilo, permetti accesso
     if (profileError) {
-      console.log('Profile not found, will be created on first access:', profileError)
-      // Permetti accesso, il profilo verrà creato automaticamente
+      console.log('ℹ️ Profile not found, allowing access:', profileError.message)
       return res
     }
     
     // Se il profilo non esiste, permetti accesso
     if (!profile) {
+      console.log('ℹ️ No profile found, allowing access')
       return res
     }
     
-    // ====================================
-    // REDIRECT BASATO SU CALIBRAZIONE
-    // ====================================
-    
     // Admin bypass - gli admin possono accedere senza calibrazione
     if (profile.role === 'admin') {
+      console.log('ℹ️ Admin user, bypassing calibration')
       return res
     }
     
@@ -108,6 +158,8 @@ export async function middleware(req: NextRequest) {
       if (pathname === '/calibration') {
         return res
       }
+      
+      console.log('📋 User needs calibration, redirecting:', userEmail)
       
       // Per tutti gli altri percorsi, forza calibrazione
       const redirectUrl = req.nextUrl.clone()
@@ -120,7 +172,7 @@ export async function middleware(req: NextRequest) {
       
       return NextResponse.redirect(redirectUrl)
     }
-    
+
     // ====================================
     // CONTROLLO RECALIBRAZIONE PERIODICA
     // ====================================
@@ -129,7 +181,7 @@ export async function middleware(req: NextRequest) {
     const { data: calibration } = await supabase
       .from('user_calibration')
       .select('calibration_completed_at, last_recalibration')
-      .eq('user_id', session.user.id)
+      .eq('user_id', userId)
       .single()
     
     if (calibration) {
@@ -144,7 +196,7 @@ export async function middleware(req: NextRequest) {
         }
       }
     }
-    
+
     // ====================================
     // CONTROLLO RUOLI SPECIALI
     // ====================================
@@ -152,6 +204,7 @@ export async function middleware(req: NextRequest) {
     // Admin paths protection
     if (pathname.startsWith('/admin')) {
       if (!profile || profile.role !== 'admin') {
+        console.log('❌ Non-admin trying to access admin area')
         const redirectUrl = req.nextUrl.clone()
         redirectUrl.pathname = '/dashboard'
         return NextResponse.redirect(redirectUrl)
@@ -161,17 +214,19 @@ export async function middleware(req: NextRequest) {
     // Moderator paths protection (future)
     if (pathname.startsWith('/mod')) {
       if (!profile || (profile.role !== 'moderator' && profile.role !== 'admin')) {
+        console.log('❌ Non-moderator trying to access mod area')
         const redirectUrl = req.nextUrl.clone()
         redirectUrl.pathname = '/dashboard'
         return NextResponse.redirect(redirectUrl)
       }
     }
-    
+
+    console.log('✅ Access granted to:', pathname, 'for user:', userEmail)
     return res
     
   } catch (error) {
     // In caso di errore, redirect a auth per sicurezza
-    console.error('Middleware error:', error)
+    console.error('❌ Middleware error:', error)
     const redirectUrl = req.nextUrl.clone()
     redirectUrl.pathname = '/auth'
     return NextResponse.redirect(redirectUrl)
