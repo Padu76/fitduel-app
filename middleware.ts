@@ -3,7 +3,8 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 // ====================================
-// MIDDLEWARE PER CALIBRAZIONE OBBLIGATORIA
+// MIDDLEWARE PER AUTENTICAZIONE E CALIBRAZIONE
+// Solo utenti Supabase reali - no demo/guest
 // ====================================
 
 export async function middleware(req: NextRequest) {
@@ -18,8 +19,6 @@ export async function middleware(req: NextRequest) {
   // ====================================
   const publicPaths = [
     '/',
-    '/login',
-    '/register',
     '/auth',
     '/terms',
     '/privacy'
@@ -41,12 +40,6 @@ export async function middleware(req: NextRequest) {
   }
   
   // ====================================
-  // CONTROLLO DEMO/GUEST USERS
-  // ====================================
-  // Check for demo/guest users in localStorage (they skip Supabase auth)
-  // Note: This is handled client-side, middleware only handles Supabase auth
-  
-  // ====================================
   // CONTROLLO AUTENTICAZIONE SUPABASE
   // ====================================
   try {
@@ -54,22 +47,12 @@ export async function middleware(req: NextRequest) {
       data: { session },
     } = await supabase.auth.getSession()
     
-    // Se non autenticato con Supabase
+    // Se non autenticato con Supabase, redirect a auth
     if (!session) {
-      // Permetti accesso a dashboard e altre pagine per demo users
-      // (gestiti lato client con localStorage)
-      const protectedPaths = ['/admin', '/profile/settings']
-      
-      if (protectedPaths.some(path => pathname.startsWith(path))) {
-        // Solo queste pagine richiedono auth Supabase obbligatoria
-        const redirectUrl = req.nextUrl.clone()
-        redirectUrl.pathname = '/login'
-        redirectUrl.searchParams.set('redirectTo', pathname)
-        return NextResponse.redirect(redirectUrl)
-      }
-      
-      // Per tutte le altre pagine, permetti accesso (demo users)
-      return res
+      const redirectUrl = req.nextUrl.clone()
+      redirectUrl.pathname = '/auth'
+      redirectUrl.searchParams.set('redirectTo', pathname)
+      return NextResponse.redirect(redirectUrl)
     }
     
     // ====================================
@@ -79,8 +62,7 @@ export async function middleware(req: NextRequest) {
     // Percorsi che NON richiedono calibrazione
     const calibrationExemptPaths = [
       '/calibration',
-      '/logout',
-      '/api/calibration'
+      '/logout'
     ]
     
     // Se siamo già nella pagina di calibrazione, permetti
@@ -99,10 +81,10 @@ export async function middleware(req: NextRequest) {
       .eq('id', session.user.id)
       .single()
     
-    // Se errore nel recupero profilo (potrebbe non esistere ancora)
+    // Se errore nel recupero profilo, crea profilo base
     if (profileError) {
-      console.log('Profile not found or error:', profileError)
-      // Permetti accesso, il profilo verrà creato al primo accesso
+      console.log('Profile not found, will be created on first access:', profileError)
+      // Permetti accesso, il profilo verrà creato automaticamente
       return res
     }
     
@@ -188,9 +170,11 @@ export async function middleware(req: NextRequest) {
     return res
     
   } catch (error) {
-    // In caso di errore, logga e permetti accesso
+    // In caso di errore, redirect a auth per sicurezza
     console.error('Middleware error:', error)
-    return res
+    const redirectUrl = req.nextUrl.clone()
+    redirectUrl.pathname = '/auth'
+    return NextResponse.redirect(redirectUrl)
   }
 }
 
