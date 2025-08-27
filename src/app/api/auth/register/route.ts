@@ -141,7 +141,7 @@ async function handleTestMode(data: RegisterRequest): Promise<RegisterResponse> 
 }
 
 // ====================================
-// SUPABASE REGISTRATION HANDLER - MIGLIORATO
+// SUPABASE REGISTRATION HANDLER - TYPESCRIPT CORRECTED
 // ====================================
 async function handleSupabaseRegister(
   supabase: any,
@@ -206,9 +206,10 @@ async function handleSupabaseRegister(
 
     console.log('✅ Auth user created:', authData.user.id)
 
-    // Create profile in profiles table - with better error handling
+    // Create profile in profiles table - with correct TypeScript typing
     try {
-      const profileData = {
+      // Build profile data object with correct typing
+      const profileData: any = {
         id: authData.user.id,
         username: data.username,
         email: data.email,
@@ -219,10 +220,20 @@ async function handleSupabaseRegister(
         updated_at: new Date().toISOString()
       }
 
-      // Add optional fields only if provided
-      if (data.birthDate) profileData.birth_date = data.birthDate
-      if (data.fitnessLevel) profileData.fitness_level = data.fitnessLevel || 'beginner'
-      if (data.newsletter !== undefined) profileData.newsletter = data.newsletter
+      // Add optional fields conditionally
+      if (data.birthDate) {
+        profileData.birth_date = data.birthDate
+      }
+      
+      if (data.fitnessLevel) {
+        profileData.fitness_level = data.fitnessLevel
+      } else {
+        profileData.fitness_level = 'beginner'
+      }
+      
+      if (data.newsletter !== undefined) {
+        profileData.newsletter = data.newsletter
+      }
 
       const { error: profileError } = await supabase
         .from('profiles')
