@@ -87,7 +87,7 @@ export async function middleware(req: NextRequest) {
       
       if (session?.user) {
         userId = session.user.id
-        userEmail = session.user.email
+        userEmail = session.user.email || null
         isAuthenticated = true
         console.log('✅ Authenticated via Supabase session:', userEmail)
       }
