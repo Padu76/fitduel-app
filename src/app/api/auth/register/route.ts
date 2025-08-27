@@ -3,14 +3,11 @@ import { createClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 
 // ====================================
-// TYPES & VALIDATION
+// TYPES & VALIDATION - PASSWORD SEMPLIFICATA
 // ====================================
 const registerSchema = z.object({
   email: z.string().email('Email non valida'),
-  password: z.string()
-    .min(6, 'Password deve essere almeno 6 caratteri')
-    .regex(/[A-Z]/, 'Password deve contenere almeno una maiuscola')
-    .regex(/[0-9]/, 'Password deve contenere almeno un numero'),
+  password: z.string().min(5, 'Password deve essere almeno 5 caratteri'),
   username: z.string()
     .min(3, 'Username deve essere almeno 3 caratteri')
     .max(20, 'Username massimo 20 caratteri')
@@ -93,8 +90,8 @@ async function handleTestMode(data: RegisterRequest): Promise<RegisterResponse> 
     username: data.username,
     password: data.password, // In test mode only!
     level: 1,
-    xp: 0,
-    totalXp: 0,
+    xp: 100, // Welcome bonus
+    totalXp: 100,
     birthDate: data.birthDate,
     fitnessLevel: data.fitnessLevel || 'beginner',
     goals: data.goals || [],
@@ -124,7 +121,7 @@ async function handleTestMode(data: RegisterRequest): Promise<RegisterResponse> 
 
   return {
     success: true,
-    message: 'Registrazione completata con successo (modalità test)',
+    message: 'Registrazione completata con successo! Benvenuto in FitDuel!',
     data: {
       user: {
         id: newUser.id,
@@ -144,7 +141,7 @@ async function handleTestMode(data: RegisterRequest): Promise<RegisterResponse> 
 }
 
 // ====================================
-// SUPABASE REGISTRATION HANDLER
+// SUPABASE REGISTRATION HANDLER - MIGLIORATO
 // ====================================
 async function handleSupabaseRegister(
   supabase: any,
@@ -192,17 +189,9 @@ async function handleSupabaseRegister(
         }
       }
 
-      if (authError.message.includes('weak password')) {
-        return {
-          success: false,
-          message: 'Password troppo debole',
-          error: 'WEAK_PASSWORD'
-        }
-      }
-
       return {
         success: false,
-        message: 'Errore durante la registrazione',
+        message: 'Errore durante la registrazione: ' + authError.message,
         error: authError.message
       }
     }
@@ -215,72 +204,89 @@ async function handleSupabaseRegister(
       }
     }
 
-    // Create profile in profiles table
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({
+    console.log('✅ Auth user created:', authData.user.id)
+
+    // Create profile in profiles table - with better error handling
+    try {
+      const profileData = {
         id: authData.user.id,
         username: data.username,
         email: data.email,
         level: 1,
-        xp: 0,
-        total_xp: 0,
-        birth_date: data.birthDate,
-        fitness_level: data.fitnessLevel || 'beginner',
-        goals: data.goals || [],
-        newsletter: data.newsletter || false,
+        xp: 100, // Welcome bonus
+        total_xp: 100,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
-      })
+      }
 
-    if (profileError) {
-      console.error('Profile creation error:', profileError)
-      // Continue even if profile creation fails
-      // Supabase might handle this with triggers
+      // Add optional fields only if provided
+      if (data.birthDate) profileData.birth_date = data.birthDate
+      if (data.fitnessLevel) profileData.fitness_level = data.fitnessLevel || 'beginner'
+      if (data.newsletter !== undefined) profileData.newsletter = data.newsletter
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert(profileData)
+
+      if (profileError) {
+        console.error('Profile creation error:', profileError)
+        return {
+          success: false,
+          message: 'Database error saving new user: ' + profileError.message,
+          error: 'PROFILE_CREATION_FAILED'
+        }
+      }
+
+      console.log('✅ Profile created for:', data.username)
+
+    } catch (profileErr) {
+      console.error('Profile creation exception:', profileErr)
+      return {
+        success: false,
+        message: 'Database error saving new user',
+        error: 'PROFILE_CREATION_EXCEPTION'
+      }
     }
 
-    // Initialize user stats
-    const { error: statsError } = await supabase
-      .from('user_stats')
-      .insert({
-        user_id: authData.user.id,
-        total_duels: 0,
-        wins: 0,
-        losses: 0,
-        win_rate: 0,
-        current_streak: 0,
-        best_streak: 0,
-        total_exercises: 0,
-        favorite_exercise: null,
-        fitness_score: 0,
-        avg_form_score: 0
-      })
-
-    if (statsError) {
-      console.error('Stats creation error:', statsError)
+    // Initialize user stats - non-critical
+    try {
+      await supabase
+        .from('user_stats')
+        .insert({
+          user_id: authData.user.id,
+          total_duels: 0,
+          wins: 0,
+          losses: 0,
+          win_rate: 0,
+          current_streak: 0,
+          best_streak: 0,
+          total_exercises: 0,
+          favorite_exercise: null,
+          fitness_score: 0,
+          avg_form_score: 0
+        })
+      console.log('✅ Stats created')
+    } catch (statsErr) {
+      console.error('Stats creation error:', statsErr)
       // Non-critical, continue
     }
 
-    // Add welcome bonus XP
-    const welcomeBonus = 100
-    await supabase
-      .from('xp_transactions')
-      .insert({
-        user_id: authData.user.id,
-        amount: welcomeBonus,
-        type: 'bonus',
-        description: 'Bonus di benvenuto',
-        created_at: new Date().toISOString()
-      })
-
-    // Update profile with bonus XP
-    await supabase
-      .from('profiles')
-      .update({ 
-        xp: welcomeBonus,
-        total_xp: welcomeBonus
-      })
-      .eq('id', authData.user.id)
+    // Add welcome bonus XP - non-critical
+    try {
+      await supabase
+        .from('xp_transactions')
+        .insert({
+          user_id: authData.user.id,
+          amount: 100,
+          type: 'bonus',
+          description: 'Bonus di benvenuto',
+          created_at: new Date().toISOString()
+        })
+      console.log('✅ Welcome bonus added')
+    } catch (xpErr) {
+      console.error('XP bonus error:', xpErr)
+      // Non-critical, continue
+    }
 
     // Return response based on email confirmation requirement
     if (authData.session) {
@@ -294,7 +300,7 @@ async function handleSupabaseRegister(
             email: authData.user.email || data.email,
             username: data.username,
             level: 1,
-            xp: welcomeBonus,
+            xp: 100,
             createdAt: authData.user.created_at
           },
           session: {
@@ -315,7 +321,7 @@ async function handleSupabaseRegister(
             email: authData.user.email || data.email,
             username: data.username,
             level: 1,
-            xp: welcomeBonus,
+            xp: 100,
             createdAt: authData.user.created_at
           }
         }
@@ -326,7 +332,7 @@ async function handleSupabaseRegister(
     console.error('Unexpected error during registration:', error)
     return {
       success: false,
-      message: 'Si è verificato un errore inaspettato',
+      message: 'Si è verificato un errore durante la registrazione',
       error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
     }
   }
@@ -439,11 +445,11 @@ export async function POST(request: NextRequest) {
 
     if (!supabase) {
       // Use test mode if Supabase is not configured
-      console.log('📝 Registration attempt (test mode):', data.email)
+      console.log('🔧 Registration attempt (test mode):', data.email)
       result = await handleTestMode(data)
     } else {
       // Use real Supabase registration
-      console.log('📝 Registration attempt (Supabase):', data.email)
+      console.log('🔧 Registration attempt (Supabase):', data.email)
       result = await handleSupabaseRegister(supabase, data)
     }
 
