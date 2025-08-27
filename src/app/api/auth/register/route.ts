@@ -141,7 +141,7 @@ async function handleTestMode(data: RegisterRequest): Promise<RegisterResponse> 
 }
 
 // ====================================
-// SUPABASE REGISTRATION HANDLER - TYPESCRIPT CORRECTED
+// SUPABASE REGISTRATION HANDLER - FIXED TO MATCH DB SCHEMA
 // ====================================
 async function handleSupabaseRegister(
   supabase: any,
@@ -206,33 +206,23 @@ async function handleSupabaseRegister(
 
     console.log('✅ Auth user created:', authData.user.id)
 
-    // Create profile in profiles table - with correct TypeScript typing
+    // Create profile in profiles table - FIXED TO MATCH ACTUAL DB SCHEMA
     try {
-      // Build profile data object with correct typing
+      // Build profile data object matching the actual table structure
       const profileData: any = {
         id: authData.user.id,
         username: data.username,
         email: data.email,
         level: 1,
         xp: 100, // Welcome bonus
-        total_xp: 100,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        coins: 100, // Default coins
+        // Note: removed total_xp, fitness_level, updated_at as they don't exist in table
+        // Note: created_at and updated_at have defaults, so we don't set them
       }
 
-      // Add optional fields conditionally
+      // Add optional fields that exist in the table
       if (data.birthDate) {
-        profileData.birth_date = data.birthDate
-      }
-      
-      if (data.fitnessLevel) {
-        profileData.fitness_level = data.fitnessLevel
-      } else {
-        profileData.fitness_level = 'beginner'
-      }
-      
-      if (data.newsletter !== undefined) {
-        profileData.newsletter = data.newsletter
+        profileData.date_of_birth = data.birthDate // Changed from birth_date to date_of_birth
       }
 
       const { error: profileError } = await supabase
