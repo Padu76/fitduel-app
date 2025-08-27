@@ -69,7 +69,7 @@ export async function middleware(req: NextRequest) {
           const { data: { user }, error } = await supabase.auth.getUser(accessToken)
           if (user && !error) {
             userId = user.id
-            userEmail = user.email
+            userEmail = user.email || null
             isAuthenticated = true
             console.log('✅ Authenticated via API cookies (Supabase):', userEmail)
           }
