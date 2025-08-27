@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -115,7 +115,7 @@ const FeatureCard = ({ icon, title, description, delay }: any) => {
 const StatsCounter = ({ value, label, delay }: any) => {
   const [count, setCount] = useState(0)
 
-  useEffect(() => {
+  useState(() => {
     const timer = setTimeout(() => {
       const interval = setInterval(() => {
         setCount(prev => {
@@ -129,7 +129,7 @@ const StatsCounter = ({ value, label, delay }: any) => {
     }, delay * 1000)
 
     return () => clearTimeout(timer)
-  }, [value, delay])
+  })
 
   return (
     <motion.div
@@ -150,41 +150,10 @@ const StatsCounter = ({ value, label, delay }: any) => {
 export default function AuthPage() {
   const router = useRouter()
   const supabase = createClientComponentClient()
-  const [loading, setLoading] = useState(true)
   const [authMode, setAuthMode] = useState<'choice' | 'auth'>('choice')
 
-  useEffect(() => {
-    checkUser()
-  }, [])
-
-  const checkUser = async () => {
-    try {
-      // Check if user is already authenticated
-      const response = await fetch('/api/auth/login', {
-        method: 'GET',
-        credentials: 'include'
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success && data.authenticated) {
-          // User is already logged in, redirect to dashboard
-          console.log('✅ User already authenticated:', data.user)
-          router.push('/dashboard')
-          return
-        }
-      }
-
-      // No authenticated user found, show auth options
-      setLoading(false)
-    } catch (error) {
-      console.error('Auth check error:', error)
-      setLoading(false)
-    }
-  }
-
   const handleAuthSuccess = (user: AuthUser) => {
-    console.log('🎉 Auth successful, redirecting to dashboard:', user)
+    console.log('Auth successful, redirecting to dashboard:', user)
     // Small delay to ensure cookies are set
     setTimeout(() => {
       router.push('/dashboard')
@@ -192,23 +161,8 @@ export default function AuthPage() {
   }
 
   const handleAuthError = (error: string) => {
-    console.error('❌ Auth error:', error)
+    console.error('Auth error:', error)
     // Error handling is managed by SimpleAuth component
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          className="flex flex-col items-center gap-4"
-        >
-          <Loader2 className="w-8 h-8 text-green-400" />
-          <p className="text-gray-400">Verificando autenticazione...</p>
-        </motion.div>
-      </div>
-    )
   }
 
   return (
@@ -251,7 +205,7 @@ export default function AuthPage() {
                   animate={{ opacity: 1, y: 0 }}
                   className="inline-block bg-gradient-to-r from-green-400 to-blue-500 px-6 py-2 rounded-full text-sm font-bold uppercase tracking-wider mb-6 text-black"
                 >
-                  🔥 Season 1 Live Now
+                  Season 1 Live Now
                 </motion.div>
 
                 <motion.h1
