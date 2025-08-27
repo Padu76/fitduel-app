@@ -213,7 +213,7 @@ export default function LandingPage() {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => router.push('/auth')}
+              onClick={() => router.push('/dashboard')}
               className="px-12 py-6 bg-gradient-to-r from-green-500 to-emerald-500 
                 rounded-full text-xl font-bold text-white shadow-2xl 
                 hover:shadow-green-500/50 transition-all duration-300"
