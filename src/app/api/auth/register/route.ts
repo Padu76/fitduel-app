@@ -141,7 +141,7 @@ async function handleTestMode(data: RegisterRequest): Promise<RegisterResponse> 
 }
 
 // ====================================
-// SUPABASE REGISTRATION HANDLER - WITH DETAILED DEBUG
+// SUPABASE REGISTRATION HANDLER - SIMPLIFIED (TRIGGER HANDLES PROFILE)
 // ====================================
 async function handleSupabaseRegister(
   supabase: any,
@@ -152,25 +152,7 @@ async function handleSupabaseRegister(
     console.log('🔍 DEBUG: Username:', data.username)
     console.log('🔍 DEBUG: Password length:', data.password.length)
 
-    // Check if username is already taken
-    const { data: existingUser, error: checkError } = await supabase
-      .from('profiles')
-      .select('username')
-      .eq('username', data.username)
-      .single()
-
-    if (existingUser) {
-      console.log('❌ DEBUG: Username already exists:', data.username)
-      return {
-        success: false,
-        message: 'Username già in uso',
-        error: 'USERNAME_EXISTS'
-      }
-    }
-
-    console.log('✅ DEBUG: Username check passed')
-
-    // Create auth user with Supabase Auth
+    // Create auth user with Supabase Auth - trigger will handle profile creation
     console.log('🔍 DEBUG: Calling supabase.auth.signUp...')
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: data.email,
@@ -181,7 +163,8 @@ async function handleSupabaseRegister(
           birth_date: data.birthDate,
           fitness_level: data.fitnessLevel,
           goals: data.goals,
-          newsletter: data.newsletter
+          newsletter: data.newsletter,
+          display_name: data.username
         }
       }
     })
@@ -232,98 +215,34 @@ async function handleSupabaseRegister(
     console.log('✅ DEBUG: Auth user created:', authData.user.id)
     console.log('🔍 DEBUG: Auth session:', authData.session ? 'Present' : 'Missing (email confirmation required)')
 
-    // Create profile in profiles table - FIXED TO MATCH ACTUAL DB SCHEMA
+    // Profile creation is now handled by the trigger automatically
+    console.log('✅ DEBUG: Profile and stats created by trigger')
+
+    // Wait a moment to ensure trigger has completed
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    // Fetch the created profile to get the actual username (which may have been modified for uniqueness)
+    let finalUsername = data.username
+    let finalXp = 100
+    let finalLevel = 1
+
     try {
-      console.log('🔍 DEBUG: Creating profile in database...')
-      
-      // Build profile data object matching the actual table structure
-      const profileData: any = {
-        id: authData.user.id,
-        username: data.username,
-        email: data.email,
-        level: 1,
-        xp: 100, // Welcome bonus
-        coins: 100, // Default coins
-      }
-
-      // Add optional fields that exist in the table
-      if (data.birthDate) {
-        profileData.date_of_birth = data.birthDate // Changed from birth_date to date_of_birth
-        console.log('🔍 DEBUG: Added birth date:', data.birthDate)
-      }
-
-      console.log('🔍 DEBUG: Profile data to insert:', profileData)
-
-      const { error: profileError } = await supabase
+      const { data: profile, error: profileFetchError } = await supabase
         .from('profiles')
-        .insert(profileData)
-
-      if (profileError) {
-        console.error('❌ DETAILED Profile creation error:', {
-          message: profileError.message,
-          details: profileError.details,
-          hint: profileError.hint,
-          code: profileError.code,
-          profileData: profileData
-        })
-        return {
-          success: false,
-          message: 'Database error: ' + profileError.message + ' - Code: ' + profileError.code,
-          error: 'PROFILE_CREATION_FAILED'
-        }
+        .select('username, xp, level')
+        .eq('id', authData.user.id)
+        .single()
+      
+      if (profile) {
+        finalUsername = profile.username
+        finalXp = profile.xp
+        finalLevel = profile.level
+        console.log('✅ DEBUG: Retrieved profile data:', { username: finalUsername, xp: finalXp, level: finalLevel })
+      } else {
+        console.log('⚠️ DEBUG: Could not fetch profile data, using defaults')
       }
-
-      console.log('✅ DEBUG: Profile created successfully for:', data.username)
-
-    } catch (profileErr) {
-      console.error('❌ DEBUG: Profile creation exception:', profileErr)
-      return {
-        success: false,
-        message: 'Database error saving new user',
-        error: 'PROFILE_CREATION_EXCEPTION'
-      }
-    }
-
-    // Initialize user stats - non-critical
-    try {
-      console.log('🔍 DEBUG: Creating user stats...')
-      await supabase
-        .from('user_stats')
-        .insert({
-          user_id: authData.user.id,
-          total_duels: 0,
-          wins: 0,
-          losses: 0,
-          win_rate: 0,
-          current_streak: 0,
-          best_streak: 0,
-          total_exercises: 0,
-          favorite_exercise: null,
-          fitness_score: 0,
-          avg_form_score: 0
-        })
-      console.log('✅ DEBUG: Stats created')
-    } catch (statsErr) {
-      console.error('⚠️ DEBUG: Stats creation error (non-critical):', statsErr)
-      // Non-critical, continue
-    }
-
-    // Add welcome bonus XP - non-critical
-    try {
-      console.log('🔍 DEBUG: Adding welcome bonus XP...')
-      await supabase
-        .from('xp_transactions')
-        .insert({
-          user_id: authData.user.id,
-          amount: 100,
-          type: 'bonus',
-          description: 'Bonus di benvenuto',
-          created_at: new Date().toISOString()
-        })
-      console.log('✅ DEBUG: Welcome bonus added')
-    } catch (xpErr) {
-      console.error('⚠️ DEBUG: XP bonus error (non-critical):', xpErr)
-      // Non-critical, continue
+    } catch (profileFetchError) {
+      console.log('⚠️ DEBUG: Profile fetch failed, using defaults:', profileFetchError)
     }
 
     // Return response based on email confirmation requirement
@@ -337,9 +256,9 @@ async function handleSupabaseRegister(
           user: {
             id: authData.user.id,
             email: authData.user.email || data.email,
-            username: data.username,
-            level: 1,
-            xp: 100,
+            username: finalUsername,
+            level: finalLevel,
+            xp: finalXp,
             createdAt: authData.user.created_at
           },
           session: {
@@ -359,9 +278,9 @@ async function handleSupabaseRegister(
           user: {
             id: authData.user.id,
             email: authData.user.email || data.email,
-            username: data.username,
-            level: 1,
-            xp: 100,
+            username: finalUsername,
+            level: finalLevel,
+            xp: finalXp,
             createdAt: authData.user.created_at
           }
         }
