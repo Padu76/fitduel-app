@@ -141,13 +141,17 @@ async function handleTestMode(data: RegisterRequest): Promise<RegisterResponse> 
 }
 
 // ====================================
-// SUPABASE REGISTRATION HANDLER - FIXED TO MATCH DB SCHEMA
+// SUPABASE REGISTRATION HANDLER - WITH DETAILED DEBUG
 // ====================================
 async function handleSupabaseRegister(
   supabase: any,
   data: RegisterRequest
 ): Promise<RegisterResponse> {
   try {
+    console.log('🔍 DEBUG: Starting Supabase registration for:', data.email)
+    console.log('🔍 DEBUG: Username:', data.username)
+    console.log('🔍 DEBUG: Password length:', data.password.length)
+
     // Check if username is already taken
     const { data: existingUser, error: checkError } = await supabase
       .from('profiles')
@@ -156,6 +160,7 @@ async function handleSupabaseRegister(
       .single()
 
     if (existingUser) {
+      console.log('❌ DEBUG: Username already exists:', data.username)
       return {
         success: false,
         message: 'Username già in uso',
@@ -163,7 +168,10 @@ async function handleSupabaseRegister(
       }
     }
 
+    console.log('✅ DEBUG: Username check passed')
+
     // Create auth user with Supabase Auth
+    console.log('🔍 DEBUG: Calling supabase.auth.signUp...')
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
@@ -179,9 +187,17 @@ async function handleSupabaseRegister(
     })
 
     if (authError) {
-      console.error('Supabase auth error:', authError)
+      console.error('❌ DETAILED Supabase auth error:', {
+        message: authError.message,
+        status: authError.status,
+        code: authError.code,
+        email: data.email,
+        usernameLength: data.username.length,
+        passwordLength: data.password.length,
+        fullError: authError
+      })
       
-      if (authError.message.includes('already registered')) {
+      if (authError.message.includes('already registered') || authError.message.includes('already been registered')) {
         return {
           success: false,
           message: 'Email già registrata',
@@ -189,14 +205,23 @@ async function handleSupabaseRegister(
         }
       }
 
+      if (authError.message.includes('Password')) {
+        return {
+          success: false,
+          message: 'Password non valida: deve essere almeno 6 caratteri',
+          error: 'WEAK_PASSWORD'
+        }
+      }
+
       return {
         success: false,
-        message: 'Errore durante la registrazione: ' + authError.message,
+        message: `Auth error: ${authError.message} (Code: ${authError.code})`,
         error: authError.message
       }
     }
 
     if (!authData.user) {
+      console.error('❌ DEBUG: No user data returned from signUp')
       return {
         success: false,
         message: 'Errore nella creazione utente',
@@ -204,10 +229,13 @@ async function handleSupabaseRegister(
       }
     }
 
-    console.log('✅ Auth user created:', authData.user.id)
+    console.log('✅ DEBUG: Auth user created:', authData.user.id)
+    console.log('🔍 DEBUG: Auth session:', authData.session ? 'Present' : 'Missing (email confirmation required)')
 
     // Create profile in profiles table - FIXED TO MATCH ACTUAL DB SCHEMA
     try {
+      console.log('🔍 DEBUG: Creating profile in database...')
+      
       // Build profile data object matching the actual table structure
       const profileData: any = {
         id: authData.user.id,
@@ -216,32 +244,39 @@ async function handleSupabaseRegister(
         level: 1,
         xp: 100, // Welcome bonus
         coins: 100, // Default coins
-        // Note: removed total_xp, fitness_level, updated_at as they don't exist in table
-        // Note: created_at and updated_at have defaults, so we don't set them
       }
 
       // Add optional fields that exist in the table
       if (data.birthDate) {
         profileData.date_of_birth = data.birthDate // Changed from birth_date to date_of_birth
+        console.log('🔍 DEBUG: Added birth date:', data.birthDate)
       }
+
+      console.log('🔍 DEBUG: Profile data to insert:', profileData)
 
       const { error: profileError } = await supabase
         .from('profiles')
         .insert(profileData)
 
       if (profileError) {
-        console.error('Profile creation error:', profileError)
+        console.error('❌ DETAILED Profile creation error:', {
+          message: profileError.message,
+          details: profileError.details,
+          hint: profileError.hint,
+          code: profileError.code,
+          profileData: profileData
+        })
         return {
           success: false,
-          message: 'Database error saving new user: ' + profileError.message,
+          message: 'Database error: ' + profileError.message + ' - Code: ' + profileError.code,
           error: 'PROFILE_CREATION_FAILED'
         }
       }
 
-      console.log('✅ Profile created for:', data.username)
+      console.log('✅ DEBUG: Profile created successfully for:', data.username)
 
     } catch (profileErr) {
-      console.error('Profile creation exception:', profileErr)
+      console.error('❌ DEBUG: Profile creation exception:', profileErr)
       return {
         success: false,
         message: 'Database error saving new user',
@@ -251,6 +286,7 @@ async function handleSupabaseRegister(
 
     // Initialize user stats - non-critical
     try {
+      console.log('🔍 DEBUG: Creating user stats...')
       await supabase
         .from('user_stats')
         .insert({
@@ -266,14 +302,15 @@ async function handleSupabaseRegister(
           fitness_score: 0,
           avg_form_score: 0
         })
-      console.log('✅ Stats created')
+      console.log('✅ DEBUG: Stats created')
     } catch (statsErr) {
-      console.error('Stats creation error:', statsErr)
+      console.error('⚠️ DEBUG: Stats creation error (non-critical):', statsErr)
       // Non-critical, continue
     }
 
     // Add welcome bonus XP - non-critical
     try {
+      console.log('🔍 DEBUG: Adding welcome bonus XP...')
       await supabase
         .from('xp_transactions')
         .insert({
@@ -283,14 +320,15 @@ async function handleSupabaseRegister(
           description: 'Bonus di benvenuto',
           created_at: new Date().toISOString()
         })
-      console.log('✅ Welcome bonus added')
+      console.log('✅ DEBUG: Welcome bonus added')
     } catch (xpErr) {
-      console.error('XP bonus error:', xpErr)
+      console.error('⚠️ DEBUG: XP bonus error (non-critical):', xpErr)
       // Non-critical, continue
     }
 
     // Return response based on email confirmation requirement
     if (authData.session) {
+      console.log('✅ DEBUG: Registration completed with auto-login')
       // Auto-login if email confirmation is disabled
       return {
         success: true,
@@ -312,6 +350,7 @@ async function handleSupabaseRegister(
         }
       }
     } else {
+      console.log('✅ DEBUG: Registration completed, email confirmation required')
       // Email confirmation required
       return {
         success: true,
@@ -330,7 +369,7 @@ async function handleSupabaseRegister(
     }
 
   } catch (error) {
-    console.error('Unexpected error during registration:', error)
+    console.error('❌ DEBUG: Unexpected error during registration:', error)
     return {
       success: false,
       message: 'Si è verificato un errore durante la registrazione',
@@ -402,13 +441,22 @@ export async function GET(request: NextRequest) {
 // ====================================
 export async function POST(request: NextRequest) {
   try {
+    console.log('🔍 DEBUG: Registration POST request received')
+    
     // Parse request body
     const body = await request.json()
+    console.log('🔍 DEBUG: Request body parsed:', { 
+      email: body.email, 
+      username: body.username,
+      hasPassword: !!body.password,
+      passwordLength: body.password?.length 
+    })
     
     // Validate input
     const validation = registerSchema.safeParse(body)
     if (!validation.success) {
       const firstError = validation.error.errors[0]
+      console.log('❌ DEBUG: Validation failed:', firstError.message)
       return NextResponse.json(
         {
           success: false,
@@ -420,6 +468,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = validation.data
+    console.log('✅ DEBUG: Validation passed')
 
     // Calculate age if birthDate provided
     if (data.birthDate) {
@@ -428,6 +477,7 @@ export async function POST(request: NextRequest) {
       const age = today.getFullYear() - birthDate.getFullYear()
       
       if (age < 13) {
+        console.log('❌ DEBUG: Age requirement not met:', age)
         return NextResponse.json(
           {
             success: false,
@@ -437,6 +487,7 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         )
       }
+      console.log('✅ DEBUG: Age check passed:', age)
     }
 
     // Check if Supabase is configured
@@ -446,16 +497,23 @@ export async function POST(request: NextRequest) {
 
     if (!supabase) {
       // Use test mode if Supabase is not configured
-      console.log('🔧 Registration attempt (test mode):', data.email)
+      console.log('🔧 DEBUG: Using test mode - Supabase not configured')
       result = await handleTestMode(data)
     } else {
       // Use real Supabase registration
-      console.log('🔧 Registration attempt (Supabase):', data.email)
+      console.log('🔧 DEBUG: Using Supabase mode')
       result = await handleSupabaseRegister(supabase, data)
     }
 
+    console.log('🔍 DEBUG: Registration result:', { 
+      success: result.success, 
+      message: result.message,
+      hasSession: !!result.data?.session 
+    })
+
     // Set cookies if registration successful with session
     if (result.success && result.data?.session) {
+      console.log('🔍 DEBUG: Setting authentication cookies')
       const response = NextResponse.json(result)
       
       // Set auth cookies
@@ -481,16 +539,18 @@ export async function POST(request: NextRequest) {
         httpOnly: false
       })
 
+      console.log('✅ DEBUG: Cookies set successfully')
       return response
     }
 
     // Return response
+    console.log('🔍 DEBUG: Returning response with status:', result.success ? 201 : 400)
     return NextResponse.json(result, { 
       status: result.success ? 201 : 400 
     })
 
   } catch (error) {
-    console.error('Registration route error:', error)
+    console.error('❌ DEBUG: Registration route error:', error)
     return NextResponse.json(
       {
         success: false,
